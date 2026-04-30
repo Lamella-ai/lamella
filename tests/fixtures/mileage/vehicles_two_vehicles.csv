@@ -1,0 +1,6 @@
+date,vehicle,odometer_start,odometer_end,miles,purpose,entity,from,to,notes
+2026-01-05,SuvA,84000,84025,25.00,Pickup at supplier,Acme,Shop,Supplier,
+2026-01-12,SuvA,84025,84090,65.00,Delivery,Acme,Shop,Customer,
+2026-02-03,TruckB,12000,12018,18.00,Errand,Personal,Home,Hardware,
+2026-02-15,SuvA,84090,84140,50.00,Show,Acme,Shop,Convention,
+2026-03-04,TruckB,12018,12055,37.00,Errand,Personal,Home,Office,

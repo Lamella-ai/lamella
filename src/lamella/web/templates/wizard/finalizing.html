@@ -1,0 +1,261 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Live progress page between the wizard and the dashboard.
+
+   The job submitted by POST /setup/wizard/done streams real progress
+   events here over SSE. Each phase emits one ``info`` event with the
+   message format ``[phase_key] human-readable label`` — the JS below
+   parses the prefix and walks the step list in lock-step with the
+   actual worker. On terminal status the page fades and redirects to
+   the dashboard.
+
+   No JS-driven setTimeout fakery — the only delay you see is the
+   delay the worker took to do the real work. #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Setting things up&hellip;</title>
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("lamella-theme");
+        if (t !== "light" && t !== "dark") {
+          t = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        }
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {
+        document.documentElement.setAttribute("data-theme", "light");
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="{{ request.url_for('static', path='app.css') }}?v={{ static_version }}" />
+  <link rel="stylesheet" href="{{ request.url_for('static', path='wizard.css') }}?v={{ static_version }}" />
+  <link rel="icon" type="image/svg+xml" href="{{ request.url_for('static', path='img/favicon.svg') }}" />
+  <link rel="apple-touch-icon" href="{{ request.url_for('static', path='img/favicon.svg') }}" />
+</head>
+<body data-layout="wizard" class="wiz-finalizing-body">
+
+<div class="wiz-finalizing">
+  <div class="wiz-finalizing-card">
+    <div class="wiz-finalizing-mark" aria-hidden="true">
+      <img src="{{ request.url_for('static', path='img/lamella-icon.svg') }}" alt="" />
+    </div>
+    <h1 class="wiz-finalizing-title" id="finalizing-title">
+      Setting things up{% if first_name %}, {{ first_name }}{% endif %}&hellip;
+    </h1>
+    <p class="wiz-finalizing-sub" id="finalizing-sub">
+      Hang on while we get your books ready.
+    </p>
+
+    <div class="wiz-finalizing-progress" id="finalizing-progress">
+      <div class="wiz-finalizing-progress-bar"
+           id="finalizing-progress-bar"
+           style="width:0%"></div>
+    </div>
+
+    <ol class="wiz-step-list" id="finalizing-steps">
+      {% for s in steps %}
+      <li data-key="{{ s.key }}" data-label="{{ s.label }}">
+        <span class="wiz-step-dot"></span>
+        <span class="wiz-step-text">{{ s.label }}</span>
+      </li>
+      {% endfor %}
+    </ol>
+
+    <div class="wiz-finalizing-log" id="finalizing-log" hidden>
+      <div class="wiz-finalizing-log-line" id="finalizing-log-last"></div>
+    </div>
+  </div>
+</div>
+
+<script id="finalize-config" type="application/json">
+{
+  "jobId": {{ job_id | tojson }},
+  "redirectUrl": "/?welcome=1"
+}
+</script>
+
+<script>
+  (function () {
+    var cfg = JSON.parse(document.getElementById("finalize-config").textContent);
+    var jobId = cfg.jobId || "";
+    var redirectUrl = cfg.redirectUrl || "/";
+
+    var reduceMotion = window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    var steps = Array.prototype.slice.call(
+      document.querySelectorAll("#finalizing-steps li")
+    );
+    var stepIndexByKey = {};
+    steps.forEach(function (li, i) { stepIndexByKey[li.dataset.key] = i; });
+
+    var progressBar = document.getElementById("finalizing-progress-bar");
+    var logBox = document.getElementById("finalizing-log");
+    var logLine = document.getElementById("finalizing-log-last");
+    var titleEl = document.getElementById("finalizing-title");
+    var subEl = document.getElementById("finalizing-sub");
+
+    function setActive(i) {
+      steps.forEach(function (li, idx) {
+        li.classList.remove("is-active");
+        if (idx < i) {
+          li.classList.add("is-done");
+        } else if (idx === i) {
+          li.classList.add("is-active");
+        }
+      });
+      var done = Math.max(0, i);
+      var pct = steps.length > 0 ? Math.min(100, (done / steps.length) * 100) : 0;
+      progressBar.style.width = pct.toFixed(1) + "%";
+    }
+
+    function markAllDone() {
+      steps.forEach(function (li) {
+        li.classList.remove("is-active");
+        li.classList.add("is-done");
+      });
+      progressBar.style.width = "100%";
+    }
+
+    function markFailedAtCurrent(messageOrNull) {
+      // The phase that was active when the job hit a terminal error.
+      var i = -1;
+      for (var k = 0; k < steps.length; k++) {
+        if (steps[k].classList.contains("is-active")) { i = k; break; }
+      }
+      if (i >= 0) {
+        steps[i].classList.remove("is-active");
+        steps[i].classList.add("is-failed");
+      }
+      if (messageOrNull) {
+        showLog(messageOrNull);
+      }
+    }
+
+    function showLog(text) {
+      if (!text) { return; }
+      logBox.hidden = false;
+      logLine.textContent = text;
+    }
+
+    function finish() {
+      markAllDone();
+      // Mark the dashboard step (last in the list) as the active focus
+      // briefly, then fade out + redirect.
+      var dashIdx = stepIndexByKey["dashboard"];
+      if (typeof dashIdx === "number") {
+        steps[dashIdx].classList.remove("is-done");
+        steps[dashIdx].classList.add("is-active");
+      }
+      titleEl.textContent = "All set. Welcome.";
+      subEl.textContent = "Loading your dashboard…";
+      setTimeout(function () {
+        document.body.classList.add("is-fading-out");
+      }, reduceMotion ? 100 : 600);
+      setTimeout(function () {
+        window.location.href = redirectUrl;
+      }, reduceMotion ? 350 : 1300);
+    }
+
+    /* Parse a worker progress event of the form "[phase_key] message".
+       Returns the phase key, or null if the event is just a per-item
+       note (no bracket prefix). */
+    function parsePhaseKey(message) {
+      if (!message) { return null; }
+      var m = /^\[([a-z\-]+)\]\s*/.exec(message);
+      return m ? m[1] : null;
+    }
+
+    function applyEvent(payload) {
+      var msg = payload && payload.message;
+      var phase = parsePhaseKey(msg);
+      if (phase && phase in stepIndexByKey) {
+        setActive(stepIndexByKey[phase]);
+        return;
+      }
+      // Per-item note — show it in the log line so the user sees that
+      // something is genuinely happening between phase boundaries.
+      if (payload && payload.outcome === "failure") {
+        showLog(msg);
+      } else if (msg) {
+        showLog(msg);
+      }
+    }
+
+    function applyStatus(status) {
+      if (!status) { return; }
+      if (status.status === "done") {
+        finish();
+      } else if (status.status === "error" || status.status === "interrupted" || status.status === "cancelled") {
+        markFailedAtCurrent(status.error_message || "Setup ran into a snag — check the dashboard for details.");
+        titleEl.textContent = "Setup interrupted";
+        subEl.textContent = "Some books may need attention. Loading dashboard…";
+        setTimeout(function () { window.location.href = redirectUrl; }, 2200);
+      }
+    }
+
+    if (!jobId) {
+      // Direct hit (no job id) — render the steps as already-done and
+      // fade through to the dashboard.
+      finish();
+      return;
+    }
+
+    // Server-Sent Events. Reconnects automatically on transient drops.
+    var src = new EventSource("/jobs/" + encodeURIComponent(jobId) + "/stream");
+
+    src.addEventListener("progress", function (ev) {
+      try {
+        applyEvent(JSON.parse(ev.data));
+      } catch (e) { /* ignore malformed payloads */ }
+    });
+
+    src.addEventListener("status", function (ev) {
+      try {
+        var st = JSON.parse(ev.data);
+        if (typeof st.percent === "number") {
+          // The server-side percent uses completed/total; let the
+          // step-driven bar lead, but never go backwards.
+          var current = parseFloat(progressBar.style.width || "0");
+          if (st.percent > current) {
+            progressBar.style.width = Math.min(100, st.percent).toFixed(1) + "%";
+          }
+        }
+        applyStatus(st);
+      } catch (e) { /* ignore */ }
+    });
+
+    src.addEventListener("close", function () {
+      src.close();
+      // Backstop in case the server closes without a "done" status —
+      // poll once to read the final state and act on it.
+      fetch("/jobs/" + encodeURIComponent(jobId) + "/partial", {credentials: "same-origin"})
+        .then(function () { /* the partial isn't read; we just poll runner state via the next reload */ })
+        .catch(function () { /* ignore */ });
+      // If we never saw a "done" status event, assume done after a beat.
+      setTimeout(function () {
+        if (!document.body.classList.contains("is-fading-out")) {
+          finish();
+        }
+      }, 500);
+    });
+
+    src.onerror = function () {
+      // Transient connection blip — let the EventSource auto-reconnect.
+      // If the job has actually finished, the next reconnect will hit
+      // a 404 (job purged) or get a "close" event. We don't tear down
+      // here; let the natural close handler decide.
+    };
+  })();
+</script>
+</body>
+</html>

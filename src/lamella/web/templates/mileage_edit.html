@@ -1,0 +1,136 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Edit trip {{ row.entry_date }}{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block page_title %}Edit trip{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Edit trip — ' ~ row.entry_date,
+     subtitle='Setting Miles = 0 is legitimate for a service day (oil change, tire rotation, inspection) — put the work in Notes and the data-health panel won’t flag it as missing substantiation.',
+     kicker='Mileage'
+) %}
+  {{ B.btn('Back to all trips', href='/mileage/all', variant='ghost') }}
+{% endcall %}
+
+{% if request.query_params.get('saved') %}{% call F.banner(tone='ok', title='Saved') %}{% endcall %}{% endif %}
+{% if request.query_params.get('error') %}{% call F.banner(tone='err', title=request.query_params.get('error')) %}{% endcall %}{% endif %}
+
+<datalist id="vehicles-datalist">{% for v in vehicles %}<option value="{{ v.name }}">{% endfor %}</datalist>
+<datalist id="entities-datalist">{% for e in entities %}<option value="{{ e }}">{% endfor %}</datalist>
+
+<form method="post" action="/mileage/{{ row.id }}" autocomplete="off">
+
+  {% call C.card(title='When + where') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field"><label class="field-label">Date</label><input class="field-input" type="date" name="entry_date" value="{{ row.entry_date }}" required /></div>
+      <div class="field"><label class="field-label">Time (optional)</label><input class="field-input" type="text" name="entry_time" value="{{ row.entry_time or '' }}" placeholder="e.g. 14:30" /></div>
+    </div>
+    <div class="field">
+      <label class="field-label">Vehicle</label>
+      <input class="field-input" type="text" name="vehicle" value="{{ row.vehicle }}" list="vehicles-datalist" required />
+    </div>
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label">Entity</label>
+        <input class="field-input" type="text" name="entity" value="{{ row.entity }}" list="entities-datalist" required />
+      </div>
+      <div class="field"><label class="field-label">From</label><input class="field-input" type="text" name="from_loc" value="{{ row.from_loc or '' }}" /></div>
+    </div>
+    <div class="field"><label class="field-label">To</label><input class="field-input" type="text" name="to_loc" value="{{ row.to_loc or '' }}" /></div>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Distance + odometer') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label">Miles</label>
+        <input id="edit-miles" class="field-input" type="number" step="0.1" name="miles" value="{{ '%.1f'|format(row.miles or 0) }}" required />
+      </div>
+      <div class="field">
+        <label class="field-label">Odometer start</label>
+        <input id="edit-odo-start" class="field-input" type="number" name="odometer_start" value="{{ row.odometer_start or '' }}" />
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">Odometer end</label>
+      <input id="edit-odo-end" class="field-input" type="number" name="odometer_end" value="{{ row.odometer_end or '' }}" />
+    </div>
+    <p class="subtle" style="margin:0">
+      When both start and end odometer are set, <strong>Miles</strong> is forced to the delta on save (<em>end − start</em>).
+      Business / commuting / personal splits below stay independent.
+    </p>
+  </div>
+  <script>
+    (function() {
+      var s = document.getElementById("edit-odo-start");
+      var e = document.getElementById("edit-odo-end");
+      var m = document.getElementById("edit-miles");
+      if (!s || !e || !m) return;
+      function sync() {
+        var sv = parseFloat(s.value);
+        var ev = parseFloat(e.value);
+        if (isFinite(sv) && isFinite(ev) && ev >= sv) m.value = (ev - sv).toFixed(1);
+      }
+      s.addEventListener("input", sync);
+      e.addEventListener("input", sync);
+    })();
+  </script>
+  {% endcall %}
+
+  {% call C.card(title='Substantiation') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="field"><label class="field-label">Purpose (business reason)</label><input class="field-input" type="text" name="purpose" value="{{ row.purpose or '' }}" /></div>
+    <div class="field">
+      <label class="field-label">Notes</label>
+      <textarea class="field-textarea" name="notes" rows="2">{{ row.notes or '' }}</textarea>
+      <p class="subtle" style="margin:6px 0 0">
+        Covers maintenance (oil change, tires, inspection) and anything the purpose field doesn’t capture. Counts as substantiation on its own.
+      </p>
+    </div>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Purpose category + split') %}
+  {% set cat = (row.meta and row.meta.category) or row.purpose_category or '' %}
+  <div style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:0.75rem">
+    <label style="display:flex; gap:6px; align-items:center"><input type="radio" name="category" value="business" {% if cat == 'business' %}checked{% endif %} /> Business</label>
+    <label style="display:flex; gap:6px; align-items:center"><input type="radio" name="category" value="commuting" {% if cat == 'commuting' %}checked{% endif %} /> Commuting</label>
+    <label style="display:flex; gap:6px; align-items:center"><input type="radio" name="category" value="personal" {% if cat == 'personal' %}checked{% endif %} /> Personal</label>
+    <label style="display:flex; gap:6px; align-items:center"><input type="radio" name="category" value="mixed" {% if cat == 'mixed' %}checked{% endif %} /> Mixed</label>
+  </div>
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field"><label class="field-label">Business mi</label><input class="field-input" type="number" step="0.1" name="business_miles" value="{{ '%.1f'|format(row.meta.business_miles) if row.meta and row.meta.business_miles is not none else '' }}" /></div>
+      <div class="field"><label class="field-label">Commuting mi</label><input class="field-input" type="number" step="0.1" name="commuting_miles" value="{{ '%.1f'|format(row.meta.commuting_miles) if row.meta and row.meta.commuting_miles is not none else '' }}" /></div>
+    </div>
+    <div class="field"><label class="field-label">Personal mi</label><input class="field-input" type="number" step="0.1" name="personal_miles" value="{{ '%.1f'|format(row.meta.personal_miles) if row.meta and row.meta.personal_miles is not none else '' }}" /></div>
+  </div>
+  {% endcall %}
+
+  <div class="form-actions" style="margin-top:1rem">
+    <form method="post" action="/mileage/{{ row.id }}/delete" style="display:inline"
+          data-confirm="Delete the {{ row.driven_on }} trip ({{ row.miles }} mi)? The mileage_summary.bean rebuild on next year-end will exclude it."
+          data-confirm-button="Delete trip">
+      {{ B.btn('Delete trip', type='submit', variant='danger', size='sm') }}
+    </form>
+    <span class="spacer"></span>
+    {{ B.btn('Save', type='submit', variant='primary') }}
+  </div>
+</form>
+{% endblock %}

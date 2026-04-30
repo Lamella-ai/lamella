@@ -1,0 +1,22 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<div class="upcoming-card upcoming-card--{% if u.overdue %}red{% else %}green{% endif %}">
+  <div class="upcoming-dot upcoming-dot--{% if u.overdue %}red{% else %}green{% endif %}" aria-hidden="true"></div>
+  <div class="upcoming-body">
+    <div class="upcoming-title">{{ u.label }}</div>
+    <div class="upcoming-meta">
+      <time>{{ u.expected_date.isoformat() }}</time>
+      <span>${% if fmt_amount is defined %}{{ fmt_amount(u.expected_amount, 2) }}{% else %}{{ "%.2f"|format(u.expected_amount) }}{% endif %}</span>
+      <span class="muted" title="{{ u.source_account }}">{{ u.source_account | alias }}</span>
+    </div>
+    <div class="upcoming-meta muted">
+      {{ u.cadence }}{% if u.overdue %} · overdue{% endif %}
+    </div>
+  </div>
+</div>

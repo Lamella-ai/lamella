@@ -1,0 +1,15 @@
+{
+  "id": "gen-test-match-bad",
+  "model": "anthropic/claude-haiku-4.5",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"best_match\": null, \"confidence\": 0.2, \"reasoning\": \"No candidate is a strong match.\", \"alternate_date_hypothesis\": \"receipt date may be 3+ days off\"}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {"prompt_tokens": 260, "completion_tokens": 36, "total_tokens": 296}
+}

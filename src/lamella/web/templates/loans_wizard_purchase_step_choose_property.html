@@ -1,0 +1,62 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% block title %}{{ flow.title }} — Choose property{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block content %}
+{% include "partials/loans/_wizard_progress.html" %}
+
+<h1>{{ flow.title }}</h1>
+<h2>Step 1: Choose a property</h2>
+<p class="muted">
+  Is this purchase creating a new property record, or buying a
+  property that's already in your registry (e.g., refinancing-as-
+  cash-buy of a property you already track)?
+</p>
+
+{% include "partials/_wizard_errors.html" %}
+
+<form method="post" action="/settings/loans/wizard/{{ flow_name }}/step"
+      class="stacked-form">
+  <input type="hidden" name="step" value="choose_property" />
+
+  <label>
+    <input type="radio" name="property_choice" value="new"
+           {% if params.property_choice == 'new' %}checked{% endif %} />
+    Create a new property record
+  </label>
+  <label>
+    <input type="radio" name="property_choice" value="existing"
+           {% if params.property_choice == 'existing' %}checked{% endif %} />
+    Use an existing property
+  </label>
+
+  <details {% if params.property_choice == 'existing' %}open{% endif %}>
+    <summary>Existing property slug</summary>
+    <input type="text" name="existing_property_slug"
+           list="existing-property-options"
+           value="{{ params.existing_property_slug or '' }}"
+           placeholder="start typing to search…" />
+    <datalist id="existing-property-options">
+      {% for p in (existing_properties or []) %}
+        <option value="{{ p.slug }}">{{ p.display_name or p.slug }}</option>
+      {% endfor %}
+    </datalist>
+    {% if not (existing_properties or []) %}
+      <small class="muted">
+        No properties in the registry yet — pick "Create a new property"
+        above instead.
+      </small>
+    {% endif %}
+  </details>
+
+  <button type="submit" class="primary-action">Next →</button>
+  <a href="/settings/loans" class="secondary">Cancel</a>
+</form>
+{% endblock %}

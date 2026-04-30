@@ -1,0 +1,123 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Import #{{ record.id }} — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Import #{{ record.id }}{% endblock %}
+
+{% block content %}
+{% set status_tone = {
+  'pending':'muted','preview':'info','classified':'info','mapped':'info',
+  'ingested':'ok','categorized':'ok','previewed':'ok','committed':'ok',
+  'failed':'err','cancelled':'muted','error':'err','uploaded':'info'
+}.get(record.status, 'muted') %}
+
+{% call L.page_head(
+     title='Import #' + record.id|string,
+     subtitle=record.filename,
+     kicker='Intake · Import'
+) %}
+  {{ B.btn('← All imports', href='/import') }}
+{% endcall %}
+
+<div style="margin-top:-1rem; margin-bottom:1.5rem">{{ D.badge(record.status, tone=status_tone) }}</div>
+
+{% if record.error %}
+{% call F.banner(tone='err', title='Error') %}
+  <pre>{{ record.error }}</pre>
+  <form hx-post="/import/{{ record.id }}/ingest" hx-target="body" hx-swap="beforeend" style="margin-top:0.6rem">
+    {{ B.btn('Retry', type='submit', icon=icon.refresh()) }}
+  </form>
+{% endcall %}
+{% endif %}
+
+{% call L.section(title='Details') %}
+{% call C.card() %}
+<dl class="detail-dl">
+  <dt>Created</dt><dd>{{ record.created_at }}</dd>
+  <dt>SHA-256</dt><dd><code>{{ record.content_sha256 }}</code></dd>
+  <dt>Stored path</dt><dd><code>{{ record.stored_path }}</code></dd>
+  <dt>Source class</dt><dd>{{ record.source_class or "—" }}</dd>
+  <dt>Entity</dt><dd>{{ record.entity or "—" }}</dd>
+  <dt>Rows ingested</dt><dd class="num">{{ record.rows_imported }}</dd>
+  <dt>Rows committed</dt><dd class="num">{{ record.rows_committed }}</dd>
+  {% if record.committed_at %}<dt>Committed at</dt><dd>{{ record.committed_at }}</dd>{% endif %}
+</dl>
+{% endcall %}
+{% endcall %}
+
+{% call L.section(title='Sheets') %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Sheet</th>
+      <th>Class</th>
+      <th>Type</th>
+      <th>Entity</th>
+      <th class="num">Rows read</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for src in sources %}
+    <tr>
+      <td><code>{{ src.sheet_name }}</code></td>
+      <td>{{ src.source_class }}</td>
+      <td>{{ src.sheet_type }}</td>
+      <td>{{ src.entity or "—" }}</td>
+      <td class="num">{{ src.rows_read }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+
+{% call L.section(title='Actions') %}
+<div class="action-row">
+  {% if record.status in ("classified", "uploaded") %}
+    {{ B.btn('Confirm classification', href='/import/' + record.id|string + '/classify', variant='primary') }}
+  {% elif record.status == "mapped" %}
+    {{ B.btn('Ingest', href='/import/' + record.id|string + '/ingest', variant='primary', icon=icon.upload()) }}
+  {% elif record.status in ("ingested", "categorized", "previewed") %}
+    {{ B.btn('Preview & commit', href='/import/' + record.id|string + '/preview', variant='primary') }}
+  {% endif %}
+  {% if record.status not in ("committed", "cancelled") %}
+  <form method="post" action="/import/{{ record.id }}/cancel" style="display:inline">
+    {{ B.btn('Cancel', type='submit', variant='danger', confirm='Cancel this import?') }}
+  </form>
+  {% endif %}
+  {% if record.status in ("cancelled", "error") %}
+  <form method="post" action="/import/{{ record.id }}" style="display:inline"
+        onsubmit="event.preventDefault(); fetch('/import/{{ record.id }}', {method:'DELETE'}).then(()=>location.href='/import')">
+    {{ B.btn('Hard delete', type='submit', variant='danger', confirm='Permanently delete this import? File and metadata will be removed.') }}
+  </form>
+  {% endif %}
+</div>
+{% endcall %}
+
+<style>
+  .detail-dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 16px;
+    margin: 0;
+    font-size: 0.92rem;
+  }
+  .detail-dl dt { color: var(--muted); }
+  .detail-dl dd { margin: 0; min-width: 0; word-break: break-all; }
+</style>
+{% endblock %}

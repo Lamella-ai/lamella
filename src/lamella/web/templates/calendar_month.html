@@ -1,0 +1,148 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Calendar · {{ month_label }}{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Calendar{% endblock %}
+
+{% block content %}
+{% call L.page_head(title=month_label, kicker='Calendar') %}
+  {{ B.btn('← Prev', href='/calendar/' + prev_month, size='sm') }}
+  {{ B.btn('Today', href='/calendar/' + today.strftime('%Y-%m'), size='sm') }}
+  {{ B.btn('Next →', href='/calendar/' + next_month, size='sm') }}
+{% endcall %}
+
+<section class="cal-grid" aria-label="Month grid">
+  {% for dow in ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] %}
+    <div class="cal-dow">{{ dow }}</div>
+  {% endfor %}
+
+  {% for d in cells %}
+    {% if d is none %}
+      <div class="cal-cell is-blank"></div>
+    {% else %}
+      {% set agg = aggregates.get(d) %}
+      {% set is_today = (d == today) %}
+      {% set status = agg.status if agg else 'empty' %}
+      <a class="cal-cell {% if status == 'empty' %}is-empty{% endif %} {% if is_today %}is-today{% endif %}"
+         href="/calendar/{{ d.isoformat() }}">
+        <span class="cal-day">{{ d.day }}</span>
+        {% if agg and agg.txn_count > 0 %}
+          <span class="cal-net">{{ agg.net_signed|money }}</span>
+        {% endif %}
+        <div class="cal-dots">
+          {% if agg and agg.txn_count > 0 %}
+            <span class="cal-dot dot-{% if status == 'reviewed' %}green{% elif status == 'dirty' %}red{% else %}gray{% endif %}"
+                  title="{{ agg.txn_count }} transaction(s)"></span>
+          {% endif %}
+          {% if agg and agg.note_count > 0 %}
+            <span class="cal-dot dot-{% if status == 'reviewed' %}green{% elif status == 'dirty' %}red{% else %}gray{% endif %}"
+                  title="{{ agg.note_count }} note(s)"></span>
+          {% endif %}
+          {% if agg and agg.mileage_count > 0 %}
+            <span class="cal-dot dot-{% if status == 'reviewed' %}green{% elif status == 'dirty' %}red{% else %}gray{% endif %}"
+                  title="{{ agg.mileage_count }} mileage entry"></span>
+          {% endif %}
+          {% if agg and agg.paperless_count > 0 %}
+            <span class="cal-dot dot-{% if status == 'reviewed' %}green{% elif status == 'dirty' %}red{% else %}gray{% endif %}"
+                  title="{{ agg.paperless_count }} receipt(s)"></span>
+          {% endif %}
+        </div>
+        {% if status != 'empty' %}
+          <span class="cal-status s-{{ status }}">{{ status }}</span>
+        {% endif %}
+      </a>
+    {% endif %}
+  {% endfor %}
+</section>
+
+<p class="subtle" style="margin-top:1.25rem">
+  Days with activity are clickable. Reviewed days turn green; late activity
+  flips them back to red (dirty). Click a day for the itemized view.
+</p>
+
+<style>
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+  }
+  .cal-dow {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-align: center;
+    padding: 4px 0;
+    font-weight: 600;
+  }
+  .cal-cell {
+    min-height: 96px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
+    position: relative;
+    background: var(--panel);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .cal-cell:hover {
+    background: var(--panel-2);
+    border-color: var(--accent);
+    text-decoration: none;
+    color: inherit;
+  }
+  .cal-cell.is-empty { background: var(--bg); }
+  .cal-cell.is-blank { border: none; background: transparent; }
+  .cal-cell.is-today {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+  }
+  .cal-day { font-size: 0.95rem; font-weight: 600; color: var(--fg); }
+  .cal-net {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    font-size: 0.74rem;
+    color: var(--fg-soft);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .cal-dots { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+  .cal-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .cal-dot.dot-green  { background: var(--ok); }
+  .cal-dot.dot-yellow { background: var(--warn); }
+  .cal-dot.dot-red    { background: var(--err); }
+  .cal-dot.dot-gray   { background: var(--muted-soft); }
+  .cal-status {
+    position: absolute;
+    bottom: 6px;
+    right: 8px;
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .cal-status.s-reviewed { color: var(--ok); }
+  .cal-status.s-dirty    { color: var(--err); }
+  .cal-status.s-unreviewed { color: var(--muted-soft); }
+</style>
+{% endblock %}

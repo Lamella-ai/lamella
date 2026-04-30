@@ -1,0 +1,59 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% block title %}Setup — charts{% endblock %}
+{% block layout %}setup{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block content %}
+<h1>Setup: expense charts</h1>
+<p class="muted">
+  Every entity with a tax schedule (Schedule C business, Schedule F
+  farm, Personal / Schedule A) needs its required expense categories
+  open in the ledger. Without them, the AI classifier has to fall
+  back to generic accounts, and Schedule C line mappings are
+  incomplete. Scaffolding is idempotent — already-open categories
+  are skipped.
+</p>
+
+{% if request.query_params.get('slug') and request.query_params.get('opened') %}
+<div class="banner info">
+  ✓ Opened {{ request.query_params.get('opened') }} categor{{ 'y' if request.query_params.get('opened') == '1' else 'ies' }}
+  for <code>{{ request.query_params.get('slug') }}</code>.
+</div>
+{% endif %}
+{% if request.query_params.get('error') %}
+<div class="banner warn" style="background:var(--err-soft);border:1px solid var(--err-soft);">
+  ✗ {{ request.query_params.get('error') }}
+  {% if request.query_params.get('detail') %}
+    — <code>{{ request.query_params.get('detail') }}</code>
+  {% endif %}
+</div>
+{% endif %}
+
+<section style="margin:1em 0; padding:0.8em 1em; background:{% if any_missing == 0 %}var(--ok-soft){% else %}var(--warn-soft){% endif %}; border-left:4px solid {% if any_missing == 0 %}var(--ok){% else %}var(--warn){% endif %}; border-radius:4px;">
+  {% if any_missing == 0 %}
+    <strong style="color:var(--ok);">✓ All applicable charts fully scaffolded.</strong>
+  {% else %}
+    <strong style="color:var(--warn);">⚠ {{ any_missing }} categor{{ 'y' if any_missing == 1 else 'ies' }} missing across applicable entities.</strong>
+  {% endif %}
+</section>
+
+{% for e in entities_chart %}
+  {% with e=e %}
+    {% include "partials/_setup_chart_row.html" %}
+  {% endwith %}
+{% endfor %}
+
+<p style="margin-top:1.5em;">
+  <a href="/setup/recovery">← back to setup checklist</a>
+  <form method="post" action="/setup/refresh-progress" style="display:inline; margin-left:1em;">
+    <button type="submit">Done — return to checklist</button>
+  </form>
+</p>
+{% endblock %}

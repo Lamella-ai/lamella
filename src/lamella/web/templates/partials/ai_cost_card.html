@@ -1,0 +1,44 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<section class="ai-cost-card">
+  <h2>AI cost — month to date</h2>
+  {% if not ai_enabled %}
+    <p class="muted">AI disabled (<code>OPENROUTER_API_KEY</code> not set).</p>
+  {% else %}
+    <dl>
+      <dt>Calls</dt><dd>{{ summary.calls }} <small class="muted">(+{{ summary.cache_hits }} cache hit{{ '' if summary.cache_hits == 1 else 's' }})</small></dd>
+      <dt>Prompt tokens</dt><dd>{{ summary.prompt_tokens }}</dd>
+      <dt>Completion tokens</dt><dd>{{ summary.completion_tokens }}</dd>
+      <dt>Estimated cost</dt><dd>${% if fmt_amount is defined %}{{ fmt_amount(summary.cost_usd, 4) }}{% else %}{{ "%.4f"|format(summary.cost_usd) }}{% endif %}</dd>
+      {% if cap_usd > 0 %}
+        <dt>Monthly cap</dt><dd>${% if fmt_amount is defined %}{{ fmt_amount(cap_usd, 2) }}{% else %}{{ "%.2f"|format(cap_usd) }}{% endif %}</dd>
+      {% endif %}
+    </dl>
+    {% if summary.by_type %}
+      <table class="audit-by-type">
+        <thead><tr><th>Decision type</th><th>Calls</th><th>Prompt</th><th>Completion</th></tr></thead>
+        <tbody>
+          {% for dt, stats in summary.by_type.items() %}
+            <tr>
+              <td>{{ dt }}</td>
+              <td>{{ stats.n }}</td>
+              <td>{{ stats.prompt_tokens }}</td>
+              <td>{{ stats.completion_tokens }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+    <p class="muted">
+      Pricing: ${{ "%.4f"|format(prompt_price) }}/1k prompt &middot;
+      ${{ "%.4f"|format(completion_price) }}/1k completion &middot;
+      editable in /settings.
+    </p>
+  {% endif %}
+</section>

@@ -1,0 +1,3 @@
+Master Category,Subcategory,Date,Location,Payee,Description,Payment Method,Amount,Business Expense?,Business,Expense Category,Amount.1,Expense Memo
+Materials,Hardware,2024-01-10,Online,Hardware Store,Screws and bolts,ACME LLC CHECKING,-42.17,Yes,Acme,Supplies,-42.17,Stocking parts
+Materials,Hardware,2024-03-01,Online,Hardware Store,Another order,ACME LLC CHECKING,-19.00,Yes,Acme,Supplies,-19.00,

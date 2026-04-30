@@ -1,0 +1,142 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Progress modal for a long-running job.
+   Rendered when a handler submits a job and wants the browser to
+   attach to it. HTMX swaps this into the page, then the embedded
+   partial polls /jobs/{id}/partial every 1s until terminal.
+
+   Usage:
+     return request.app.state.templates.TemplateResponse(
+         request, "partials/_job_modal.html",
+         {"job_id": job_id, "on_close_url": "/search?q=..."},
+     )
+
+   `on_close_url` is the URL to navigate to when the user clicks
+   "Close" on a finished job — typically the same page so results
+   can be surfaced. Defaults to "/" if not provided.
+#}
+<div id="job-modal-root"
+     data-job-id="{{ job_id }}"
+     data-on-close-url="{{ on_close_url or '/' }}"
+     class="job-modal-overlay">
+  <div class="job-modal">
+    <div class="job-modal__inner"
+         hx-get="/jobs/{{ job_id }}/partial"
+         hx-trigger="load, every 1s"
+         hx-swap="innerHTML">
+      <div class="job-modal__loading">Starting job …</div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var root = document.getElementById("job-modal-root");
+      if (!root) return;
+      var jobId = root.getAttribute("data-job-id") || "";
+      var SCROLL_KEY = "lamella.job_scroll.v1";
+      var SCROLL_BOTTOM_THRESHOLD = 30;
+
+      function loadScrollMap() {
+        try {
+          var raw = sessionStorage.getItem(SCROLL_KEY);
+          return raw ? JSON.parse(raw) : {};
+        } catch (e) { return {}; }
+      }
+      function saveScrollFor(top, scrolledUp) {
+        try {
+          var map = loadScrollMap();
+          map[jobId] = { top: top, scrolledUp: !!scrolledUp };
+          sessionStorage.setItem(SCROLL_KEY, JSON.stringify(map));
+        } catch (e) {}
+      }
+
+      /* Beforeunload guard: warn if the user tries to close the tab
+         mid-job. Removed on terminal AND on minimize (minimize is an
+         explicit "I'm leaving the modal" gesture and shouldn't trip
+         the unsaved-changes prompt). */
+      function onBeforeUnload(e) {
+        var inner = root.querySelector("[data-terminal]");
+        if (inner && inner.getAttribute("data-terminal") === "1") return;
+        e.preventDefault();
+        e.returnValue = "A job is still running. Leaving will NOT stop it, but you'll lose the progress view.";
+        return e.returnValue;
+      }
+      window.addEventListener("beforeunload", onBeforeUnload);
+
+      function stopPolling() {
+        window.removeEventListener("beforeunload", onBeforeUnload);
+        var poller = root.querySelector(".job-modal__inner");
+        if (!poller) return;
+        poller.removeAttribute("hx-trigger");
+        poller.removeAttribute("hx-get");
+      }
+      document.body.addEventListener("lamella:job-terminal", stopPolling);
+
+      /* Restore-from-pill needs to know the previous scroll state
+         and whether the user had explicitly scrolled up. Defaults
+         to tail-follow on first paint. Loaded from sessionStorage
+         so it survives minimize+restore within a tab. */
+      var saved = (loadScrollMap() || {})[jobId];
+      var userScrolledUp = saved ? !!saved.scrolledUp : false;
+      var lastScrollTop = saved ? (saved.top || 0) : 0;
+
+      function attachLogObserver() {
+        var log = root.querySelector(".job-modal__log");
+        if (!log) return;
+        if (userScrolledUp) {
+          log.scrollTop = lastScrollTop;
+        } else {
+          log.scrollTop = log.scrollHeight; // pin to bottom (tail)
+        }
+        log.addEventListener("scroll", function () {
+          var dist = log.scrollHeight - log.scrollTop - log.clientHeight;
+          userScrolledUp = dist > SCROLL_BOTTOM_THRESHOLD;
+          lastScrollTop = log.scrollTop;
+          saveScrollFor(lastScrollTop, userScrolledUp);
+        }, { passive: true });
+      }
+
+      root.addEventListener("htmx:afterSwap", function () {
+        var inner = root.querySelector("[data-terminal]");
+        if (inner && inner.getAttribute("data-terminal") === "1") {
+          stopPolling();
+        }
+        attachLogObserver();
+      });
+      attachLogObserver();
+
+      /* Minimize handler. Defined per-instance so each modal that
+         mounts cleans up its own beforeunload listener. The dock
+         widget in base.html reads sessionStorage and renders pills;
+         restore re-fetches the modal partial which recreates this
+         IIFE on the new DOM. */
+      window.lamellaJobMinimize = function () {
+        var titleEl = root.querySelector(".job-modal__title");
+        var title = titleEl ? titleEl.textContent.trim() : "Running job";
+        try {
+          var KEY = "lamella.minimized_jobs.v1";
+          var raw = sessionStorage.getItem(KEY);
+          var list = raw ? JSON.parse(raw) : [];
+          if (!list.some(function (j) { return j.id === jobId; })) {
+            list.push({ id: jobId, title: title, ts: Date.now() });
+            sessionStorage.setItem(KEY, JSON.stringify(list));
+          }
+        } catch (e) {}
+        /* Persist the current scroll position so the restored
+           modal lands the user where they were. */
+        var log = root.querySelector(".job-modal__log");
+        if (log) saveScrollFor(log.scrollTop, userScrolledUp);
+        /* Drop the unsaved-changes guard. Minimize is explicit. */
+        window.removeEventListener("beforeunload", onBeforeUnload);
+        document.body.removeEventListener("lamella:job-terminal", stopPolling);
+        if (root.parentNode) root.parentNode.removeChild(root);
+        if (window.lamellaRenderJobDock) window.lamellaRenderJobDock();
+      };
+    })();
+  </script>
+</div>

@@ -1,0 +1,330 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Swappable partial for /card — single staged row + group impact + up-next carousel.
+   Returned directly on HX-Request; included in card_staged.html for full
+   page renders. The {% set %} block below MUST live inside the partial,
+   not in the wrapping template — otherwise an HX-Request render hits the
+   partial standalone with no surrounding context, and group_size /
+   _payee / _looks_like_transfer come up undefined. #}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+{% import "_components/_txn.html" as Txn %}
+{%- set ex = extras.get(item.staged_id, {}) -%}
+{%- set group_size = group.size -%}
+{%- set _payee = item.payee or item.description or 'Unlabeled row' -%}
+{%- set _payee_lc = (item.payee or '')|lower -%}
+{%- set _descr_lc = (item.description or '')|lower -%}
+{# Liability-account payments (CC / loan / LoC / mortgage) are
+   transfer halves by construction — those accounts can't hold
+   cash, so an inflow on them is always the receiving leg of a
+   transfer from Assets:Checking / Savings. #}
+{%- set _liab_kinds = ['credit_card', 'line_of_credit', 'loan', 'mortgage'] -%}
+{%- set _is_liab_payment = (
+     ex.card_kind in _liab_kinds and (item.amount or 0) > 0
+) -%}
+{%- set _looks_like_transfer = (
+     item.pair_id is none
+     and (
+          'transfer' in _payee_lc or 'xfer' in _payee_lc
+          or 'transfer' in _descr_lc or 'xfer' in _descr_lc
+          or _is_liab_payment
+     )
+) -%}
+<div id="card-pane" class="card-staged-pane">
+
+  <article class="card-staged" id="card-staged-{{ item.staged_id }}">
+
+    {# Group-impact strip — only when there are multiple siblings. #}
+    {% if group_size > 1 %}
+    <div class="card-staged-impact">
+      <div class="card-staged-impact-stat">
+        <span class="num">{{ group_size }}</span>
+        <span class="card-staged-impact-stat-label">similar rows</span>
+      </div>
+      <p class="card-staged-impact-msg">
+        {{ icon.sparkles(size=14) }}
+        Classify this one and the same target lands on the {{ group_size - 1 }} sibling{{ 's' if (group_size - 1) != 1 else '' }} too — one decision, the rule is learned, the rest auto-resolve on the next sweep.
+      </p>
+    </div>
+    {% endif %}
+
+    {# Headline fact band — date, amount, payee. Sign-aware: refunds
+       (positive amount) render green with +, charges (negative)
+       render red with −. Without this distinction the user can't
+       visually tell a refund from a charge in the headline. #}
+    {%- set _hf_amt = item.amount|float -%}
+    {%- set _hf_flow = 'in' if _hf_amt > 0 else ('out' if _hf_amt < 0 else 'flat') -%}
+    <div class="card-staged-fact">
+      <div class="card-staged-fact-amount">
+        <span class="txns-amount txns-amount--{{ _hf_flow }}">
+          {%- if _hf_flow == 'in' -%}+{%- elif _hf_flow == 'out' -%}−{%- endif -%}
+          {{ "%.2f"|format(_hf_amt if _hf_amt >= 0 else -_hf_amt) }}
+        </span>
+        <span class="card-staged-fact-amount-ccy">{{ item.currency }}</span>
+      </div>
+      <div class="card-staged-fact-meta">
+        <time class="card-staged-fact-date" datetime="{{ item.posting_date }}">{{ item.posting_date }}</time>
+        <h2 class="card-staged-fact-payee" title="{{ _payee }}">{{ _payee }}</h2>
+        {% if item.description and item.description != item.payee %}
+        <p class="card-staged-fact-narration">{{ item.description }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Migrated to Txn.context_tags — same molecule as /review.
+       Source · card · entity · paired · /txn + AI-history links. #}
+    <div class="card-staged-tags">
+      {{ Txn.context_tags(item, extras=ex) }}
+    </div>
+
+    {# Transfer hint — when the narration says "transfer" and no
+       pair has been found. The other leg may not have hit staging
+       yet. The user can either wait (paired transfers auto-write
+       to the ledger) or classify manually to an Assets/Liabilities
+       account. #}
+    {# Per-row suggestion cards — observed-state nudges keyed to
+       this specific row (e.g. "this looks like an eBay payout —
+       scaffold Assets:{Entity}:eBay?"). Built by the route in
+       row context; the macro filters out anything that doesn't
+       belong on a row. #}
+    {% if suggestion_cards %}
+    {{ C.suggestion_strip(suggestion_cards) }}
+    {% endif %}
+
+    {% if _looks_like_transfer %}
+    <div class="card-staged-transfer-hint">
+      <div class="card-staged-transfer-hint-head">
+        {{ icon.repeat(size=14) }}
+        <strong>Looks like a transfer</strong>
+      </div>
+      <p class="card-staged-transfer-hint-msg">
+        {% if _is_liab_payment %}
+          This is a payment hitting a <strong>{{ ex.card_kind|replace('_', ' ') }}</strong> account — that account can’t hold cash, so the matching outflow from <code>Assets:…</code> is the other half of this transfer. The matcher hasn’t paired it yet; the cash leg may not have hit the staging surface in the same window. Wait for the other leg, or classify manually to the source <code>Assets:Checking</code> / <code>Assets:Savings</code> path below.
+        {% else %}
+          The narration mentions <em>transfer</em>, and the matcher hasn’t paired this row with the other side yet — the other leg may not be on the staging surface. If both halves arrive, the system writes one balanced transfer transaction automatically. If you know the receiving account, classify it manually to an <code>Assets:…</code> or <code>Liabilities:…</code> path below.
+        {% endif %}
+      </p>
+    </div>
+    {% endif %}
+
+    {# Migrated to T.proposed — shared molecule rendered identically
+       across /review, /card, /search, /ai/suggestions, /txn detail. #}
+    {{ Txn.proposed(item) }}
+
+    {# Primary action zone — Accept / Classify-as / Ask AI / Skip / Dismiss.
+       Each form does an HTMX POST with hx-swap="none"; on success a
+       follow-up GET to /card refreshes the pane with the next row. #}
+    <div class="card-staged-actions">
+
+      {% if item.proposed_account and 'FIXME' not in item.proposed_account|upper %}
+      <form method="post"
+            action="{% if group_size > 1 %}/review/staged/classify-group{% else %}/review/staged/classify{% endif %}"
+            class="card-staged-accept-form"
+            hx-post="{% if group_size > 1 %}/review/staged/classify-group{% else %}/review/staged/classify{% endif %}"
+            hx-target="#card-pane" hx-swap="outerHTML">
+        <input type="hidden" name="next_path" value="/card">
+        {% if group_size > 1 %}
+          {% for sib in group.items %}
+          <input type="hidden" name="staged_ids" value="{{ sib.staged_id }}">
+          {% endfor %}
+          <input type="hidden" name="target_account" value="{{ item.proposed_account }}">
+        {% else %}
+          <input type="hidden" name="staged_id" value="{{ item.staged_id }}">
+          <input type="hidden" name="accept_proposed" value="1">
+        {% endif %}
+        <button type="submit" class="btn btn-primary card-staged-accept-btn"
+                title="Write {{ item.proposed_account }} to the ledger.">
+          {{ icon.check(size=14) }}
+          <span class="card-staged-accept-label">Accept</span>
+          <span class="card-staged-accept-target">{{ item.proposed_account | alias }}</span>
+          {% if group_size > 1 %}
+            <span class="card-staged-accept-count">+ {{ group_size - 1 }} sibling{{ 's' if (group_size - 1) != 1 else '' }}</span>
+          {% endif %}
+        </button>
+      </form>
+      {% endif %}
+
+      <form method="post"
+            action="{% if group_size > 1 %}/review/staged/classify-group{% else %}/review/staged/classify{% endif %}"
+            class="card-staged-classify-form"
+            hx-post="{% if group_size > 1 %}/review/staged/classify-group{% else %}/review/staged/classify{% endif %}"
+            hx-target="#card-pane" hx-swap="outerHTML">
+        <input type="hidden" name="next_path" value="/card">
+        {% if group_size > 1 %}
+          {% for sib in group.items %}
+          <input type="hidden" name="staged_ids" value="{{ sib.staged_id }}">
+          {% endfor %}
+        {% else %}
+          <input type="hidden" name="staged_id" value="{{ item.staged_id }}">
+        {% endif %}
+        <label class="card-staged-classify-label" for="card-staged-target-{{ item.staged_id }}">
+          {% if group_size > 1 %}Classify all {{ group_size }} as…{% else %}Or classify as…{% endif %}
+        </label>
+        <div class="card-staged-classify-row">
+          {{ Txn.account_picker(
+                id='card-staged-target-' ~ item.staged_id,
+                extra_class='card-staged-classify-input',
+                placeholder=('Transfer target — Assets:… or Liabilities:…' if _looks_like_transfer else 'Expenses:Acme:Office:Supplies …'),
+                autofocus=true
+          ) }}
+          {{ B.btn('Classify', type='submit', variant='primary', size='sm') }}
+        </div>
+      </form>
+
+      <div class="card-staged-secondary">
+        <details class="card-staged-disclosure">
+          <summary>{{ icon.sparkles(size=12) }} Ask AI</summary>
+          <form method="post" action="/review/staged/ask-ai-modal"
+                hx-post="/review/staged/ask-ai-modal"
+                hx-target="body" hx-swap="beforeend">
+            <input type="hidden" name="staged_id" value="{{ item.staged_id }}">
+            <input type="hidden" name="attempt" value="1">
+            <textarea class="field-textarea" name="context_hint" rows="2"
+                      placeholder="Optional hint — anything the AI doesn’t know from the row alone."></textarea>
+            {{ B.btn('Ask AI', type='submit', variant='ghost', size='sm') }}
+            <p class="card-staged-disclosure-foot">A progress modal opens. When the AI returns you can Accept, Reject with reason (it tries again), or pick the account yourself.</p>
+          </form>
+        </details>
+
+        <a class="btn btn-ghost btn-sm card-staged-skip"
+           href="/card?message=skipped&skip={{ item.staged_id }}"
+           hx-get="/card?message=skipped&skip={{ item.staged_id }}"
+           hx-target="#card-pane" hx-swap="outerHTML"
+           title="Don’t classify — show me the next one.">
+          {{ icon.arrowright(size=12) }} Skip
+        </a>
+
+        <details class="card-staged-disclosure card-staged-disclosure--danger">
+          <summary>{{ icon.x(size=12) }} Ignore</summary>
+          <form method="post" action="/review/staged/dismiss"
+                hx-post="/review/staged/dismiss"
+                hx-target="#card-pane" hx-swap="outerHTML">
+            <input type="hidden" name="next_path" value="/card">
+            <input type="hidden" name="staged_id" value="{{ item.staged_id }}">
+            <input class="field-input" type="text" name="reason" placeholder="Reason (optional) — saved on the row" />
+            {{ B.btn('Ignore', type='submit', variant='ghost', size='sm') }}
+            <p class="card-staged-disclosure-foot">Reversible — drops off the pending list, but the row is preserved so you can find it (and restore it) under <a href="/review/ignored">Ignored</a>. No ledger write, no override.</p>
+          </form>
+        </details>
+      </div>
+
+    </div>
+  </article>
+
+  {# ── Sibling preview — only when the chosen group has multiple
+       rows. Lists the OTHER siblings (the prototype is the row
+       being acted on above, no need to show it twice). Helps the
+       user see exactly what will get classified together. #}
+  {% if group_size > 1 %}
+  <section class="card-staged-siblings" aria-labelledby="sib-h">
+    <header class="card-staged-siblings-head">
+      <h3 class="card-staged-siblings-title" id="sib-h">
+        {{ icon.repeat(size=14) }}
+        About to be classified together
+      </h3>
+      <span class="card-staged-siblings-count">{{ group_size - 1 }} sibling{{ 's' if (group_size - 1) != 1 else '' }}</span>
+    </header>
+    <ul class="card-staged-siblings-list">
+      {% for sib in group.items %}
+        {%- if sib.staged_id != item.staged_id -%}
+        {%- set sex = extras.get(sib.staged_id, {}) -%}
+        {%- set _sa = sib.amount|float -%}
+        {%- set _sf = 'in' if _sa > 0 else ('out' if _sa < 0 else 'flat') -%}
+        <li class="card-staged-sibling">
+          <time class="card-staged-sibling-date num" datetime="{{ sib.posting_date }}">{{ sib.posting_date }}</time>
+          <span class="card-staged-sibling-amount num txns-amount txns-amount--{{ _sf }}">
+            {%- if _sf == 'in' -%}+{%- elif _sf == 'out' -%}−{%- endif -%}
+            {{ "%.2f"|format(_sa if _sa >= 0 else -_sa) }}
+          </span>
+          <span class="card-staged-sibling-payee" title="{{ sib.payee or sib.description or '' }}">
+            {{ sib.payee or sib.description or '(no label)' }}
+          </span>
+          {% if sex.card_display %}
+          <span class="card-staged-sibling-card">{{ icon.creditcard(size=11) }} {{ sex.card_display }}</span>
+          {% endif %}
+        </li>
+        {%- endif -%}
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {# ── Up-next carousel — horizontal scrolling strip of the next
+       pending groups. Each tile clicks through to /card?focus=N
+       which jumps directly to that group. Lets the user pre-scan
+       what's coming + jump out of order if a different row catches
+       their eye. #}
+  {% if other_groups %}
+  <section class="card-staged-upnext" aria-labelledby="upnext-h">
+    <header class="card-staged-upnext-head">
+      <h3 class="card-staged-upnext-title" id="upnext-h">
+        {{ icon.arrowright(size=14) }}
+        Up next
+      </h3>
+      <span class="card-staged-upnext-meta">
+        {{ other_groups | length }} more group{{ 's' if (other_groups | length) != 1 else '' }} ·
+        scroll to peek, click any tile to jump to that one
+      </span>
+    </header>
+    <div class="card-staged-upnext-rail" role="list">
+      {% for g in other_groups %}
+      {%- set p = g.prototype -%}
+      {%- set pex = extras.get(p.staged_id, {}) -%}
+      {%- set _g_total = (g.items | sum(attribute='amount')) | float -%}
+      <a class="card-staged-upnext-tile {% if g.size > 1 %}card-staged-upnext-tile--group{% endif %}"
+         href="/card?focus={{ p.staged_id }}"
+         hx-get="/card?focus={{ p.staged_id }}"
+         hx-target="#card-pane" hx-swap="outerHTML"
+         role="listitem"
+         title="{{ p.payee or p.description or '' }} · jump to this group">
+        <div class="card-staged-upnext-tile-head">
+          {% if g.size > 1 %}
+          <span class="card-staged-upnext-size num">{{ g.size }}×</span>
+          {% else %}
+          <span class="card-staged-upnext-size card-staged-upnext-size--single">1</span>
+          {% endif %}
+          <span class="card-staged-upnext-source">{{ p.source }}</span>
+        </div>
+        <div class="card-staged-upnext-tile-payee" title="{{ p.payee or p.description or '' }}">
+          {{ p.payee or p.description or '(no label)' }}
+        </div>
+        {%- set _ut_amt = (_g_total if g.size > 1 else p.amount|float) -%}
+        {%- set _ut_flow = 'in' if _ut_amt > 0 else ('out' if _ut_amt < 0 else 'flat') -%}
+        <div class="card-staged-upnext-tile-amount num">
+          <span class="txns-amount txns-amount--{{ _ut_flow }}">
+            {%- if _ut_flow == 'in' -%}+{%- elif _ut_flow == 'out' -%}−{%- endif -%}
+            {{ "%.2f"|format(_ut_amt if _ut_amt >= 0 else -_ut_amt) }}
+          </span>
+          <span class="card-staged-upnext-tile-ccy">{{ p.currency }}</span>
+        </div>
+        <div class="card-staged-upnext-tile-meta">
+          {% if pex.card_display %}
+            <span class="card-staged-upnext-tile-card" title="{{ pex.card_display }}">
+              {{ icon.creditcard(size=10) }} {{ pex.card_display }}
+            </span>
+          {% endif %}
+          {% if pex.entity_display %}
+            <span class="card-staged-upnext-tile-entity">{{ pex.entity_display }}</span>
+          {% endif %}
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <p class="card-staged-counter">
+    {{ total_pending }} row{{ 's' if total_pending != 1 else '' }} pending across {{ group_count }} group{{ 's' if group_count != 1 else '' }}.
+    <a href="/inbox">See the full list →</a>
+  </p>
+
+</div>{# /#card-pane — HTMX target #}

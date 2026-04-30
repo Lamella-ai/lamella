@@ -1,0 +1,24 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<li class="phone-list-item">
+  <div class="phone-list-meta">
+    <strong>{{ r.label }}</strong>
+    <span class="status status-{{ 'linked' if r.status.value == 'confirmed' else 'ignored' }}">{{ r.status.value }}</span>
+    <span class="muted">{{ r.cadence }} · ${% if fmt_amount is defined %}{{ fmt_amount(r.expected_amount, 2) }}{% else %}{{ "%.2f"|format(r.expected_amount) }}{% endif %} · {{ r.source_account | alias }}</span>
+  </div>
+  <p class="phone-list-body muted">
+    {% if r.last_seen %}last seen {{ r.last_seen.isoformat() }}{% endif %}
+    {% if r.next_expected %} · next ~{{ r.next_expected.isoformat() }}{% endif %}
+  </p>
+  <p class="phone-list-body">
+    <a href="/teach?merchant={{ r.label }}" class="muted small">
+      Promote to rule →
+    </a>
+  </p>
+</li>

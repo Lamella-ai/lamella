@@ -1,0 +1,66 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Disposal preview — {{ vehicle.display_name or vehicle.slug }}{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Disposal preview{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Disposal preview',
+     subtitle=vehicle.display_name or vehicle.slug,
+     kicker='Vehicles'
+) %}
+{% endcall %}
+
+<p class="subtle" style="margin:-8px 0 1rem">
+  Draft transaction below. Nothing is written until you click <strong>Write to ledger</strong>. The
+  <code>lamella-disposal-id</code> is fresh for this draft — committing records it in the cache so a repeat click won’t double-write.
+</p>
+
+{% call C.card(title='Gain / loss (informational)', subtitle='Proceeds − (adjusted basis − accumulated depreciation). Capturing arithmetic, not tax characterization.') %}
+<dl style="display:grid; grid-template-columns:auto 1fr; gap:6px 16px; margin:0">
+  <dt class="subtle">Proceeds</dt><dd>{{ D.money(draft.proceeds_amount, signed=false) }}</dd>
+  <dt class="subtle">Adjusted basis</dt><dd>{{ form_data.adjusted_basis or '—' }}</dd>
+  <dt class="subtle">Accumulated depreciation</dt><dd>{{ form_data.accumulated_depreciation or '—' }}</dd>
+  <dt><strong>Gain / loss</strong></dt>
+  <dd>
+    <strong>{{ D.money(gain_loss_raw, signed=true) }}</strong>
+    {% if gain_loss_raw > 0 %}<span class="subtle">(gain — routed to {{ draft.gain_loss_account }})</span>
+    {% elif gain_loss_raw < 0 %}<span class="subtle">(loss — routed to {{ draft.gain_loss_account }})</span>
+    {% endif %}
+  </dd>
+</dl>
+<p class="subtle" style="margin:0.75rem 0 0">
+  Your CPA decides how §1245 recapture splits this between ordinary income and capital gain.
+  <a href="https://www.irs.gov/forms-pubs/about-form-4797" target="_blank" rel="noopener">IRS Form 4797</a> is where the split gets reported.
+</p>
+{% endcall %}
+
+{% call C.card(title='Draft transaction') %}
+<pre style="white-space:pre-wrap; background:var(--bg-elev); padding:0.75rem; border-radius:6px; border:1px solid var(--border); font-family:var(--font-mono); font-size:0.88rem; margin:0; overflow-x:auto">{{ preview_block }}</pre>
+{% endcall %}
+
+<form method="post" action="/vehicles/{{ vehicle.slug }}/dispose/commit" style="margin-top:1rem">
+  <input type="hidden" name="disposal_id" value="{{ disposal_id }}" />
+  {% for k, v in form_data.items() %}<input type="hidden" name="{{ k }}" value="{{ v or '' }}" />{% endfor %}
+  <div class="form-actions">
+    {{ B.btn('Cancel', href='/vehicles/' ~ vehicle.slug, variant='ghost') }}
+    {{ B.btn('Back', href='/vehicles/' ~ vehicle.slug ~ '/dispose', variant='ghost') }}
+    <span class="spacer"></span>
+    {{ B.btn('Write to ledger', type='submit', variant='primary') }}
+  </div>
+</form>
+{% endblock %}

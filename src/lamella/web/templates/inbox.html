@@ -1,0 +1,99 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+-->
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Inbox — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Inbox{% endblock %}
+
+{% block content %}
+{# /inbox is a count-tiles dashboard. Every "action surface" gets one
+   tile with a count and a deep-link to the focused page that owns the
+   workflow (/review, /ai/suggestions, /transactions?fixme_only=1,
+   /receipts/needed). The previous design duplicated the row-preview
+   tables those pages already render — the result was two routes
+   showing the same data, the user couldn't tell which was canonical,
+   and acting from /inbox sometimes 400'd because the action lookups
+   diverged across pages. ADR-0047 (settings is a dashboard) is the
+   pattern; /inbox follows the same shape: tiles + jumps, never inline
+   row work. #}
+{%- set _total = staged_total + ai_pending_total + legacy_review_total + receipts_total -%}
+
+{% call L.page_head(
+     title='Inbox',
+     subtitle=(
+       (_total|string) ~ ' item' ~ ('s' if _total != 1 else '') ~ ' across the app waiting on you.'
+       if _total else 'Everything is up to date.'
+     ),
+     kicker='All pending work, in one place'
+) %}
+{% endcall %}
+
+{% call C.kpi_grid() %}
+  {{ C.kpi_tile(
+       label='Pending in staging',
+       value=staged_total|string,
+       meta='New SimpleFIN / CSV / paste rows awaiting classification.',
+       href='/review',
+       tone=('warn' if staged_total > 25 else ('ok' if staged_total == 0 else ''))
+  ) }}
+  {{ C.kpi_tile(
+       label='AI suggestions',
+       value=ai_pending_total|string,
+       meta='Classifications proposed but not yet confirmed.',
+       href='/ai/suggestions',
+       tone=('warn' if ai_pending_total > 50 else '')
+  ) }}
+  {{ C.kpi_tile(
+       label='Uncategorized in ledger',
+       value=legacy_review_total|string,
+       meta='Already-written rows still uncategorized.',
+       href='/transactions?fixme_only=1',
+       tone=('warn' if legacy_review_total > 0 else 'ok')
+  ) }}
+  {{ C.kpi_tile(
+       label='Receipts needed',
+       value=receipts_total|string,
+       meta='Transactions over the receipt-required threshold.',
+       href='/receipts/needed',
+       tone=('warn' if receipts_total > 10 else '')
+  ) }}
+{% endcall %}
+
+{% if _total == 0 %}
+{{ F.empty_state(
+     'Nothing pending — everything is classified, reviewed, and receipted.',
+     cta_text='Open dashboard', cta_href='/'
+) }}
+{% else %}
+{% call L.section(title='Where to start') %}
+<p class="subtle" style="margin-top:0">
+  Each surface owns its own workflow. Pick the one with the highest count
+  and work it down; the tiles above always reflect live state.
+</p>
+<div class="inbox-shortcuts">
+  {% if staged_total %}
+    {{ B.btn('Review staging (' ~ staged_total ~ ')', href='/review', icon=icon.checkcircle(), variant='primary') }}
+    {{ B.btn('Categorize one-by-one', href='/card', variant='ghost') }}
+  {% endif %}
+  {% if ai_pending_total %}
+    {{ B.btn('Confirm AI suggestions (' ~ ai_pending_total ~ ')', href='/ai/suggestions', icon=icon.check(), variant='primary') }}
+  {% endif %}
+  {% if legacy_review_total %}
+    {{ B.btn('Fix uncategorized (' ~ legacy_review_total ~ ')', href='/transactions?fixme_only=1', icon=icon.edit(), variant='ghost') }}
+  {% endif %}
+  {% if receipts_total %}
+    {{ B.btn('Attach receipts (' ~ receipts_total ~ ')', href='/receipts/needed', icon=icon.receipt(), variant='ghost') }}
+  {% endif %}
+</div>
+{% endcall %}
+{% endif %}
+{% endblock %}

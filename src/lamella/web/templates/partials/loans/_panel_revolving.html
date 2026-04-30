@@ -1,0 +1,91 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# WP13 — revolving / HELOC panel.
+
+   Surfaces:
+     - credit limit, current balance (anchored), available headroom
+     - recent uncategorized draws (FIXME on liability with negative
+       liability leg) with a one-click categorize-draw form per draw.
+
+   The categorize-draw POST runs a stale-click guard server-side: if
+   the FIXME has already been categorized between page render and
+   form submit, the endpoint returns a 303 with saved=draw-noop
+   instead of writing a duplicate override.
+#}
+<h3>Credit line</h3>
+<dl class="inline-dl">
+  {% if loan.credit_limit %}
+    <dt>Limit</dt><dd>{{ loan.credit_limit | money }}</dd>
+  {% else %}
+    <dt>Limit</dt><dd class="muted">— (set on the edit page)</dd>
+  {% endif %}
+  <dt>Current balance</dt>
+  <dd>{% if anchored_balance is not none %}{{ anchored_balance | money }}{% else %}<span class="muted">— (no anchor)</span>{% endif %}</dd>
+  <dt>Available</dt>
+  <dd>
+    {% if revolving_available is not none %}
+      {% if revolving_available > 0 %}
+        <span class="good">{{ revolving_available | money }}</span>
+      {% else %}
+        <span class="bad">{{ revolving_available | money }} (over limit)</span>
+      {% endif %}
+    {% else %}
+      <span class="muted">— (need limit + anchor)</span>
+    {% endif %}
+  </dd>
+</dl>
+
+{% if not loan.credit_limit %}
+  <p class="muted small">
+    Set a credit limit on the <a href="/settings/loans/{{ loan.slug }}/edit">edit page</a> to see available headroom.
+  </p>
+{% endif %}
+
+<h3>Recent draws</h3>
+{% if revolving_draws %}
+  <p class="muted small">
+    A draw is an uncategorized entry on the liability where the liability posting is
+    negative — i.e., the line is being pulled, not paid back.
+    Categorize each one to point the offset leg at the destination
+    account (typically a checking account or a contractor expense).
+  </p>
+  <table class="field-map">
+    <thead><tr>
+      <th>Date</th>
+      <th>Payee / narration</th>
+      <th>Amount</th>
+      <th>Categorize → destination account</th>
+    </tr></thead>
+    <tbody>
+      {% for d in revolving_draws %}
+      <tr>
+        <td><a href="/txn/{{ d.lamella_txn_id }}">{{ d.txn_date }}</a></td>
+        <td>
+          {% if d.payee %}<strong>{{ d.payee }}</strong> · {% endif %}
+          <span class="muted">{{ d.narration or '—' }}</span>
+        </td>
+        <td>{{ d.amount | money }}</td>
+        <td>
+          <form method="post" action="/settings/loans/{{ loan.slug }}/categorize-draw"
+                class="inline-form" autocomplete="off">
+            <input type="hidden" name="txn_hash" value="{{ d.txn_hash }}" />
+            <input type="text" name="destination_account"
+                   list="accounts-datalist" required
+                   placeholder="Assets:…:Checking or Expenses:…"
+                   style="min-width: 18em;" />
+            <button type="submit" class="primary-action small">Apply</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p class="muted">No uncategorized draws.</p>
+{% endif %}

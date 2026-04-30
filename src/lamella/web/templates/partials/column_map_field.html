@@ -1,0 +1,16 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<select name="col_{{ src.id }}_{{ col }}">
+  {% for option in canonical_options %}
+  <option value="{{ option }}"
+    {% if (mapping.column_map.get(col) or "") == option %}selected{% endif %}>
+    {% if option %}{{ option }}{% else %}— drop —{% endif %}
+  </option>
+  {% endfor %}
+</select>

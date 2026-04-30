@@ -1,0 +1,476 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Edit {{ vehicle.display_name or vehicle.slug }} — Vehicle{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Edit vehicle{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Edit ' + (vehicle.display_name or vehicle.slug),
+     subtitle='Changes to slug or entity do not rewrite the ledger — manage that via the dedicated rewrite flow. Everything else takes effect immediately.',
+     kicker='Vehicle'
+) %}
+  {{ B.btn('View vehicle', href='/vehicles/' + vehicle.slug, icon=icon.arrowleft()) }}
+{% endcall %}
+
+<datalist id="entities-datalist">
+  {% for e in entities %}<option value="{{ e.slug }}" label="{{ e.display_name or e.slug }}">{% endfor %}
+</datalist>
+<datalist id="fuel-types-datalist">
+  <option value="gasoline">
+  <option value="diesel">
+  <option value="ev" label="EV (battery electric)">
+  <option value="phev" label="PHEV (plug-in hybrid)">
+  <option value="hybrid">
+  <option value="other">
+</datalist>
+<datalist id="status-datalist">
+  <option value="1" label="Active">
+  <option value="0" label="Sold / inactive">
+</datalist>
+
+{% call L.form_split() %}
+
+{% call L.form_col() %}
+<form method="post" action="/vehicles" autocomplete="off"
+      class="form-split-form--paired">
+  <input type="hidden" name="slug" value="{{ vehicle.slug }}" />
+
+  {% call C.card(title='Identity') %}
+    <div class="form-grid" style="max-width:none">
+      <div class="field">
+        <label class="field-label" for="v-display-name">Display name</label>
+        <input class="field-input" id="v-display-name" type="text" name="display_name"
+               value="{{ vehicle.display_name or '' }}" />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="v-entity">Entity (owner)</label>
+        {% if vehicle.entity_slug %}
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+            <code>{{ vehicle.entity_slug | entity }}</code>
+            <span class="subtle">(locked — change via the ownership-change flow below)</span>
+            <input type="hidden" name="entity_slug" value="{{ vehicle.entity_slug }}" />
+          </div>
+        {% else %}
+          <input class="field-input" id="v-entity" type="text" name="entity_slug"
+                 list="entities-datalist" required
+                 placeholder="— pick owning entity —" />
+        {% endif %}
+      </div>
+
+      <div class="form-row-2">
+        <div class="field">
+          <label class="field-label" for="v-year">Year</label>
+          <input class="field-input" id="v-year" type="number" name="year" value="{{ vehicle.year or '' }}" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="v-make">Make</label>
+          <input class="field-input" id="v-make" type="text" name="make" value="{{ vehicle.make or '' }}" />
+        </div>
+      </div>
+
+      <div class="form-row-2">
+        <div class="field">
+          <label class="field-label" for="v-model">Model</label>
+          <input class="field-input" id="v-model" type="text" name="model" value="{{ vehicle.model or '' }}" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="v-vin">VIN</label>
+          <input class="field-input" id="v-vin" type="text" name="vin" value="{{ vehicle.vin or '' }}" />
+        </div>
+      </div>
+
+      <div class="form-row-2">
+        <div class="field">
+          <label class="field-label" for="v-plate">License plate</label>
+          <input class="field-input" id="v-plate" type="text" name="license_plate" value="{{ vehicle.license_plate or '' }}" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="v-mileage">Current mileage</label>
+          <input class="field-input" id="v-mileage" type="number" name="current_mileage" value="{{ vehicle.current_mileage or '' }}" />
+        </div>
+      </div>
+    </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Identity</h3>
+    <p><strong>Display name</strong> is what shows in pickers, dashboard rows, and reports — typically year + make + model. Leave blank to fall back on the slug.</p>
+    {% if not vehicle.entity_slug %}
+    <p><strong>Entity</strong> is locked once set. Changing the entity on a vehicle with history requires either a rename (misattribution fix) or disposal + re-acquisition (real ownership transfer).</p>
+    {% endif %}
+    <p><strong>VIN + plate</strong> are optional but useful: insurance and DMV lookups join on VIN, mileage rollups join on plate when matched against parking citations or toll records.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Purchase') %}
+    <div class="form-grid" style="max-width:none">
+      <div class="form-row-2">
+        <div class="field">
+          <label class="field-label" for="v-purchase-date">Purchase date</label>
+          <input class="field-input" id="v-purchase-date" type="date" name="purchase_date" value="{{ vehicle.purchase_date or '' }}" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="v-purchase-price">Purchase price</label>
+          <input class="field-input" id="v-purchase-price" type="text" name="purchase_price" value="{{ vehicle.purchase_price or '' }}" />
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="v-purchase-fees">Title / tag / doc fees</label>
+        <input class="field-input" id="v-purchase-fees" type="text" name="purchase_fees" value="{{ vehicle.purchase_fees or '' }}" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="v-asset-path">Asset account path</label>
+        <input class="field-input" id="v-asset-path" type="text" name="asset_account_path"
+               value="{{ vehicle.asset_account_path or '' }}"
+               list="accounts-datalist"
+               placeholder="Assets:{Entity}:Vehicles:{{ vehicle.slug }}" />
+      </div>
+    </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Purchase</h3>
+    <p><strong>Purchase price</strong> + <strong>title/tag/doc fees</strong> together form the basis at acquisition. Fees fold into the depreciable basis (you don’t expense them in the year of purchase).</p>
+    <p><strong>Asset account path</strong> is the book-value account where the vehicle’s capitalized cost sits. Leave blank and we’ll keep the current path; the placeholder shows the standard scaffold.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Depreciation identity') %}
+    <p class="subtle" style="margin-top:0">
+      Optional. Form 4562 asks about these — we capture them so the worksheet can
+      pre-fill. We do <em>not</em> determine §179 eligibility or compute
+      depreciation. See
+      <a href="https://www.irs.gov/publications/p463" target="_blank" rel="noopener">IRS Pub 463</a>
+      and
+      <a href="https://www.irs.gov/forms-pubs/about-form-4562" target="_blank" rel="noopener">Form 4562</a>
+      for rules.
+    </p>
+    <div class="form-grid" style="max-width:none">
+      <div class="form-row-2">
+        <div class="field">
+          <label class="field-label" for="v-gvwr">GVWR (lb)</label>
+          <input class="field-input" id="v-gvwr" type="number" name="gvwr_lbs"
+                 value="{{ vehicle.gvwr_lbs or '' }}" placeholder="e.g. 6800" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="v-pis">Placed in service</label>
+          <input class="field-input" id="v-pis" type="date" name="placed_in_service_date"
+                 value="{{ vehicle.placed_in_service_date or '' }}" />
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="v-fuel">Fuel type</label>
+        <input class="field-input" id="v-fuel" type="text" name="fuel_type"
+               list="fuel-types-datalist" value="{{ vehicle.fuel_type or '' }}" />
+      </div>
+    </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block tone-warn">
+    <h3>Depreciation identity</h3>
+    <p><strong>GVWR &gt; 6,000 lb</strong> is one of the gates that lifts §280F luxury-auto caps. We don’t evaluate eligibility here — we just record what your CPA needs.</p>
+    <p><strong>Placed in service</strong> may differ from purchase date: a vehicle bought in December and first used for business in January is placed in service in January.</p>
+    <p><strong>Fuel type</strong> drives a couple of credit eligibility flags downstream (EV/PHEV credits) and helps the AI classifier route fuel receipts.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Sale / status') %}
+    <div class="form-grid" style="max-width:none">
+      <div class="form-row-2">
+        <div class="field">
+          <label class="field-label" for="v-sale-date">Sale date</label>
+          <input class="field-input" id="v-sale-date" type="date" name="sale_date" value="{{ vehicle.sale_date or '' }}" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="v-sale-price">Sale price</label>
+          <input class="field-input" id="v-sale-price" type="text" name="sale_price" value="{{ vehicle.sale_price or '' }}" />
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="v-status">Status</label>
+        <input class="field-input" id="v-status" type="text" name="is_active"
+               list="status-datalist" value="{{ '1' if vehicle.is_active else '0' }}" />
+      </div>
+    </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block tone-err">
+    <h3>Sale / status</h3>
+    <p>Setting a sale date + sale price triggers the disposition worksheet — the difference between sale price and adjusted basis becomes a §1231 gain or loss.</p>
+    <p>For a real-world disposal, prefer the dedicated <a href="/vehicles/{{ vehicle.slug }}/dispose">disposal flow</a> over editing these fields directly — it walks through the full close-out (escrow, final tag refund, depreciation recapture).</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Notes') %}
+    <div class="field">
+      <textarea class="field-textarea" name="notes" rows="3">{{ vehicle.notes or '' }}</textarea>
+    </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Notes</h3>
+    <p>Free-form context for your future self — quirks, recall history, links to maintenance records. Surfaced on the vehicle detail page.</p>
+  </div>
+  {% endcall %}
+
+  <div class="form-actions" style="margin-top:1.5rem">
+    {{ B.btn('Cancel', href='/vehicles/' + vehicle.slug, variant='ghost') }}
+    <span class="spacer"></span>
+    {{ B.btn('Save', type='submit', variant='primary') }}
+  </div>
+</form>
+{% endcall %}
+
+{% call L.help_col() %}{% endcall %}
+
+{% endcall %}
+
+{% if vehicle.entity_slug %}
+<div style="margin-top:2rem">
+  {% call F.banner(tone='warn', title='Change ownership') %}
+    This vehicle is currently owned by <code>{{ vehicle.entity_slug | entity }}</code>.
+    Re-binding the entity field isn't a simple edit — the implications depend
+    on whether this is a data-entry correction or a real-world ownership
+    transfer.
+    <div style="margin-top:0.75rem">
+      {{ B.btn('Start ownership-change flow →', href='/vehicles/' + vehicle.slug + '/change-ownership') }}
+    </div>
+  {% endcall %}
+</div>
+{% endif %}
+
+{# ─── Tax elections ─── #}
+<section id="elections" style="margin-top:2.25rem">
+{% call L.section(title='Tax elections — §179 / bonus / MACRS') %}
+  <p class="subtle" style="margin-top:0">
+    One row per tax year. Capture only — we store what you (or your CPA) enter
+    and surface it in the Form 4562 worksheet.
+    <strong>We do not compute §179 eligibility, luxury-auto caps, or recapture.</strong>
+    See <a href="https://www.irs.gov/forms-pubs/about-form-4562" target="_blank" rel="noopener">IRS Form 4562</a>.
+  </p>
+
+  {% if elections %}
+  {% call C.card(flush=true) %}
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>Year</th>
+        <th>Method</th>
+        <th class="num">§179</th>
+        <th class="num">Bonus</th>
+        <th class="num">Basis</th>
+        <th class="num">Biz-use %</th>
+        <th>Listed?</th>
+        <th class="shrink"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for el in elections %}
+      <tr>
+        <td>{{ el.tax_year }}</td>
+        <td>{{ el.depreciation_method or '—' }}</td>
+        <td class="num">{{ el.section_179_amount or '—' }}</td>
+        <td class="num">{{ el.bonus_depreciation_amount or '—' }}</td>
+        <td class="num">{{ el.basis_at_placed_in_service or '—' }}</td>
+        <td class="num">{{ '%.0f%%'|format(el.business_use_pct_override * 100) if el.business_use_pct_override is not none else '—' }}</td>
+        <td>{{ 'yes' if el.listed_property_qualified == 1 else ('no' if el.listed_property_qualified == 0 else '—') }}</td>
+        <td class="shrink">
+          <form method="post" action="/vehicles/{{ vehicle.slug }}/elections/{{ el.tax_year }}/delete"
+                data-confirm="Delete the {{ el.tax_year }} tax election? Schedule C / Form 4562 calculations for {{ el.tax_year }} fall back to defaults."
+                data-confirm-button="Delete election">
+            {{ B.btn('Delete', type='submit', variant='ghost', size='sm') }}
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endcall %}
+  {% endif %}
+
+  {% call C.card(title='Add or update election') %}
+  <form method="post" action="/vehicles/{{ vehicle.slug }}/elections" class="form-grid" autocomplete="off" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label">Tax year</label>
+        <input class="field-input" type="number" name="tax_year" required />
+      </div>
+      <div class="field">
+        <label class="field-label">Depreciation method</label>
+        <input class="field-input" type="text" name="depreciation_method" list="dep-method-datalist" />
+        <datalist id="dep-method-datalist">
+          <option value="MACRS-5YR" label="MACRS 5-year">
+          <option value="MACRS-SL" label="MACRS straight-line">
+          <option value="bonus" label="Bonus depreciation">
+          <option value="section-179" label="§179 deduction">
+        </datalist>
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label">§179 amount</label>
+        <input class="field-input" type="text" name="section_179_amount" placeholder="e.g. 12000" />
+      </div>
+      <div class="field">
+        <label class="field-label">Bonus depreciation</label>
+        <input class="field-input" type="text" name="bonus_depreciation_amount" placeholder="e.g. 5000" />
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label">Basis at placed-in-service</label>
+        <input class="field-input" type="text" name="basis_at_placed_in_service" />
+      </div>
+      <div class="field">
+        <label class="field-label">Business-use % override</label>
+        <input class="field-input" type="number" name="business_use_pct_override"
+               step="0.01" min="0" max="1" placeholder="0.65" />
+        <span class="field-hint">Decimal (0.65 = 65%). Leave blank to use the trip rollup.</span>
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">Listed property qualified?</label>
+      <input class="field-input" type="text" name="listed_property_qualified" list="yesno-datalist" />
+      <datalist id="yesno-datalist">
+        <option value="1" label="Yes">
+        <option value="0" label="No">
+      </datalist>
+      <span class="field-hint">
+        §280F listed-property rules apply to most passenger vehicles; heavier
+        trucks and some SUVs qualify for exceptions. Confirm with your tax
+        professional.
+      </span>
+    </div>
+    <div class="field">
+      <label class="field-label">Notes</label>
+      <textarea class="field-textarea" name="notes" rows="2"></textarea>
+    </div>
+    <div class="form-actions">
+      <span class="spacer"></span>
+      {{ B.btn('Save election', type='submit', variant='primary') }}
+    </div>
+  </form>
+  {% endcall %}
+{% endcall %}
+</section>
+
+{# ─── Schedule C Part IV ─── #}
+<section id="schedule-c" style="margin-top:2.25rem">
+{% call L.section(title='Schedule C Part IV — yearly totals') %}
+  <p class="subtle" style="margin-top:0">
+    Free-form yearly row for the Schedule C grid. Separate from the trip log
+    — fill these in at tax time from the rollup on the detail page if the
+    trip log is complete.
+  </p>
+
+  {% call C.card(title='Add or update year') %}
+  <form method="post" action="/vehicles/{{ vehicle.slug }}/mileage" class="form-grid" autocomplete="off" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label">Year</label>
+        <input class="field-input" type="number" name="year" required />
+      </div>
+      <div class="field">
+        <label class="field-label">Start odometer</label>
+        <input class="field-input" type="number" name="start_mileage" />
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label">End odometer</label>
+        <input class="field-input" type="number" name="end_mileage" />
+      </div>
+      <div class="field">
+        <label class="field-label">Business miles</label>
+        <input class="field-input" type="number" name="business_miles" />
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label">Commuting miles</label>
+        <input class="field-input" type="number" name="commuting_miles" />
+      </div>
+      <div class="field">
+        <label class="field-label">Personal miles</label>
+        <input class="field-input" type="number" name="personal_miles" />
+      </div>
+    </div>
+
+    <details style="margin-top:0.5rem">
+      <summary style="cursor:pointer; font-weight:500"><strong>Schedule C Part IV supplementary</strong> <span class="subtle">(optional — lines 44b–47b)</span></summary>
+      <p class="field-hint" style="margin-top:0.5rem">
+        Leave unanswered and the worksheet renders an empty checkbox for each —
+        hand-mark them at tax time.
+      </p>
+      <div class="form-grid" style="margin-top:0.75rem; max-width:none">
+        <div class="field">
+          <label class="field-label">Commute days <span class="subtle">(line 44b)</span></label>
+          <input class="field-input" type="number" name="commute_days" min="0" placeholder="e.g. 250" />
+        </div>
+        <div class="form-row-2">
+          <div class="field">
+            <label class="field-label">Line 45 — another vehicle for personal use?</label>
+            <input class="field-input" type="text" name="other_vehicle_available_personal" list="yesno-datalist" />
+          </div>
+          <div class="field">
+            <label class="field-label">Line 46 — available off-duty?</label>
+            <input class="field-input" type="text" name="vehicle_available_off_duty" list="yesno-datalist" />
+          </div>
+        </div>
+        <div class="form-row-2">
+          <div class="field">
+            <label class="field-label">Line 47a — do you have evidence?</label>
+            <input class="field-input" type="text" name="has_evidence" list="yesno-datalist" />
+          </div>
+          <div class="field">
+            <label class="field-label">Line 47b — is the evidence written?</label>
+            <input class="field-input" type="text" name="evidence_is_written" list="yesno-datalist" />
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <div class="form-actions">
+      <span class="spacer"></span>
+      {{ B.btn('Save year', type='submit', variant='primary') }}
+    </div>
+  </form>
+  {% endcall %}
+{% endcall %}
+</section>
+
+{# Shared accounts datalist for the asset_account_path field #}
+<datalist id="accounts-datalist"></datalist>
+<script>
+  fetch('/api/accounts', {credentials:'same-origin'})
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      if (!d || !Array.isArray(d.all)) return;
+      const dl = document.getElementById('accounts-datalist');
+      const labels = (d.labels && typeof d.labels === 'object') ? d.labels : {};
+      for (const n of d.all) {
+        const o = document.createElement('option');
+        o.value = n;
+        if (labels[n] && labels[n] !== n) o.label = labels[n];
+        dl.appendChild(o);
+      }
+    })
+    .catch(() => undefined);
+</script>
+{% endblock %}

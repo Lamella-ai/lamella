@@ -1,0 +1,518 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Inbox — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Inbox{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Inbox',
+     subtitle='Pending rows from SimpleFIN, CSV imports, pasted text, and reboot scans. Classify here and the row is written straight into its source ledger file with the target account you pick.',
+     kicker='Triage'
+) %}
+  {# ADR-0058 — multi-source-observation queue. The button always
+     renders so the user has a discoverable jump even when the count
+     is zero (in which case the page itself reads "No multi-source
+     observations to review"). When duplicates_count > 0, the count
+     badge nudges that there's work waiting. #}
+  <a class="btn btn-secondary" href="/inbox/duplicates"
+     title="Cross-source dedup queue (ADR-0058)">
+    Duplicates{% if duplicates_count and duplicates_count > 0 %}
+      <span class="rsg-pill-count" style="margin-left:0.4rem;">{{ duplicates_count }}</span>
+    {% endif %}
+  </a>
+{% endcall %}
+
+{# The accounts-datalist must live OUTSIDE the swappable #staged-list
+   region — otherwise the partial's HTMX swap drops in an empty
+   datalist that clobbers the populated one, killing autocomplete
+   until the next full-page reload. #}
+<datalist id="accounts-datalist"></datalist>
+
+{# The swappable region. On HX-Request the route returns just this
+   partial so HTMX's outerHTML swap replaces #staged-list cleanly —
+   no shim hx-select dependency, no whole-page nesting. The first-
+   render full-page request includes the partial here to get the
+   same markup. #}
+{% include "partials/_staged_list.html" %}
+
+
+<script>
+  fetch('/api/accounts', { credentials: 'same-origin' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      if (!d || !Array.isArray(d.all)) return;
+      const dl = document.getElementById('accounts-datalist');
+      if (!dl) return;
+      const labels = d.labels || {};
+      for (const name of d.all) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        if (labels[name] && labels[name] !== name) {
+          opt.label = labels[name];
+          opt.textContent = labels[name];
+        }
+        dl.appendChild(opt);
+      }
+    })
+    .catch(() => undefined);
+
+  /* Group-replace height preservation — when a classify swap
+     replaces a 200px-tall group with a 75px confirmation, capture
+     the source height before swap and apply it as min-height on
+     the replacement. Then transition min-height down to 0 so the
+     gap collapses smoothly instead of jumping. Items below the
+     group stay still during the click; the user can keep clicking
+     down the page without buttons jumping out from under the
+     cursor (per ADR-0036 / ADR-0037 — every action acks within
+     100ms, no layout shift).
+
+     Earlier attempt stashed offsetHeight on target.dataset on
+     beforeSwap and read it on afterSwap — but ``target`` on
+     beforeSwap is the OLD element being replaced, so by afterSwap
+     that DOM node (and its dataset) is gone. We now use a Map
+     keyed by the request's xhr object, which the event detail
+     shares between both events. */
+  const __rsgHeights = new WeakMap();
+  document.addEventListener('htmx:beforeSwap', function (ev) {
+    const target = ev.detail.target;
+    if (!target || !target.classList) return;
+    if (!target.classList.contains('rsg-group')) return;
+    const xhr = ev.detail.xhr;
+    if (!xhr) return;
+    __rsgHeights.set(xhr, target.offsetHeight);
+  });
+  document.addEventListener('htmx:afterSwap', function (ev) {
+    const newEl = ev.detail.target;
+    if (!newEl || !newEl.classList) return;
+    if (!newEl.classList.contains('rsg-group')) return;
+    const xhr = ev.detail.xhr;
+    const preH = xhr ? __rsgHeights.get(xhr) : 0;
+    if (xhr) __rsgHeights.delete(xhr);
+    if (!preH || newEl.offsetHeight >= preH) return;
+    newEl.style.minHeight = preH + 'px';
+    newEl.style.transition = 'min-height 280ms ease-out';
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        newEl.style.minHeight = '0px';
+      });
+    });
+    setTimeout(function () {
+      newEl.style.minHeight = '';
+      newEl.style.transition = '';
+    }, 320);
+  });
+
+  /* In-place handler for the AI Ask modal's Accept / Manual buttons.
+     The modal partial dispatches `lamella:txn-classified` on success
+     and falls back to window.location.reload() only if no listener
+     calls preventDefault(). On /review we want to refresh just the
+     #staged-list, not the whole page — so we preventDefault and
+     issue an HTMX GET against /review (preserving the current source
+     filter, sort, and page params from the URL) and swap #staged-list
+     in place. Backwards-compatible: pages without this listener
+     still get the safe full reload from the modal partial. */
+  window.addEventListener('lamella:txn-classified', function (ev) {
+    var stagedList = document.getElementById('staged-list');
+    if (!stagedList) return;  /* Not on /review — let the reload fire. */
+    ev.preventDefault();
+    if (window.htmx) {
+      /* Re-fetch the same /review URL the user is on so server-side
+         filter/sort/page state stays consistent. The server detects
+         HX-Request and returns the partial template. */
+      window.htmx.ajax('GET', window.location.pathname + window.location.search, {
+        target: '#staged-list', swap: 'outerHTML',
+      });
+    } else {
+      /* htmx not yet loaded — fall back to reload as a safety net. */
+      window.location.reload();
+    }
+  });
+</script>
+
+<style>
+  /* Staging review (rsg) — page-local styles. Keeps the design system
+     intact; this just composes its tokens for the queue layout. */
+
+  /* Filter bar — count + segmented source pills. */
+  .rsg-filterbar {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 0.85rem 1rem;
+    margin-bottom: 1rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    flex-wrap: wrap;
+  }
+  .rsg-filterbar-stat {
+    display: flex; align-items: baseline; gap: 0.4rem;
+    padding-right: 1.25rem;
+    border-right: 1px solid var(--border);
+  }
+  .rsg-filterbar-stat-num {
+    font-size: 1.6rem; font-weight: 700; line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .rsg-filterbar-stat-label {
+    font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .rsg-filterbar-pills {
+    display: flex; gap: 0.4rem; flex-wrap: wrap; flex: 1 1 auto;
+  }
+  .rsg-pill {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    padding: 0.4rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.85rem;
+    color: var(--fg);
+    background: transparent;
+    transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+  }
+  .rsg-pill:hover { background: var(--bg-elev); }
+  .rsg-pill.is-active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-fg);
+  }
+  .rsg-pill-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--muted);
+  }
+  .rsg-pill-dot--simplefin { background: #4f46e5; }
+  .rsg-pill-dot--csv       { background: #0891b2; }
+  .rsg-pill-dot--paste     { background: #d97706; }
+  .rsg-pill-dot--reboot    { background: #7c3aed; }
+  .rsg-pill-label { text-transform: capitalize; font-weight: 500; }
+  .rsg-pill-count {
+    font-size: 0.78rem;
+    padding: 0.06rem 0.45rem;
+    background: var(--bg-elev);
+    color: var(--muted);
+    border-radius: 999px;
+  }
+  .rsg-pill.is-active .rsg-pill-count {
+    background: rgba(255,255,255,0.18);
+    color: var(--accent-fg);
+  }
+  .rsg-filterbar-stat-sep { color: var(--muted); margin: 0 0.15rem; }
+  .rsg-filterbar-stat-sub {
+    font-size: 0.82rem; color: var(--muted);
+  }
+
+  /* Right-side tools: hide-transfers toggle + sort segmented control. */
+  .rsg-filterbar-tools {
+    display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;
+    margin-left: auto;
+  }
+  .rsg-toggle {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.35rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.82rem;
+    color: var(--muted);
+    background: transparent;
+    transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  }
+  .rsg-toggle:hover { background: var(--bg-elev); color: var(--fg); }
+  .rsg-toggle.is-active {
+    background: var(--warn);
+    border-color: var(--warn);
+    color: #fff;
+  }
+  .rsg-toggle.is-active:hover { filter: brightness(0.93); }
+  .rsg-toggle-count {
+    font-size: 0.72rem;
+    padding: 0.05rem 0.4rem;
+    background: var(--bg-elev);
+    color: var(--muted);
+    border-radius: 999px;
+    line-height: 1.4;
+  }
+  .rsg-toggle.is-active .rsg-toggle-count {
+    background: rgba(255,255,255,0.22);
+    color: #fff;
+  }
+  .rsg-sort {
+    display: inline-flex; align-items: center; gap: 0.2rem;
+    padding: 0.2rem;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .rsg-sort-label {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--muted); padding: 0 0.45rem;
+  }
+  .rsg-sort-opt {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.82rem; color: var(--muted);
+    border-radius: 5px;
+    transition: background 120ms ease, color 120ms ease;
+  }
+  .rsg-sort-opt:hover { color: var(--fg); }
+  .rsg-sort-opt.is-active {
+    background: var(--panel);
+    color: var(--fg);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  }
+
+  /* Paginator. */
+  .rsg-pager {
+    display: flex; align-items: center; justify-content: center; gap: 0.85rem;
+    margin-top: 1.25rem;
+    padding: 0.7rem 1rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .rsg-pager-btn {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: var(--fg);
+    text-decoration: none;
+    transition: background 120ms ease, border-color 120ms ease;
+  }
+  .rsg-pager-btn:hover { background: var(--bg-elev); border-color: var(--accent); }
+  .rsg-pager-btn.is-disabled {
+    color: var(--muted); cursor: not-allowed; opacity: 0.55;
+    pointer-events: none;
+  }
+  .rsg-pager-stat {
+    font-size: 0.85rem; color: var(--muted);
+  }
+  .rsg-pager-stat strong { color: var(--fg); font-weight: 600; }
+  .rsg-pager-stat-sep { color: var(--border); margin: 0 0.4rem; }
+
+  /* Group container. */
+  .rsg-groups { display: flex; flex-direction: column; gap: 1rem; }
+  .rsg-group {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  /* Group header. */
+  .rsg-group-head {
+    display: flex; gap: 1rem; align-items: center; justify-content: space-between;
+    padding: 0.85rem 1.1rem;
+    background: var(--bg-elev);
+    border-bottom: 1px solid var(--border);
+  }
+  .rsg-group-head-main {
+    display: flex; align-items: center; gap: 0.85rem; min-width: 0; flex: 1 1 auto;
+  }
+  .rsg-group-count {
+    flex: 0 0 auto;
+    display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+    min-width: 3rem; padding: 0.35rem 0.5rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    line-height: 1;
+  }
+  .rsg-group-count .num { font-size: 1.15rem; font-weight: 700; }
+  .rsg-group-count-label {
+    font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--muted); margin-top: 2px;
+  }
+  .rsg-group-titleblock { min-width: 0; flex: 1 1 auto; }
+  .rsg-group-title {
+    margin: 0; font-size: 1.02rem; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .rsg-group-meta {
+    display: flex; flex-wrap: wrap; gap: 0.55rem 0.9rem;
+    margin-top: 4px;
+    font-size: 0.82rem; color: var(--muted);
+  }
+  .rsg-group-meta-item { display: inline-flex; align-items: center; gap: 0.25rem; }
+  .rsg-group-meta-item strong { color: var(--fg); font-weight: 500; }
+  .rsg-group-head-totals {
+    flex: 0 0 auto; text-align: right;
+  }
+  .rsg-group-head-total-label {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .rsg-group-head-total-value {
+    font-size: 1.1rem; font-weight: 600; margin-top: 2px;
+  }
+
+  /* Bulk-apply form. */
+  .rsg-bulk {
+    margin: 0; padding: 0.7rem 1.1rem;
+    background: var(--bg-elev);
+    border-bottom: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  .rsg-bulk-head {
+    display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap;
+  }
+  .rsg-bulk-checkall {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-size: 0.85rem; font-weight: 500; cursor: pointer;
+  }
+  .rsg-bulk-hint {
+    font-size: 0.78rem; color: var(--muted); flex: 1 1 22rem;
+  }
+  .rsg-bulk-action {
+    display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;
+  }
+  .rsg-bulk-input { flex: 1 1 22rem; min-width: 18rem; }
+
+  /* Rows. */
+  .rsg-rows { list-style: none; margin: 0; padding: 0; }
+  .rsg-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 22rem);
+    gap: 1rem;
+    padding: 0.95rem 1.1rem;
+    border-top: 1px solid var(--border);
+    align-items: start;
+  }
+  .rsg-row:first-child { border-top: 0; }
+  .rsg-row-pick {
+    grid-column: 1 / -1;
+    margin-top: -0.4rem;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-size: 0.78rem; color: var(--muted);
+  }
+  /* Row fact + tags now use Txn.summary / Txn.context_tags / Txn.proposed
+     molecules — all the .rsg-row-{fact-line,date,amount,payee,narration,
+     tag,tags,link,proposed} classes that lived here got pruned. The
+     row layout below references only the wrapper classes still in use. */
+  .rsg-row-fact { min-width: 0; }
+  .rsg-row-tags { margin-top: 0.45rem; }
+
+  /* Transfer hint band — flagged when the narration mentions
+     "transfer" and no pair was found. */
+  .rsg-row-transfer-hint {
+    margin-top: 0.6rem;
+    padding: 0.55rem 0.7rem;
+    background: linear-gradient(180deg, rgba(180,83,9,0.07), transparent);
+    border: 1px solid rgba(180,83,9,0.22);
+    border-left: 3px solid var(--warn);
+    border-radius: 4px;
+  }
+  .rsg-row-transfer-hint-head {
+    display: flex; align-items: center; gap: 0.4rem;
+    font-size: 0.82rem;
+    color: var(--warn);
+    font-weight: 600;
+  }
+  .rsg-row-transfer-hint-head strong { color: var(--fg); }
+  .rsg-row-transfer-hint-msg {
+    margin: 0.3rem 0 0;
+    font-size: 0.82rem; color: var(--muted);
+    line-height: 1.45;
+  }
+  .rsg-row-transfer-hint-msg code {
+    background: var(--bg-elev); padding: 0 0.3rem; border-radius: 3px;
+    font-size: 0.78rem;
+  }
+  /* Subtle row tint when transfer-flagged, so the row stands out
+     in a long queue without screaming. */
+  .rsg-row--transfer-hint { background: rgba(180,83,9,0.025); }
+
+  /* Row actions column. */
+  .rsg-row-actions {
+    display: flex; flex-direction: column; gap: 0.5rem; min-width: 0;
+  }
+  .rsg-action-accept { margin: 0; }
+  .rsg-accept-btn {
+    width: 100%;
+    display: inline-flex; align-items: center; justify-content: flex-start;
+    gap: 0.45rem;
+    text-align: left;
+  }
+  .rsg-accept-target {
+    font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    flex: 1 1 auto;
+  }
+  .rsg-action-classify {
+    margin: 0;
+    display: flex; gap: 0.4rem; align-items: center;
+  }
+  .rsg-classify-input { flex: 1 1 auto; min-width: 0; }
+  .rsg-action-disclosure { margin: 0; }
+  .rsg-action-disclosure summary {
+    cursor: pointer;
+    font-size: 0.82rem; color: var(--fg);
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel);
+    width: fit-content;
+    transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+    list-style: none;
+  }
+  .rsg-action-disclosure summary::-webkit-details-marker { display: none; }
+  .rsg-action-disclosure summary::marker { content: ""; }
+  .rsg-action-disclosure summary:hover {
+    background: var(--bg-elev);
+    border-color: var(--accent);
+    color: var(--fg);
+  }
+  .rsg-action-disclosure[open] summary {
+    background: var(--bg-elev);
+    border-color: var(--accent);
+    color: var(--fg);
+  }
+  .rsg-action-disclosure--danger summary { color: var(--err); }
+  .rsg-action-disclosure--danger summary:hover {
+    background: rgba(185, 28, 28, 0.08);
+    border-color: var(--err);
+  }
+  .rsg-action-disclosure--danger[open] summary {
+    background: rgba(185, 28, 28, 0.08);
+    border-color: var(--err);
+  }
+  .rsg-action-disclosure form {
+    margin: 0.4rem 0 0;
+    display: flex; flex-direction: column; gap: 0.4rem;
+  }
+  .rsg-action-foot {
+    margin: 0; font-size: 0.78rem; color: var(--muted);
+  }
+
+  /* HTMX swap fade — gives the in-place update a soft hand-off. */
+  #staged-list.htmx-swapping { opacity: 0.55; transition: opacity 100ms ease; }
+  #staged-list.htmx-settling { opacity: 1; transition: opacity 180ms ease; }
+
+  /* Compact layout below ~880px. */
+  @media (max-width: 880px) {
+    .rsg-row {
+      grid-template-columns: 1fr;
+    }
+    .rsg-group-head {
+      flex-direction: column; align-items: flex-start; gap: 0.6rem;
+    }
+    .rsg-group-head-totals { text-align: left; }
+  }
+</style>
+{% endblock %}

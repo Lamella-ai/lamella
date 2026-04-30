@@ -1,0 +1,15 @@
+{
+  "id": "gen-test-match-good",
+  "model": "anthropic/claude-haiku-4.5",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"best_match\": \"HASH_PLACEHOLDER\", \"confidence\": 0.93, \"reasoning\": \"Amount and card last-4 uniquely identify this txn.\", \"alternate_date_hypothesis\": null}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {"prompt_tokens": 260, "completion_tokens": 32, "total_tokens": 292}
+}

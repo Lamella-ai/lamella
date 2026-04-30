@@ -1,0 +1,74 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# ===========================================================
+   Feedback macros — banners, alerts, empty states.
+
+   Use:
+     {% import "_components/feedback.html" as F %}
+
+     {% call F.banner(tone='warn', title='Ledger has parse warnings') %}
+       <ul>...</ul>
+     {% endcall %}
+
+     {{ F.empty_state('No budgets yet', 'Set one up →', '/budgets') }}
+
+   Macros:
+     banner(tone='info', title='', dismissible=false)  — info / warn / err / ok
+     empty_state(message, cta_text='', cta_href='')    — centered "nothing here" pattern
+     loading(message='Working…')                       — spinner + text
+   =========================================================== #}
+
+{%- macro banner(tone='info', title='', dismissible=false) -%}
+<div class="banner banner--{{ tone }}" role="alert">
+  <div class="banner-body">
+    {% if title %}<div class="banner-title">{{ title }}</div>{% endif %}
+    <div class="banner-content">{{ caller() }}</div>
+  </div>
+  {% if dismissible %}<button class="banner-dismiss" type="button" aria-label="Dismiss" onclick="this.closest('.banner').remove()">×</button>{% endif %}
+</div>
+{%- endmacro -%}
+
+{%- macro empty_state(message, cta_text='', cta_href='', icon='') -%}
+<div class="empty-state">
+  {% if icon %}<div class="empty-state-icon">{{ icon }}</div>{% endif %}
+  <p class="empty-state-msg">{{ message }}</p>
+  {% if cta_text and cta_href %}
+  <a class="empty-state-cta" href="{{ cta_href }}">{{ cta_text }} →</a>
+  {% endif %}
+</div>
+{%- endmacro -%}
+
+{%- macro loading(message='Working…') -%}
+<div class="loading-panel">
+  <div class="loading-spinner" aria-hidden="true"></div>
+  <p class="loading-msg">{{ message }}</p>
+</div>
+{%- endmacro -%}
+
+{#
+   toast(message, kind='info', duration_ms=3000)
+   -----------------------------------------------
+   Renders a single .toast element ready to be injected into #toast-area.
+   Intended for use as an HTMX out-of-band swap so a route partial can
+   surface a toast without a full-page reload:
+
+     {% import "_components/feedback.html" as feedback %}
+     {{ feedback.toast('Saved.', kind='ok') }}
+
+   The wrapping <div hx-swap-oob> is included here so the caller does
+   not need to remember the OOB syntax.  The armToast MutationObserver
+   in base.html picks up the new child and auto-dismisses it after ~3s.
+
+   kind: info | ok | warn | err
+#}
+{%- macro toast(message, kind='info', duration_ms=3000) -%}
+<div hx-swap-oob="beforeend:#toast-area">
+  <div class="toast toast--{{ kind }}" role="status" aria-live="polite">{{ message | e }}</div>
+</div>
+{%- endmacro -%}

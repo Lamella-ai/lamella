@@ -1,0 +1,48 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Pill-shaped step indicator with rails between pills. Used by
+   every setup-isolated multi-step layout (wizard, recovery).
+
+   Required context vars (read directly from caller's context;
+   wizard/recovery layouts already set these for the page):
+     step_meta    — list of {id, label, url} for each step
+     current_step — id of the active step
+     step_index   — 0-based index of the active step
+
+   Required arg (passed via include's `with` clause):
+     aria_label   — accessible label for the nav landmark, e.g.
+                    "Setup progress" or "Recovery progress" #}
+<nav class="wiz-steps" aria-label="{{ aria_label }}" role="list">
+  {% for step in step_meta %}
+    {% set idx = loop.index0 %}
+    {% set is_current = step.id == current_step %}
+    {% set is_done = idx < step_index %}
+    {% if not loop.first %}<div class="wiz-step-rail" aria-hidden="true"></div>{% endif %}
+    {% if is_done %}
+      <a class="wiz-step is-done" href="{{ step.url }}" role="listitem">
+        <span class="wiz-step-num" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </span>
+        <span class="wiz-step-label">{{ step.label }}</span>
+      </a>
+    {% elif is_current %}
+      <span class="wiz-step is-current" role="listitem" aria-current="step">
+        <span class="wiz-step-num" aria-hidden="true">{{ idx + 1 }}</span>
+        <span class="wiz-step-label">{{ step.label }}</span>
+      </span>
+    {% else %}
+      <span class="wiz-step" role="listitem">
+        <span class="wiz-step-num" aria-hidden="true">{{ idx + 1 }}</span>
+        <span class="wiz-step-label">{{ step.label }}</span>
+      </span>
+    {% endif %}
+  {% endfor %}
+</nav>

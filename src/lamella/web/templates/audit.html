@@ -1,0 +1,257 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Classification audit — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Classification audit{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Classification audit',
+     subtitle='Non-destructive disagreement surfacing. The AI re-classifies a sample of already-resolved txns using current context (entity descriptions, active notes, receipt content, mileage, vector history). Cases where the AI’s answer differs from the ledger’s current account surface below for you to accept or dismiss. Nothing changes until you click.'
+) %}
+{% endcall %}
+
+{% if last_run and last_run.finished_at %}
+{% call F.banner(tone=('warn' if last_run.disagreements > 0 else 'ok'), title='Run #' ~ last_run.id ~ ' finished') %}
+Sampled <strong>{{ last_run.sampled }}</strong> · classified <strong>{{ last_run.classified }}</strong> · found
+<strong>{{ last_run.disagreements }}</strong> disagreement{{ '' if last_run.disagreements == 1 else 's' }}{% if last_run.errors %} · {{ last_run.errors }} error{{ '' if last_run.errors == 1 else 's' }}{% endif %}.
+{% if last_run.disagreements == 0 and last_run.classified > 0 %}
+The AI agreed with the ledger on every sampled txn — current classifications held up under scrutiny.
+{% elif last_run.disagreements > 0 %}
+Review the {{ last_run.disagreements }} surfaced below.
+{% endif %}
+{% if last_run.notes %}<br><span class="subtle">{{ last_run.notes }}</span>{% endif %}
+{% endcall %}
+{% endif %}
+
+{% call C.kpi_grid() %}
+  {{ C.kpi_tile(label='Open disagreements', value=totals.open, tone=('warn' if totals.open else '')) }}
+  {{ C.kpi_tile(label='Accepted (lifetime)', value=totals.accepted, tone='ok') }}
+  {{ C.kpi_tile(label='Dismissed (silenced)', value=totals.dismissed) }}
+  {{ C.kpi_tile(label='Synthetic legs replaceable', value=synthetic.total, tone=('warn' if synthetic.total else '')) }}
+{% endcall %}
+
+{% if synthetic.replaceable or synthetic.confirmed %}
+{% call L.section(title='Synthetic counterpart legs', subtitle='ADR-0046 — Lamella-authored transfer legs. Promote a replaceable leg to confirmed when you\'ve verified it manually (matcher will stop trying to auto-replace it). Demote a confirmed leg back to replaceable if you promoted prematurely.') %}
+
+{% if synthetic.replaceable %}
+{% call C.card(title='Replaceable — auto-replace on real-row arrival', flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th class="num">Amount</th>
+      <th>Account</th>
+      <th>Payee</th>
+      <th style="text-align:right">Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for leg in synthetic.replaceable %}
+    <tr>
+      <td><time datetime="{{ leg.date }}">{{ leg.date }}</time></td>
+      <td class="num">{% if leg.amount is not none %}{{ D.money(leg.amount, currency=leg.currency, signed=true) }}{% else %}—{% endif %}</td>
+      <td><code>{{ leg.posting_account | alias }}</code></td>
+      <td>
+        {% if leg.lamella_txn_id %}
+          <a href="/txn/{{ leg.lamella_txn_id }}" class="txn-row-link">{{ leg.payee or leg.narration or '(no label)' }}</a>
+        {% else %}
+          <span>{{ leg.payee or leg.narration or '(no label)' }}</span>
+        {% endif %}
+      </td>
+      <td style="text-align:right">
+        {% if leg.lamella_txn_id %}
+        <form method="post"
+              action="/audit/synthetic/{{ leg.lamella_txn_id }}/promote"
+              hx-post="/audit/synthetic/{{ leg.lamella_txn_id }}/promote"
+              hx-swap="none"
+              style="display:inline">
+          <input type="hidden" name="posting_account" value="{{ leg.posting_account }}">
+          <button type="submit" class="btn btn-primary btn-sm" title="Mark this synthetic leg as confirmed; matcher will leave it alone">
+            Promote
+          </button>
+        </form>
+        {% else %}
+        <span class="subtle" title="Synthetic leg pre-dates lamella-txn-id minting; promote via the txn detail page if needed.">no id</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endif %}
+
+{% if synthetic.confirmed %}
+{% call C.card(title='Confirmed — matcher leaves these alone', flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th class="num">Amount</th>
+      <th>Account</th>
+      <th>Payee</th>
+      <th style="text-align:right">Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for leg in synthetic.confirmed %}
+    <tr>
+      <td><time datetime="{{ leg.date }}">{{ leg.date }}</time></td>
+      <td class="num">{% if leg.amount is not none %}{{ D.money(leg.amount, currency=leg.currency, signed=true) }}{% else %}—{% endif %}</td>
+      <td><code>{{ leg.posting_account | alias }}</code></td>
+      <td>
+        {% if leg.lamella_txn_id %}
+          <a href="/txn/{{ leg.lamella_txn_id }}" class="txn-row-link">{{ leg.payee or leg.narration or '(no label)' }}</a>
+        {% else %}
+          <span>{{ leg.payee or leg.narration or '(no label)' }}</span>
+        {% endif %}
+      </td>
+      <td style="text-align:right">
+        {% if leg.lamella_txn_id %}
+        <form method="post"
+              action="/audit/synthetic/{{ leg.lamella_txn_id }}/demote"
+              hx-post="/audit/synthetic/{{ leg.lamella_txn_id }}/demote"
+              hx-swap="none"
+              style="display:inline">
+          <input type="hidden" name="posting_account" value="{{ leg.posting_account }}">
+          <button type="submit" class="btn btn-ghost btn-sm" title="Demote back to replaceable; matcher will resume auto-replace on real-row arrival">
+            Demote
+          </button>
+        </form>
+        {% else %}
+        <span class="subtle">no id</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endif %}
+
+{% endcall %}
+{% endif %}
+
+<datalist id="audit-mode-datalist">
+  <option value="random" label="Random">
+  <option value="recent" label="Recent first">
+  <option value="high_dollar" label="High-dollar first">
+</datalist>
+
+{% call C.card(title='Run a new audit pass') %}
+<form hx-post="/audit/run" hx-target="body" hx-swap="beforeend" class="form-grid" style="max-width:none">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Sample mode</label>
+      <input class="field-input" type="text" name="sample_mode" list="audit-mode-datalist" value="random" />
+    </div>
+    <div class="field">
+      <label class="field-label">Sample size</label>
+      <input class="field-input" type="number" name="sample_size" value="20" min="1" max="200" />
+    </div>
+  </div>
+  <div class="field">
+    <label class="field-label">Focus on account (optional)</label>
+    <input class="field-input" type="text" name="target_account" list="accounts-datalist"
+           value="{{ target_account_prefill }}"
+           placeholder="e.g. Expenses:Acme:OtherExpenses — narrow the pool to txns currently posted here" />
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Run audit', type='submit', variant='primary') }}</div>
+</form>
+<p class="subtle" style="margin:0.75rem 0 0">
+  Each run costs roughly $(sample_size × cost-per-classify) — at Haiku pricing, a 20-sample pass is ~$0.02.
+  Already-dismissed (merchant, account) pairs are skipped so repeat runs stay informative.
+</p>
+{% endcall %}
+
+{% if items %}
+{% call L.section(title='Open disagreements', subtitle='Sorted by AI confidence (highest first) · %d items' % totals.open) %}
+{% for it in items %}
+{% call C.card(tone='warn') %}
+<article id="audit-item-{{ it.id }}">
+  <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:baseline">
+    <strong>{{ it.txn_date }}</strong>
+    <span class="num">{{ it.txn_amount | money }}</span>
+    <span class="subtle">{{ it.merchant_text }}</span>
+  </div>
+  <div style="margin-top:0.5rem; font-size:0.9rem">
+    <div><strong>Current:</strong> <code>{{ it.current_account }}</code></div>
+    <div><strong>AI proposes:</strong> <code style="color:var(--accent)">{{ it.ai_proposed_account }}</code>
+         <span class="subtle">(conf {{ "%.2f"|format(it.ai_confidence) }})</span></div>
+    {% if it.ai_reasoning %}<div class="subtle" style="margin-top:0.25rem">{{ it.ai_reasoning }}</div>{% endif %}
+  </div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:0.75rem; align-items:center">
+    <form method="post" action="/audit/items/{{ it.id }}/accept"
+          hx-post="/audit/items/{{ it.id }}/accept"
+          hx-target="#audit-item-{{ it.id }}" hx-swap="outerHTML">
+      {{ B.btn('Accept AI’s answer', type='submit', variant='primary', size='sm') }}
+    </form>
+    <form method="post" action="/audit/items/{{ it.id }}/dismiss"
+          hx-post="/audit/items/{{ it.id }}/dismiss"
+          hx-target="#audit-item-{{ it.id }}" hx-swap="outerHTML"
+          style="display:flex; gap:6px; align-items:center">
+      <input class="field-input" type="text" name="reason" placeholder="reason (optional)" style="max-width:14rem" />
+      {{ B.btn('Keep original, silence', type='submit', variant='ghost', size='sm') }}
+    </form>
+    <span class="subtle" style="font-size:0.82rem; align-self:center">txn {{ it.txn_hash[:12] }}…</span>
+  </div>
+</article>
+{% endcall %}
+{% endfor %}
+{% endcall %}
+{% else %}
+{{ F.empty_state('No open disagreements. Either the classifier agrees with every recent sample, or you’ve cleared the queue. Run another pass to check more txns.') }}
+{% endif %}
+
+{% if runs %}
+{% call L.section(title='Recent audit runs') %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr><th>Run</th><th>Started</th><th>Mode</th><th class="num">Sampled</th><th class="num">Classified</th><th class="num">Disagreements</th><th class="num">Errors</th></tr>
+  </thead>
+  <tbody>
+    {% for r in runs %}
+    <tr>
+      <td>#{{ r.id }}</td>
+      <td class="subtle" style="font-size:0.85rem">{{ r.started_at }}</td>
+      <td>{{ r.sample_mode }}</td>
+      <td class="num">{{ r.sampled }}</td>
+      <td class="num">{{ r.classified }}</td>
+      <td class="num">{{ r.disagreements }}</td>
+      <td class="num">{{ r.errors }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+<datalist id="accounts-datalist"></datalist>
+<script>
+  fetch('/api/accounts', { credentials: 'same-origin' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      if (!d || !Array.isArray(d.all)) return;
+      const dl = document.getElementById('accounts-datalist');
+      for (const n of d.all) { const o = document.createElement('option'); o.value = n; dl.appendChild(o); }
+    })
+    .catch(() => undefined);
+</script>
+{% endblock %}

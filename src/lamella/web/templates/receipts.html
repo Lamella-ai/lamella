@@ -1,0 +1,126 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}All Paperless documents — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Receipts{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='All Paperless documents',
+     subtitle='Browse the local Paperless index. For day-to-day linking workflow, use Receipts needed.',
+     kicker='Library'
+) %}
+  {{ B.btn('Receipts needed', href='/receipts/needed', icon=icon.receipt()) }}
+{% endcall %}
+
+{% if not paperless_configured %}
+{% call F.banner(tone='err', title='Paperless not configured') %}
+  Set <code>PAPERLESS_URL</code> and <code>PAPERLESS_API_TOKEN</code> in Settings.
+{% endcall %}
+{% elif empty_index %}
+{% call F.banner(tone='info', title='Paperless index is empty') %}
+  The scheduled sync runs on a timer; first sync pulls the last
+  {{ lookback_days }}+ days of documents. You can also trigger a refresh
+  from <a href="/settings/paperless-fields">Settings → Paperless fields</a>.
+{% endcall %}
+{% endif %}
+
+{% call C.card(title='Filter') %}
+<form method="get" action="/receipts" class="receipts-filter-bar">
+  <input type="hidden" name="submitted" value="1" />
+  <div class="field" style="min-width:280px">
+    <label class="field-label">Show</label>
+    <div class="rcpt-status-segmented" role="radiogroup" aria-label="Link status">
+      {% for opt_value, opt_label in [
+        ('unlinked', 'Unlinked'),
+        ('linked', 'Linked'),
+        ('all', 'All'),
+      ] %}
+        <label class="rcpt-status-segment {% if link_status == opt_value %}is-active{% endif %}">
+          <input type="radio" name="link_status" value="{{ opt_value }}"
+                 {% if link_status == opt_value %}checked{% endif %}
+                 onchange="this.form.submit()" />
+          <span>{{ opt_label }}</span>
+        </label>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="field" style="min-width:160px">
+    <label class="field-label">Lookback</label>
+    <input class="field-input" type="text" name="lookback_days" list="rcpt-lookback-datalist" value="{{ lookback_days }}" onchange="this.form.submit()" />
+    <datalist id="rcpt-lookback-datalist">
+      {% for n in [30, 90, 180, 365, 730] %}<option value="{{ n }}" label="{{ n }} days">{% endfor %}
+    </datalist>
+  </div>
+  <div class="field" style="flex:1; min-width:200px">
+    <label class="field-label">Search</label>
+    <input class="field-input" type="search" name="q" value="{{ q }}" placeholder="title / vendor / OCR" />
+  </div>
+  {{ B.btn('Apply', type='submit', variant='primary') }}
+</form>
+{% endcall %}
+
+{% if sync_state %}
+<p class="subtle" style="margin-top:0.75rem">
+  Index: {{ sync_state.doc_count or 0 }} docs
+  {% if sync_state.last_incremental_sync_at %} · last sync {{ sync_state.last_incremental_sync_at }}{% endif %}
+  {% if sync_state.last_status == "error" and sync_state.last_error %}
+   · <span style="color:var(--err)">last error: {{ sync_state.last_error }}</span>
+  {% endif %}
+</p>
+{% endif %}
+
+{% if rows %}
+<div style="margin-top:1.5rem">
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Paperless</th>
+      <th>Title</th>
+      <th>Vendor</th>
+      <th>Date</th>
+      <th class="num">Total</th>
+      <th>Status &amp; candidates</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+      {% include "partials/receipt_row.html" %}
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+</div>
+{% endif %}
+
+<style>
+  .receipts-filter-bar {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+  .filter-checkbox {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    padding-bottom: 8px;
+    font-size: 0.9rem;
+  }
+</style>
+{% endblock %}

@@ -1,0 +1,137 @@
+{# "+ Add person" / "+ Add business" modal — HTMX fragment.
+
+   Form POSTs to /settings/entities. The server's HTMX response
+   appends the new card to the right kind section via hx-swap-oob
+   (the form's hx-target points at the section grid by id) and
+   fires the HX-Trigger "entity-saved" event so the modal closes.
+#}
+{% import "_components/_modal.html" as M %}
+
+{% set _kind_label = (
+  'Add a person' if kind == 'people' else
+  ('Add a farm' if kind == 'farms' else 'Add a business')
+) %}
+
+{% set p = prefill or {} %}
+
+{% call M.modal(
+     id='entity-new-modal',
+     title=_kind_label,
+     subtitle='Slug locks after creation; choose carefully.',
+     open=true,
+     size='md'
+) %}
+<form method="post" action="/settings/entities"
+      hx-post="/settings/entities"
+      hx-target="#entities-{{ kind }}-grid"
+      hx-swap="beforeend"
+      hx-headers='{"X-Modal-Kind": "{{ kind }}"}'
+      autocomplete="off"
+      class="form-grid"
+      style="max-width:none">
+
+  {% if error_message %}
+  <div class="banner banner--err" role="alert" style="margin:0 0 0.75rem">
+    <strong>Couldn't save.</strong> {{ error_message }}
+  </div>
+  {% endif %}
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Display name <span class="subtle">required</span></label>
+      <input class="field-input" type="text" name="display_name" required
+             value="{{ p.display_name or '' }}"
+             placeholder="{{ 'Jane Doe' if kind == 'people' else ('Smith Family Farm' if kind == 'farms' else 'Acme Co.') }}" />
+    </div>
+    <div class="field">
+      <label class="field-label">Slug <span class="subtle">required</span></label>
+      <input class="field-input" type="text" name="slug" required
+             pattern="[A-Z][A-Za-z0-9_-]*"
+             value="{{ p.slug or '' }}"
+             placeholder="{{ 'Personal' if kind == 'people' else ('SmithFarm' if kind == 'farms' else 'Acme') }}" />
+      <p class="subtle" style="font-size:0.78rem; margin:0.25rem 0 0">
+        UpperCamelCase. Becomes part of every account path.
+      </p>
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Entity type <span class="subtle">required</span></label>
+      <select class="field-input" name="entity_type" required>
+        {% set _et_selected = p.entity_type if p.entity_type else default_type %}
+        {% for value, label in entity_types %}
+        <option value="{{ value }}" {% if value == _et_selected %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label class="field-label">Tax schedule</label>
+      <select class="field-input" name="tax_schedule">
+        {% set _ts_selected = p.tax_schedule if p.tax_schedule else default_schedule %}
+        {% for value, label in tax_schedules %}
+        <option value="{{ value }}" {% if value == _ts_selected %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Start date</label>
+      <input class="field-input" type="date" name="start_date"
+             value="{{ p.start_date or '' }}" />
+    </div>
+    <div class="field">
+      <label class="field-label">Active?</label>
+      <label style="display:flex; align-items:center; gap:6px; padding-top:6px">
+        <input type="checkbox" name="is_active" value="1"
+               {% if (p.is_active is not defined) or p.is_active %}checked{% endif %} />
+        <span class="subtle">Include in classification + reports</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="field-label">Auto-scaffold accounts?</label>
+    <label style="display:flex; align-items:center; gap:6px; padding-top:6px">
+      <input type="checkbox" name="auto_scaffold" value="1"
+             {% if (p.auto_scaffold is not defined) or p.auto_scaffold %}checked{% endif %} />
+      <span class="subtle">Open the matching Schedule C/F/A expense tree based on the entity type + tax schedule above.</span>
+    </label>
+  </div>
+
+  <div class="field">
+    <label class="field-label">Notes <span class="subtle">(optional)</span></label>
+    <textarea class="field-input" name="notes" rows="2"
+              placeholder="Internal notes — what this entity is, why it exists…">{{ p.notes or '' }}</textarea>
+  </div>
+
+  <div class="field">
+    <label class="field-label">Classify context <span class="subtle">(AI hint, optional)</span></label>
+    <textarea class="field-input" name="classify_context" rows="3"
+              placeholder="Free-form text the AI uses to decide which entity a transaction belongs to.">{{ p.classify_context or '' }}</textarea>
+  </div>
+
+  {% call M.actions() %}
+    <button type="button" class="btn btn-ghost"
+            onclick="this.closest('.modal-backdrop').classList.remove('is-open')">
+      Cancel
+    </button>
+    <button type="submit" class="btn btn-primary">Create</button>
+  {% endcall %}
+</form>
+
+<script>
+/* Wire slug-helper for this freshly-rendered modal: auto-populate from
+   display_name, format-fix on blur, availability check via
+   /api/slugs/check?kind=entities. Idempotent — re-attach is a no-op. */
+(function () {
+  if (!window.LamellaSlug) return;
+  var modal = document.getElementById('entity-new-modal');
+  if (!modal) return;
+  var form = modal.querySelector('form');
+  if (form) window.LamellaSlug.attach({form: form, kind: 'entities'});
+})();
+</script>
+{% endcall %}

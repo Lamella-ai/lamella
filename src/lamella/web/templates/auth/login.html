@@ -1,0 +1,46 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "auth/_layout.html" %}
+
+{% block title %}Sign in — Lamella{% endblock %}
+{% block heading %}Sign in{% endblock %}
+
+{% block card %}
+  {% if error %}<div class="auth-error" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" action="/login" class="auth-form" novalidate>
+    {# /login bypasses CSRF (no session yet); SameSite=Lax + same-origin
+       check is the boundary. The next-url is round-tripped through the
+       form so a multi-tab signin lands the right place. #}
+    <input type="hidden" name="next" value="{{ next or '/' }}" />
+
+    <div class="auth-field">
+      <label for="login-username">Username</label>
+      <input type="text"
+             id="login-username"
+             name="username"
+             autocomplete="username"
+             autocapitalize="none"
+             autocorrect="off"
+             spellcheck="false"
+             required
+             autofocus />
+    </div>
+
+    <div class="auth-field">
+      <label for="login-password">Password</label>
+      <input type="password"
+             id="login-password"
+             name="password"
+             autocomplete="current-password"
+             required />
+    </div>
+
+    <button type="submit" class="auth-submit">Sign in</button>
+  </form>
+{% endblock %}

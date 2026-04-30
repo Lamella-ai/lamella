@@ -1,0 +1,92 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Paperless writebacks{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Paperless writebacks{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Paperless writebacks',
+     subtitle='Every Paperless document Lamella has touched — vision-verified corrections and context-derived enrichments. Rows are deduplicated by (doc, kind, dedup_key) so repeated classify/enrich passes don’t stamp twice.',
+     kicker='Settings · Paperless'
+) %}
+{% endcall %}
+
+<p class="subtle" style="margin:-8px 0 1rem">
+  Total: <strong>{{ total }}</strong> writeback{{ '' if total == 1 else 's' }} recorded.
+</p>
+
+{% if not rows %}
+{{ F.empty_state('No writebacks yet. Either Paperless writeback is disabled in /settings, or no docs have triggered the verify/enrich flow since it was enabled.', cta_text='Open Settings', cta_href='/settings') }}
+{% else %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr><th>When</th><th>Doc</th><th>Kind</th><th>Summary</th><th>Audit</th></tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td class="subtle"><time>{{ row.applied_at.strftime('%Y-%m-%d %H:%M') }}</time></td>
+      <td>
+        <a href="/paperless/preview/{{ row.paperless_id }}" target="_blank" rel="noopener">#{{ row.paperless_id }}</a>
+        {% if row.vendor %}<br><span class="subtle" style="font-size:0.82rem">{{ row.vendor }}</span>{% endif %}
+        {% if paperless_base_url %}
+          <br><a href="{{ paperless_base_url }}/documents/{{ row.paperless_id }}/" target="_blank" rel="noopener" class="subtle" style="font-size:0.82rem">open in Paperless ↗</a>
+        {% endif %}
+      </td>
+      <td>
+        {% if row.kind == "verify_correction" %}
+          {{ D.badge('Verify correction', tone='info') }}
+        {% elif row.kind == "enrichment_note" %}
+          {{ D.badge('Enrichment', tone='ok') }}
+        {% else %}
+          <code>{{ row.kind }}</code>
+        {% endif %}
+      </td>
+      <td>
+        {{ row.summary }}
+        {% if row.payload.diffs and row.payload.diffs|length > 0 %}
+          <details style="margin-top:6px">
+            <summary class="subtle" style="font-size:0.82rem">Full diff</summary>
+            <table class="tbl" style="margin-top:6px; font-size:0.82rem">
+              <thead><tr><th>Field</th><th>Before</th><th>After</th><th class="num">Conf</th></tr></thead>
+              <tbody>
+                {% for d in row.payload.diffs %}
+                <tr>
+                  <td><code>{{ d.field }}</code></td>
+                  <td class="subtle">{{ d.before or "∅" }}</td>
+                  <td><strong>{{ d.after or "∅" }}</strong></td>
+                  <td class="num">{{ "%.2f"|format(d.confidence or 0.0) }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </details>
+        {% endif %}
+      </td>
+      <td class="subtle" style="font-size:0.82rem">
+        {% if row.ai_decision_id %}ai_decision #{{ row.ai_decision_id }}{% else %}(manual){% endif %}
+        <br><code style="font-size:0.78rem">{{ row.dedup_key[:16] }}…</code>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endif %}
+{% endblock %}

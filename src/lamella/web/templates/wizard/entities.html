@@ -1,0 +1,334 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "wizard/_layout.html" %}
+
+{% block step_heading %}
+  {% if existing_indiv or existing_biz %}
+    Your entities{% if name %}, {{ name.split(' ')[0] }}{% endif %}.
+  {% elif wizard_state.intent == 'personal' %}
+    Add your personal entity{% if name %}, {{ name.split(' ')[0] }}{% endif %}.
+  {% elif wizard_state.intent == 'business' %}
+    Add your business.
+  {% else %}
+    Add your entities.
+  {% endif %}
+{% endblock %}
+
+{% block step_subheading %}
+{% if existing_indiv or existing_biz %}
+The wizard runs alongside your existing setup &mdash; we won&rsquo;t modify what&rsquo;s already there.
+You can add new people or businesses below.
+{% else %}
+Use the buttons below to add the people and businesses you want to track.
+You can keep this minimal &mdash; one is enough to continue.
+{% endif %}
+{% endblock %}
+
+{% block step_body %}
+{% if errors %}
+<div class="wiz-banner is-warn" role="alert">
+  <div class="wiz-banner-title">Almost there.</div>
+  <div class="wiz-banner-body">
+    <ul style="margin:0; padding-left:1.1rem">
+      {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+{# ============================================================
+   List view. One unified list per kind that combines:
+     1. Existing entities from the books (read-only badges)
+     2. Wizard-drafted entities (with Edit + Remove buttons)
+   "+ Add Person" / "+ Add Business" buttons trigger modals
+   for entry. No always-on inline forms — that was the old UX
+   the user asked us to replace.
+   ============================================================ #}
+
+{# ---- People ---- #}
+{% if existing_indiv or indiv_drafts or can_add_indiv %}
+<section class="wiz-card">
+  <div class="wiz-card-head">
+    <h2 class="wiz-card-title">People</h2>
+    <span class="wiz-pill-info">{{ indiv_total }} {{ 'person' if indiv_total == 1 else 'people' }}</span>
+  </div>
+
+  {% if existing_indiv or indiv_drafts %}
+  <ul class="wiz-existing-list">
+    {% for e in existing_indiv %}
+    <li>
+      <span class="wiz-existing-mark wiz-existing-mark--indiv" aria-hidden="true">P</span>
+      <span class="wiz-existing-name">{{ e.display_name }}</span>
+      <code class="wiz-existing-slug">{{ e.slug }}</code>
+      <span class="wiz-existing-tag">existing &middot; read-only</span>
+    </li>
+    {% endfor %}
+    {% for d in indiv_drafts %}
+    <li class="is-draft">
+      <span class="wiz-existing-mark wiz-existing-mark--indiv" aria-hidden="true">P</span>
+      <span class="wiz-existing-name">{{ d.display_name }}</span>
+      <code class="wiz-existing-slug">{{ d.slug }}</code>
+      <span class="wiz-existing-tag">new</span>
+      <span class="wiz-row-actions">
+        <a class="wiz-row-action" href="/setup/wizard/entities?edit={{ d.slug | urlencode }}">Edit</a>
+        <form method="post" action="/setup/wizard/entities/remove" style="display:inline">
+          <input type="hidden" name="slug" value="{{ d.slug }}" />
+          <button class="wiz-row-action wiz-row-action--danger" type="submit">Remove</button>
+        </form>
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if can_add_indiv %}
+  <div>
+    <a class="wiz-add" href="/setup/wizard/entities?add=person">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Person
+    </a>
+  </div>
+  {% endif %}
+
+  {% if existing_indiv %}
+  <p class="wiz-help" style="margin:0">
+    Existing entities are read-only here. Edit them anytime from
+    <a href="/settings/entities">Settings &rarr; Entities</a>.
+  </p>
+  {% endif %}
+</section>
+{% endif %}
+
+{# ---- Businesses ---- #}
+{% if existing_biz or biz_drafts or can_add_biz %}
+<section class="wiz-card">
+  <div class="wiz-card-head">
+    <h2 class="wiz-card-title">Businesses</h2>
+    <span class="wiz-pill-info">{{ biz_total }} {{ 'business' if biz_total == 1 else 'businesses' }}</span>
+  </div>
+
+  {% if existing_biz or biz_drafts %}
+  <ul class="wiz-existing-list">
+    {% for e in existing_biz %}
+    <li>
+      <span class="wiz-existing-mark wiz-existing-mark--biz" aria-hidden="true">B</span>
+      <span class="wiz-existing-name">{{ e.display_name }}</span>
+      <code class="wiz-existing-slug">{{ e.slug }}</code>
+      <span class="wiz-existing-tag">{{ e.entity_type or 'business' }} &middot; read-only</span>
+    </li>
+    {% endfor %}
+    {% for d in biz_drafts %}
+    <li class="is-draft">
+      <span class="wiz-existing-mark wiz-existing-mark--biz" aria-hidden="true">B</span>
+      <span class="wiz-existing-name">{{ d.display_name }}</span>
+      <code class="wiz-existing-slug">{{ d.slug }}</code>
+      <span class="wiz-existing-tag">new &middot; {{ d.entity_type | replace('_', ' ') }} &middot; Sched. {{ d.tax_schedule }}</span>
+      <span class="wiz-row-actions">
+        <a class="wiz-row-action" href="/setup/wizard/entities?edit={{ d.slug | urlencode }}">Edit</a>
+        <form method="post" action="/setup/wizard/entities/remove" style="display:inline">
+          <input type="hidden" name="slug" value="{{ d.slug }}" />
+          <button class="wiz-row-action wiz-row-action--danger" type="submit">Remove</button>
+        </form>
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if can_add_biz %}
+  <div>
+    <a class="wiz-add" href="/setup/wizard/entities?add=business">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Business
+    </a>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+{% endblock %}
+
+{% block modal %}
+{% set modal_kind = open_modal %}
+{% if modal_kind in ['person', 'business'] %}
+{% set is_edit = edit_target is not none %}
+{% set fv = form_values or {} %}
+{% import "wizard/_modal.html" as M %}
+{% set _title %}
+  {%- if is_edit -%}
+    Edit {{ 'person' if modal_kind == 'person' else 'business' }}
+  {%- else -%}
+    {{ 'Add a person' if modal_kind == 'person' else 'Add a business' }}
+  {%- endif -%}
+{% endset %}
+{% set _action %}
+  {%- if is_edit -%}Save changes
+  {%- else -%}{{ 'Add person' if modal_kind == 'person' else 'Add business' }}
+  {%- endif -%}
+{% endset %}
+
+{% call M.modal(
+    title=_title | trim,
+    submit_form_id="entity-modal-form",
+    action_label=_action | trim,
+    cancel_href="/setup/wizard/entities"
+) %}
+<form method="post"
+      action="/setup/wizard/entities/save-{{ modal_kind }}"
+      id="entity-modal-form"
+      class="wiz-modal-form">
+  {% if is_edit %}
+  <input type="hidden" name="edit_slug" value="{{ edit_target.slug }}" />
+  {% endif %}
+
+  <div class="wiz-field">
+    <label class="wiz-label">Display name</label>
+    <input
+      class="wiz-input {% if field_errors.get('display_name') %}is-invalid{% endif %}"
+      type="text"
+      name="display_name"
+      value="{{ fv.get('display_name') if fv.get('display_name') is not none else (edit_target.display_name if is_edit else '') }}"
+      maxlength="80"
+      required
+      autofocus
+      placeholder="{{ 'Jane Doe' if modal_kind == 'person' else 'Acme Co.' }}"
+      data-slug-source
+    />
+    <span class="wiz-help">
+      {% if modal_kind == 'person' %}
+        A name or nickname. Display names can include spaces, periods, and apostrophes.
+      {% else %}
+        Your business&rsquo;s legal name or DBA.
+      {% endif %}
+    </span>
+    {% if field_errors.get('display_name') %}
+      <span class="wiz-error">{{ field_errors['display_name'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Recommended slug</label>
+    <input
+      class="wiz-input wiz-input--slug {% if field_errors.get('slug') %}is-invalid{% endif %}"
+      type="text"
+      name="slug"
+      value="{{ fv.get('slug') if fv.get('slug') is not none else (edit_target.slug if is_edit else '') }}"
+      maxlength="40"
+      pattern="[A-Z][A-Za-z0-9-]*"
+      placeholder="{{ 'JaneDoe' if modal_kind == 'person' else 'AcmeCo' }}"
+      data-slug-target
+      data-slug-fallback="{{ 'Personal' if modal_kind == 'person' else 'Business' }}"
+      {% if is_edit %}readonly aria-readonly="true"{% endif %}
+    />
+    <span class="wiz-help">
+      {% if is_edit %}
+        Once you save, the slug is locked &mdash; changing it later would break things
+        already filed under it. You can rename the display name freely.
+      {% else %}
+        A short identifier used internally. Must start with an uppercase A&ndash;Z.
+        Editable, but the suggestion usually works.
+      {% endif %}
+    </span>
+    {% if field_errors.get('slug') %}
+      <span class="wiz-error">{{ field_errors['slug'] }}</span>
+    {% endif %}
+  </div>
+
+  {% if modal_kind == 'business' %}
+  {% set sel_etype = fv.get('entity_type') if fv.get('entity_type') is not none else (edit_target.entity_type if is_edit else 'sole_proprietorship') %}
+  {% set sel_sched = fv.get('tax_schedule') if fv.get('tax_schedule') is not none else (edit_target.tax_schedule if is_edit else 'C') %}
+
+  <div class="wiz-field">
+    <span class="wiz-label">Business type</span>
+    <span class="wiz-help">What kind of legal entity is this?</span>
+    <div class="wiz-radio-grid wiz-radio-grid--compact" role="radiogroup">
+      {% for value, title, blurb in biz_entity_types %}
+      <label class="wiz-radio-card wiz-radio-card--compact">
+        <input type="radio" name="entity_type" value="{{ value }}"
+          {% if sel_etype == value %}checked{% endif %} />
+        <span>
+          <span class="wiz-radio-title">{{ title }}</span>
+          <span class="wiz-radio-blurb">{{ blurb }}</span>
+        </span>
+      </label>
+      {% endfor %}
+    </div>
+    {% if field_errors.get('entity_type') %}
+      <span class="wiz-error">{{ field_errors['entity_type'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <span class="wiz-label">Tax schedule</span>
+    <span class="wiz-help">Schedule C is the default. Schedule F is only for farms.</span>
+    <div class="wiz-radio-grid wiz-radio-grid--compact wiz-radio-grid--inline" role="radiogroup">
+      {% for value, title, blurb in biz_tax_schedules %}
+      <label class="wiz-radio-card wiz-radio-card--compact">
+        <input type="radio" name="tax_schedule" value="{{ value }}"
+          {% if sel_sched == value %}checked{% endif %} />
+        <span>
+          <span class="wiz-radio-title">{{ title }}</span>
+          <span class="wiz-radio-blurb">{{ blurb }}</span>
+        </span>
+      </label>
+      {% endfor %}
+    </div>
+    {% if field_errors.get('tax_schedule') %}
+      <span class="wiz-error">{{ field_errors['tax_schedule'] }}</span>
+    {% endif %}
+  </div>
+  {% endif %}
+</form>
+{% endcall %}
+
+<script>
+  /* Live slug suggestion as user types display name. Locked when the
+     slug input has the readonly attribute (edit mode). */
+  (function () {
+    var modal = document.getElementById("wiz-modal");
+    if (!modal) return;
+    function suggestSlug(name, fallback) {
+      var cleaned = (name || "").replace(/[^A-Za-z0-9]+/g, " ").trim();
+      if (!cleaned) return "";
+      var pascal = cleaned.split(/\s+/).map(function (w) {
+        return w.charAt(0).toUpperCase() + w.slice(1);
+      }).join("");
+      if (!pascal) return fallback || "";
+      if (!/^[A-Za-z]/.test(pascal)) pascal = "X" + pascal;
+      pascal = pascal.charAt(0).toUpperCase() + pascal.slice(1);
+      return pascal;
+    }
+    var src = modal.querySelector("[data-slug-source]");
+    var dst = modal.querySelector("[data-slug-target]");
+    if (src && dst && !dst.hasAttribute("readonly")) {
+      var fallback = dst.dataset.slugFallback || "";
+      var lastSuggestion = dst.value || "";
+      function update() {
+        var s = suggestSlug(src.value, fallback);
+        if (!dst.value || dst.value === lastSuggestion) {
+          dst.value = s;
+          lastSuggestion = s;
+        }
+      }
+      src.addEventListener("input", update);
+      dst.addEventListener("input", function () { lastSuggestion = ""; });
+      if (!dst.value) update();
+    }
+  })();
+</script>
+{% endif %}
+{% endblock %}
+
+{% block step_actions %}
+<a class="wiz-btn wiz-btn-link" href="/setup/wizard/welcome">Back</a>
+<span class="spacer"></span>
+<form method="post" action="/setup/wizard/entities" style="display:inline">
+  <button type="submit" class="wiz-btn wiz-btn-primary">Continue</button>
+</form>
+{% endblock %}

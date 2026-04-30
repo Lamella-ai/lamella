@@ -1,0 +1,128 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% block title %}Setup — import rewrite{% endblock %}
+{% block layout %}setup{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block content %}
+<h1>Setup: import-rewrite detection</h1>
+<p class="muted">
+  Scan of your chart for paths that don't follow the canonical
+  <code>Root:&lt;Entity&gt;:…</code> shape. Common causes: ledgers
+  imported from another Beancount setup, ad-hoc "Custom" paths,
+  or short buckets like <code>Expenses:Bills</code> (no entity
+  segment).
+</p>
+<p class="muted small">
+  <strong>Detection-only.</strong> This page lists what would be
+  rewritten and how often each path is used — no files are
+  touched. Automated rewrites are intentionally not live: moving
+  historical postings across accounts is destructive and often
+  requires your judgment on which target to pick (e.g., which of
+  your two Fabrikam Suvs a generic "FabrikamFuel" posting
+  belongs to).
+</p>
+
+{# --- Unknown entity second-segments --- #}
+<h2 style="margin-top:1.5em;">
+  Paths with unknown second segment
+  {% if unknown_entity %}
+  <span class="muted small">({{ unknown_entity_total }} found, showing {{ unknown_entity | length }})</span>
+  {% endif %}
+</h2>
+<p class="small muted">
+  Second segment should be one of your registered entities:
+  {% for slug in registered_entities %}<code>{{ slug }}</code>{% if not loop.last %}, {% endif %}{% endfor %}.
+  Paths below have something else — maybe a typo, a slug from a
+  prior rename, or an entity you haven't registered yet.
+</p>
+{% if unknown_entity %}
+<table class="field-map">
+  <thead><tr><th>Path</th><th>Unknown segment</th><th>Postings</th></tr></thead>
+  <tbody>
+    {% for f in unknown_entity %}
+    <tr>
+      <td><code class="small">{{ f.path }}</code></td>
+      <td><code>{{ f.unknown_segment }}</code></td>
+      <td>{{ f.posting_count }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted"><em>None found.</em></p>
+{% endif %}
+
+{# --- Custom: prefixed paths --- #}
+<h2 style="margin-top:1.5em;">
+  <code>:Custom:*</code> paths
+  {% if custom_paths %}
+  <span class="muted small">({{ custom_total }} found, showing {{ custom_paths | length }})</span>
+  {% endif %}
+</h2>
+<p class="small muted">
+  <code>Expenses:&lt;Entity&gt;:Custom:X</code> is a legacy
+  catch-all bucket. Most should be re-categorized into
+  Schedule-C-canonical paths (e.g. <code>…:Custom:OfficeExpense</code>
+  → <code>…:OfficeExpense</code>) or the per-vehicle /
+  per-property canonical chart if they look vehicle/property-
+  specific.
+</p>
+{% if custom_paths %}
+<table class="field-map">
+  <thead><tr><th>Path</th><th>Entity</th><th>Postings</th></tr></thead>
+  <tbody>
+    {% for f in custom_paths %}
+    <tr>
+      <td><code class="small">{{ f.path }}</code></td>
+      <td><code>{{ f.entity }}</code></td>
+      <td>{{ f.posting_count }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted"><em>None found.</em></p>
+{% endif %}
+
+{# --- Short paths (missing category leaf) --- #}
+<h2 style="margin-top:1.5em;">
+  Short expense paths (no category leaf)
+  {% if short_paths %}
+  <span class="muted small">({{ short_total }} found, showing {{ short_paths | length }})</span>
+  {% endif %}
+</h2>
+<p class="small muted">
+  <code>Expenses:Personal</code> (only 2 segments) is usually
+  imported bucket data. Postings should live at leaf accounts
+  like <code>Expenses:Personal:Groceries</code>; the 2-segment
+  form is a "bucket" that becomes a grand-total at report time
+  and loses detail.
+</p>
+{% if short_paths %}
+<table class="field-map">
+  <thead><tr><th>Path</th><th>Postings</th><th>Proposed shape</th></tr></thead>
+  <tbody>
+    {% for f in short_paths %}
+    <tr>
+      <td><code class="small">{{ f.path }}</code></td>
+      <td>{{ f.posting_count }}</td>
+      <td>{% if f.proposed %}<code class="small">{{ f.proposed }}</code>{% else %}<span class="muted">(no registered entity matches)</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted"><em>None found.</em></p>
+{% endif %}
+
+<p style="margin-top:1.5em;">
+  <a href="/setup/recovery">← back to setup checklist</a>
+</p>
+{% endblock %}

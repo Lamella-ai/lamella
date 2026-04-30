@@ -1,0 +1,33 @@
+{
+  "errors": [],
+  "accounts": [
+    {
+      "id": "account-acme-card-a",
+      "name": "Acme Business Card A",
+      "currency": "USD",
+      "balance": "-1234.56",
+      "org": {"name": "Card Network A"},
+      "transactions": [
+        {"id": "sf-2001", "posted": 1744243200, "amount": "-42.17", "description": "A HOME IMPROVEMENT STORE #1234", "payee": "Hardware Store"},
+        {"id": "sf-2002", "posted": 1744329600, "amount": "-15.50", "description": "POSTAL POSTAGE", "payee": "Postal Service"},
+        {"id": "sf-2003", "posted": 1744416000, "amount": "-99.99", "description": "A SHIPPING CARRIER", "payee": "Shipping Carrier"},
+        {"id": "sf-2004", "posted": 1744502400, "amount": "-25.00", "description": "AN ONLINE MARKETPLACE", "payee": "Online Marketplace"},
+        {"id": "sf-2005", "posted": 1744588800, "amount": "-7.88",  "description": "A RIDE-SHARE SERVICE", "payee": "Ride Share"}
+      ]
+    },
+    {
+      "id": "account-personal-card-b",
+      "name": "Personal Card B",
+      "currency": "USD",
+      "balance": "-421.10",
+      "org": {"name": "Card Network B"},
+      "transactions": [
+        {"id": "sf-3001", "posted": 1744243200, "amount": "-53.42", "description": "A GROCERY STORE #55", "payee": "Grocery Store"},
+        {"id": "sf-3002", "posted": 1744329600, "amount": "-12.00", "description": "A COFFEE SHOP", "payee": "Coffee Shop"},
+        {"id": "sf-3003", "posted": 1744416000, "amount": "-28.99", "description": "A STREAMING SERVICE", "payee": "Streaming Service"},
+        {"id": "sf-3004", "posted": 1744502400, "amount": "-18.22", "description": "A FAST-CASUAL RESTAURANT", "payee": "Fast Casual"},
+        {"id": "sf-3005", "posted": 1744588800, "amount": "-65.40", "description": "A WAREHOUSE CLUB", "payee": "Warehouse Club"}
+      ]
+    }
+  ]
+}

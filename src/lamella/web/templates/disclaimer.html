@@ -1,0 +1,101 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+-->
+{% extends "base.html" %}
+{% import "_components/layout.html" as L %}
+
+{% block title %}Data &amp; security notice — Lamella{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block page_title %}Data &amp; security notice{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Data & security notice',
+     subtitle='What Lamella does with your data, what gets sent where, and what is your responsibility.',
+     kicker='Policy'
+) %}{% endcall %}
+
+<section class="setup-disclaimer setup-disclaimer--standalone">
+  <div class="setup-disclaimer__cards">
+    <article class="setup-disclaimer__card">
+      <h3>Self-hosted means you secure it</h3>
+      <p>Lamella runs on your hardware (or your VPS). You decide where it’s installed, who can reach it on the network, and how it’s backed up. The defaults are safe — bind to <code>127.0.0.1</code>, optional username/password authentication — but Lamella cannot enforce them through your firewall, your reverse proxy, or your hosting provider’s settings.</p>
+      <p>If you expose the app to the internet without auth, or behind weak credentials, and the data leaks, that’s your responsibility. The Apache 2.0 license under which Lamella is distributed includes a no-warranty clause for exactly this reason.</p>
+      <p class="muted small">Recommended baseline:</p>
+      <ul>
+        <li>Behind a tunnel that authenticates upstream (Cloudflare Access, Tailscale, VPN), <em>or</em> on a private LAN.</li>
+        <li><code>AUTH_USERNAME</code> + <code>AUTH_PASSWORD</code> set as defense-in-depth even when an upstream proxy authenticates.</li>
+        <li><code>/data</code> and <code>/ledger</code> on a backup schedule.</li>
+        <li>OS-level firewall blocking inbound on the Lamella port from anywhere except the proxy / tunnel.</li>
+      </ul>
+    </article>
+
+    <article class="setup-disclaimer__card">
+      <h3>Your ledger is sensitive financial data</h3>
+      <p>Beancount is a plain-text format. Files under <code>/ledger</code> contain:</p>
+      <ul>
+        <li>Every transaction’s amount, date, payee, narration.</li>
+        <li>Account names you defined (often containing card tails: <code>Liabilities:Chase:CC:4242</code>).</li>
+        <li>Vendor identities and (with Paperless integration) document references.</li>
+        <li>Open and Close directives revealing the structure of your finances.</li>
+      </ul>
+      <p>A compromise of the host filesystem exposes all of it. Treat that directory the way you’d treat the folder where your prior tax returns live.</p>
+    </article>
+
+    <article class="setup-disclaimer__card setup-disclaimer__card--warn">
+      <h3>AI features send transaction data to a third-party API</h3>
+      <p>When you configure an OpenRouter API key (or any other AI provider this app supports) and turn on the classify cascade, <strong>every classified transaction is transmitted to that provider’s API</strong> over HTTPS. The data sent per classification includes:</p>
+      <ul>
+        <li>Transaction date, amount, currency.</li>
+        <li>Payee / merchant string and narration.</li>
+        <li>The account / card it was charged on (full Beancount path).</li>
+        <li>Up to N vector-similar past transactions (so the model has historical context for the same vendor).</li>
+        <li>The entity description and account descriptions you’ve written for the relevant accounts.</li>
+        <li>For receipt verification: the receipt image (PDF / JPEG / PNG) plus its OCR text.</li>
+      </ul>
+      <p>This is what makes the classifier work — context is what turns "Hardware Store, $48.12" into the correct expense account. But the trade-off is real: that context is, in aggregate, a detailed picture of your spending habits, business activity, and financial structure.</p>
+
+      <p><strong>Choose your provider deliberately.</strong> AI gateways like OpenRouter route to many upstream models, each with different terms:</p>
+      <ul>
+        <li>Some upstreams retain prompts for moderation/training; some do not.</li>
+        <li>Enterprise tiers usually offer <em>zero data retention</em>; community / free tiers usually do not.</li>
+        <li>The provider’s terms can change; what’s ZDR today may not be ZDR next month.</li>
+      </ul>
+      <p>Look for explicit guarantees in the provider’s data-handling policy: <em>"we do not train on customer data"</em>, <em>"prompts are not retained beyond the request"</em>, <em>"zero data retention"</em>, or an enterprise-tier agreement. If a provider does not state those terms in plain English, assume the safe-but-unfavorable interpretation.</p>
+
+      <p class="muted small">AI is opt-in. Lamella runs without an AI provider configured — classification falls back to your rules and the system surfaces uncategorized placeholders where the rules can’t decide. You can disable AI at any time from <code>/settings</code>; existing classifications are not retroactively sent.</p>
+    </article>
+
+    <article class="setup-disclaimer__card">
+      <h3>What is <em>not</em> sent</h3>
+      <p>To anchor the previous section: with default settings, the following are <strong>not</strong> transmitted to any external service:</p>
+      <ul>
+        <li>Your Beancount files themselves (only excerpts the classifier needs).</li>
+        <li>Authentication credentials, session cookies, or session tokens.</li>
+        <li>Backup archives.</li>
+        <li>The SQLite database (used as a disposable cache, not transmitted).</li>
+        <li>Any data when AI is disabled — the app is fully functional without external calls.</li>
+      </ul>
+      <p>Paperless-ngx is a self-hosted document store that you operate; the receipts you upload there stay on your infrastructure. Lamella reads from the local Paperless API, never from a hosted Paperless service.</p>
+    </article>
+
+    <article class="setup-disclaimer__card">
+      <h3>No warranty</h3>
+      <p>Lamella is provided <strong>AS IS</strong> under the Apache License 2.0 — see the <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener">full license text</a> for the no-warranty clause. Bugs in classification, in override-write, or in migration could in principle produce incorrect financial records. Because of this:</p>
+      <ul>
+        <li>Treat the system as a tool that <em>proposes</em> work; the operator (you) reviews what lands.</li>
+        <li>Run <code>bean-check</code> after meaningful edits; the app does this automatically with baseline-subtraction tolerance.</li>
+        <li>Back up <code>/ledger</code> on a schedule. Lamella is fully reconstructable from the ledger files alone — those are the only canonical source of truth.</li>
+        <li>Do not rely on Lamella as the only record for tax filing. Cross-check against bank / credit-card statements before producing Schedule C / F.</li>
+      </ul>
+    </article>
+  </div>
+
+  <p class="muted small" style="margin-top:2rem">
+    Project: <a href="https://github.com/lamella-ai/lamella" target="_blank" rel="noopener">github.com/lamella-ai/lamella</a> ·
+    License: <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener">Apache 2.0</a> ·
+    <a href="/trademark">Trademark policy</a>
+  </p>
+</section>
+{% endblock %}

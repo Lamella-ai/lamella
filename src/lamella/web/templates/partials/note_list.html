@@ -1,0 +1,26 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<div id="note-recent">
+  <h2 class="phone-h2">Recent</h2>
+  {% if recent %}
+  <ul class="phone-list">
+    {% for n in recent %}
+      <li class="phone-list-item">
+        <div class="phone-list-meta">
+          <time>{{ n.captured_at.strftime('%Y-%m-%d %H:%M') }}</time>
+          <span class="status status-{{ n.status }}">{{ n.status }}</span>
+        </div>
+        <p class="phone-list-body">{{ n.body }}</p>
+      </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+    <p class="muted">No notes yet.</p>
+  {% endif %}
+</div>

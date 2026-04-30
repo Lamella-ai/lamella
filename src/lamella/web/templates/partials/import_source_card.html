@@ -1,0 +1,37 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<fieldset class="card">
+  <legend><code>{{ src.sheet_name }}</code></legend>
+  {% if src.notes %}<p class="muted small">{{ src.notes | truncate(120) }}</p>{% endif %}
+  <label>
+    Source class
+    <select name="source_class_{{ src.id }}">
+      {% for cls in known_classes %}
+      <option value="{{ cls }}" {% if src.source_class == cls %}selected{% endif %}>{{ cls }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    Entity
+    <select name="entity_{{ src.id }}">
+      <option value="">— auto / none —</option>
+      {% for ent in entities %}
+      <option value="{{ ent }}" {% if src.entity == ent %}selected{% endif %}>{{ ent }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    Sheet type
+    <select name="sheet_type_{{ src.id }}">
+      {% for stype in ["primary", "filtered", "statement", "pivot", "summary", "form", "counterparty", "detail"] %}
+      <option value="{{ stype }}" {% if src.sheet_type == stype %}selected{% endif %}>{{ stype }}</option>
+      {% endfor %}
+    </select>
+  </label>
+</fieldset>

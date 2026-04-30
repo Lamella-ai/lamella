@@ -1,0 +1,25 @@
+{
+  "name": "Lamella",
+  "short_name": "Lamella",
+  "description": "Capture notes, log mileage, and review FIXMEs from your phone.",
+  "start_url": "/notes",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fafafa",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/static/img/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/img/lamella-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

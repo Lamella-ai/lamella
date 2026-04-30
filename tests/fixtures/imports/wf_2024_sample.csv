@@ -1,0 +1,4 @@
+Master Category,Subcategory,Date,Location,Payee,Description,Payment Method,Amount,Business Expense?,Business,Expense Category,Amount.1,Expense Memo
+Food,Dining,2024-01-05,Anytown US,Fast Casual,Lunch burrito,PRIME CHECKING,-15.50,No,,,,lunch
+Materials,Hardware,2024-01-10,Online,Hardware Store,Screws and bolts,ACME LLC CHECKING,-42.17,Yes,Acme,Supplies,-42.17,Stocking parts
+Revenue,Sales,2024-01-15,Online,Customer A,Invoice 1001,PRIME CHECKING,2500.00,No,,,,

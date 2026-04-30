@@ -1,0 +1,63 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% block title %}{{ flow.title }} — Funding{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block content %}
+{% include "partials/loans/_wizard_progress.html" %}
+
+<h1>{{ flow.title }}</h1>
+<h2>Step 5: New loan funding</h2>
+<p class="muted">
+  In a typical refi, the new loan's principal flows directly to
+  the old loan's payoff — so the offset account defaults to the
+  old loan's liability path. The funding transaction posts
+  -principal on the new liability and +principal on the old
+  liability, zeroing out the old loan in one move.
+</p>
+<p class="muted">
+  For a cash-out refi, set the offset to a checking account and
+  record the cash side via /record-payment after the wizard.
+</p>
+
+{% include "partials/_wizard_errors.html" %}
+
+{% set default_offset = (old_loan.liability_account_path
+                         if old_loan and old_loan.liability_account_path
+                         else '') %}
+
+<form method="post" action="/settings/loans/wizard/{{ flow_name }}/step"
+      class="stacked-form">
+  {% set my_fields = ['new_funded_date', 'new_offset_account',
+      'new_funding_narration'] %}
+  {% for k, v in params.items() %}
+    {% if v is not none and k != 'step' and k not in my_fields %}
+      <input type="hidden" name="{{ k }}" value="{{ v }}" />
+    {% endif %}
+  {% endfor %}
+  <input type="hidden" name="step" value="funding" />
+
+  <label>Funded date
+    <input type="date" name="new_funded_date" required
+           value="{{ params.new_funded_date or params.payoff_date or '' }}" />
+  </label>
+  <label>Offset account
+    <input type="text" name="new_offset_account" required
+           value="{{ params.new_offset_account or default_offset }}"
+           placeholder="defaults to old loan's liability path" />
+  </label>
+  <label>Narration (optional)
+    <input type="text" name="new_funding_narration"
+           value="{{ params.new_funding_narration or '' }}"
+           placeholder="Refi funding — payoff {{ params.old_loan_slug }}" />
+  </label>
+
+  <button type="submit" class="primary-action">Review →</button>
+</form>
+{% endblock %}

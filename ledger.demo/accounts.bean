@@ -1,0 +1,71 @@
+;; ---------------------------------------------------------------
+;; User-authored file. Edit freely.
+;;
+;; Lamella reads this file every parse but never rewrites it.
+;;
+;; File:      accounts.bean
+;; Owner:     user
+;; Schema:    lamella-ledger-version=3
+;; Generated: 2026-04-29 by Lamella demo generator
+;; ---------------------------------------------------------------
+
+2008-05-01 open Assets:Personal:BankOne:Checking USD
+2008-05-01 open Assets:Personal:BankOne:Savings USD
+2008-05-01 open Liabilities:Personal:BankOne:Card USD
+2008-05-01 open Income:Personal:Salary USD
+2008-05-01 open Income:Personal:Interest:BankOne USD
+2008-05-01 open Equity:Personal:OpeningBalances USD
+2008-05-01 open Expenses:Personal:Groceries USD
+2008-05-01 open Expenses:Personal:Restaurants USD
+2008-05-01 open Expenses:Personal:Healthcare USD
+2008-05-01 open Expenses:Personal:Phone USD
+2008-05-01 open Expenses:Personal:Internet USD
+2008-05-01 open Expenses:Personal:Entertainment USD
+2008-05-01 open Expenses:Personal:Charity USD
+2008-05-01 open Expenses:Personal:Household USD
+2008-05-01 open Expenses:Personal:Clothing USD
+2008-05-01 open Expenses:Personal:Tax:Federal USD
+2008-05-01 open Expenses:Personal:Tax:State USD
+2008-05-01 open Expenses:Personal:Tax:FICA USD
+2008-05-01 open Expenses:Personal:Bank:BankOne:Fees USD
+
+2010-06-15 open Assets:Personal:Properties:MainHouse USD
+2010-06-15 open Liabilities:Personal:BankOne:Loans:Mortgage2010 USD
+2010-06-15 open Expenses:Personal:Properties:MainHouse:PropertyTax USD
+2010-06-15 open Expenses:Personal:Properties:MainHouse:Insurance USD
+2010-06-15 open Expenses:Personal:Properties:MainHouse:Maintenance USD
+2010-06-15 open Expenses:Personal:Properties:MainHouse:Repairs USD
+2010-06-15 open Expenses:Personal:Properties:MainHouse:Utilities USD
+2010-06-15 open Expenses:Personal:Properties:MainHouse:HOA USD
+2010-06-15 open Expenses:Personal:Properties:MainHouse:MortgageInterest USD
+2010-06-15 open Expenses:Personal:BankOne:Loans:Mortgage2010:Escrow USD
+
+2018-03-10 open Assets:Personal:Vehicles:V2018Sedan USD
+2018-03-10 open Expenses:Personal:Vehicles:V2018Sedan:Fuel USD
+2018-03-10 open Expenses:Personal:Vehicles:V2018Sedan:Oil USD
+2018-03-10 open Expenses:Personal:Vehicles:V2018Sedan:Tires USD
+2018-03-10 open Expenses:Personal:Vehicles:V2018Sedan:Insurance USD
+2018-03-10 open Expenses:Personal:Vehicles:V2018Sedan:Maintenance USD
+2018-03-10 open Expenses:Personal:Vehicles:V2018Sedan:Registration USD
+2018-03-10 open Expenses:Personal:Vehicles:V2018Sedan:Parking USD
+
+2019-02-14 open Assets:Acme:BankOne:Checking USD
+2019-02-14 open Liabilities:Acme:BankOne:Card USD
+2019-02-14 open Income:Acme:Consulting USD
+2019-02-14 open Income:Acme:Product USD
+2019-02-14 open Equity:Acme:OpeningBalances USD
+2019-02-14 open Expenses:Acme:Advertising USD
+2019-02-14 open Expenses:Acme:Office USD
+2019-02-14 open Expenses:Acme:Supplies USD
+2019-02-14 open Expenses:Acme:ProfessionalFees USD
+2019-02-14 open Expenses:Acme:Software USD
+2019-02-14 open Expenses:Acme:Telephone USD
+2019-02-14 open Expenses:Acme:Insurance USD
+2019-02-14 open Expenses:Acme:Meals USD
+2019-02-14 open Expenses:Acme:Travel USD
+2019-02-14 open Expenses:Acme:Bank:BankOne:Fees USD
+2019-02-14 open Expenses:Acme:Vehicles:V2018Sedan:Mileage USD
+2019-02-14 open Equity:Acme:Vehicles:V2018Sedan:MileageDeductions USD
+2019-02-14 open Equity:Acme:OwnerDraws USD
+2008-05-01 open Equity:Personal:OwnerCapital USD
+

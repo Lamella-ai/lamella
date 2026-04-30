@@ -1,0 +1,49 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Paperless search results for /txn/{token}/receipt-search. Each
+  candidate has a "Link" button that POSTs to /txn/{token}/receipt-link;
+  the link endpoint returns 204 + HX-Refresh so the parent /txn page
+  reloads with the linked doc visible in the linked-list above.
+-->
+{% if candidates %}
+<div class="muted small" style="margin-bottom:0.4rem">
+  {{ candidates|length }} match{% if candidates|length != 1 %}es{% endif %}
+  for "<strong>{{ search_query }}</strong>"
+</div>
+<ul class="bare" style="margin:0; padding:0; display:flex; flex-direction:column; gap:0.4rem">
+  {% for c in candidates %}
+  <li style="display:flex; align-items:center; gap:0.5rem; padding:0.4rem 0.5rem; border:1px solid var(--border); border-radius:4px">
+    <div style="flex:1; min-width:0">
+      <div>
+        {% if c.deep_link %}
+        <a href="{{ c.deep_link }}" target="_blank" rel="noopener">
+          <strong>#{{ c.paperless_id }}</strong>
+        </a>
+        {% else %}
+        <strong>#{{ c.paperless_id }}</strong>
+        {% endif %}
+        {% if c.title %}<span class="subtle">— {{ c.title }}</span>{% endif %}
+      </div>
+      {% if c.created_date %}
+      <div class="muted small">created {{ c.created_date }}</div>
+      {% endif %}
+    </div>
+    <form method="post"
+          action="/txn/{{ token }}/receipt-link"
+          hx-post="/txn/{{ token }}/receipt-link"
+          hx-target="#staged-receipt-section"
+          hx-swap="outerHTML"
+          style="margin:0">
+      <input type="hidden" name="paperless_doc_id" value="{{ c.paperless_id }}">
+      <button type="submit" class="btn btn--sm btn--primary">Link</button>
+    </form>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted small" style="margin:0">
+  No documents in Paperless matched "<strong>{{ search_query }}</strong>".
+</p>
+{% endif %}

@@ -1,0 +1,28 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<tr>
+  <td>{% if row.sent_at %}{{ row.sent_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}</td>
+  <td>{{ row.channel }}</td>
+  <td>{{ row.priority }}</td>
+  <td>{{ row.title }}</td>
+  <td>
+    {% if row.delivered %}
+      <span class="status status-linked">delivered</span>
+    {% else %}
+      <span class="status status-ignored">{{ row.error or 'failed' }}</span>
+    {% endif %}
+  </td>
+  <td>
+    {% if not row.delivered %}
+    <form method="post" action="/notifications/{{ row.id }}/resend" class="inline-form">
+      <button type="submit">Resend</button>
+    </form>
+    {% endif %}
+  </td>
+</tr>

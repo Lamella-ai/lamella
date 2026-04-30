@@ -1,0 +1,154 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+{# Pre-promotion view of a /txn/{token} URL.
+
+   When the token resolves to a staged_transactions row whose status is
+   not 'promoted', this template renders the staged shape: amount,
+   payee/narration, source provenance, the most recent AI proposal (if
+   any), and the canonical action surface from _txn_actions. The same
+   URL renders the full txn_detail.html shape post-promotion.
+#}
+{% extends "base.html" %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/_txn_actions.html" as T %}
+
+{% block title %}Staged transaction {{ token[:8] }} — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Staged transaction{% endblock %}
+
+{% block content %}
+{% set _subtitle_bits = [] %}
+{% if row.payee %}{% set _ = _subtitle_bits.append(row.payee) %}{% endif %}
+{% if row.description and row.description != row.payee %}{% set _ = _subtitle_bits.append(row.description) %}{% endif %}
+
+{% call L.page_head(
+     title=row.posting_date,
+     subtitle=' · '.join(_subtitle_bits) if _subtitle_bits else '',
+     kicker='Staged · ' ~ row.source
+) %}
+{% endcall %}
+
+<p class="subtle" style="margin:-8px 0 1rem; font-size:0.85rem">
+  <code title="immutable identity">id {{ token[:16] }}…</code>
+  · status <strong>{{ row.status }}</strong>
+  {% if row.session_id %} · session <code>{{ row.session_id }}</code>{% endif %}
+</p>
+
+{% call F.banner(tone='info', title='Not yet in the ledger') %}
+  This transaction is staged — it hasn't been written to a Beancount
+  file yet. Classify it below or open it in <a href="/review">/review</a>.
+  The URL stays the same once it's promoted.
+{% endcall %}
+
+{% call C.kpi_grid() %}
+  {{ C.kpi_tile(label='Amount', value=D.money(row.amount, currency=row.currency, signed=true)) }}
+  {{ C.kpi_tile(label='Source', value=row.source) }}
+  {{ C.kpi_tile(
+      label='Proposal',
+      value=(decision.account if (decision and decision.account) else '—'),
+      meta=(decision.confidence if decision else None),
+      tone=('ok' if (decision and decision.confidence == 'high') else ('warn' if (decision and decision.confidence == 'medium') else ''))
+  ) }}
+{% endcall %}
+
+{% call L.detail_split() %}
+{% call L.main_col() %}
+
+{% call C.card(title='Actions') %}
+  {{ T.actions(ref='staged:' ~ row.id, proposal=decision) }}
+{% endcall %}
+
+{% if decision and decision.rationale %}
+{% call C.card(title='Why this proposal', subtitle=(decision.decided_by or '')) %}
+  <p style="margin:0">{{ decision.rationale }}</p>
+{% endcall %}
+{% endif %}
+
+{% call C.card(title='Receipt') %}
+  <div hx-get="/txn/{{ token }}/receipt-section"
+       hx-trigger="load"
+       hx-target="this"
+       hx-swap="innerHTML">
+    <p class="subtle small" style="margin:0">Loading receipts…</p>
+  </div>
+{% endcall %}
+
+{% call C.card(title='Source record') %}
+  <table class="tbl">
+    <tbody>
+      <tr><td>Date</td><td>{{ row.posting_date }}</td></tr>
+      <tr><td>Amount</td><td>{{ D.money(row.amount, currency=row.currency, signed=true) }}</td></tr>
+      {% if row.payee %}<tr><td>Payee</td><td>{{ row.payee }}</td></tr>{% endif %}
+      {% if row.description %}<tr><td>Description</td><td>{{ row.description }}</td></tr>{% endif %}
+      {% if row.memo %}<tr><td>Memo</td><td>{{ row.memo }}</td></tr>{% endif %}
+      {# ADR-0060 backref — when source_ref carries a file_id, the
+         row came from an archived file under <ledger>/imports/.
+         Surface a link so the user can re-open the artifact. #}
+      {% set _file_id = row.source_ref.file_id if row.source_ref is mapping else none %}
+      {% if _file_id %}
+      <tr>
+        <td>From import</td>
+        <td>
+          <a href="/imports/{{ _file_id }}">
+            #{{ '%05d' % _file_id }}
+            {% if row.source_ref.sheet %}
+              · sheet <code>{{ row.source_ref.sheet }}</code>
+            {% endif %}
+            {% if row.source_ref.row is not none %}
+              · row <code>{{ row.source_ref.row }}</code>
+            {% endif %}
+          </a>
+        </td>
+      </tr>
+      {% endif %}
+      <tr><td>Reference</td><td><code style="word-break:break-all">{{ row.source_ref|tojson }}</code></td></tr>
+    </tbody>
+  </table>
+{% endcall %}
+
+{% if pair %}
+{% call C.card(title='Detected pair', subtitle=(pair.kind ~ ' · ' ~ pair.confidence)) %}
+  <p style="margin:0">
+    Paired with staged row #{{ pair.partner_id }}{% if pair.reason %} ({{ pair.reason }}){% endif %}.
+  </p>
+{% endcall %}
+{% endif %}
+
+{% endcall %}{# main_col #}
+
+{% call L.aside_col() %}
+
+{% call C.card(title='AI history', subtitle=(ai_history|length|string ~ ' run' ~ ('s' if (ai_history|length) != 1 else ''))) %}
+  {% if ai_history %}
+  <ul class="bare" style="margin:0; padding:0">
+    {% for d in ai_history %}
+    <li style="padding:0.4rem 0; border-bottom:1px solid var(--border)">
+      <code>{{ d.decided_at }}</code> · <strong>{{ d.decision_type }}</strong>
+      {% if d.model %}<span class="subtle">({{ d.model }})</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+    <p class="subtle" style="margin:0">No AI calls have been logged for this row yet.</p>
+  {% endif %}
+{% endcall %}
+
+{% call C.card(title='Next steps') %}
+  <ul class="bare" style="margin:0; padding-left:1rem">
+    <li><a href="/review">Open /review</a> to classify alongside related rows</li>
+    <li>Or use the action buttons above for one-click accept / Ask AI</li>
+  </ul>
+{% endcall %}
+
+{% endcall %}{# aside_col #}
+{% endcall %}{# detail_split #}
+
+{% endblock %}

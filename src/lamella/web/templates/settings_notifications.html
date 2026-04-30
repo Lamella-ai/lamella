@@ -1,0 +1,86 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+-->
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Notification settings — Lamella{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block page_title %}Notification settings{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Notifications — channels & thresholds',
+     subtitle='ntfy + Pushover credentials, plus when to push (uncategorized USD floor, weekly digest day). ADR-0047 focused page.',
+     kicker='Settings'
+) %}
+  {{ B.btn('← Back to settings', href='/settings', variant='ghost') }}
+  {{ B.btn('View activity', href='/notifications', variant='ghost') }}
+{% endcall %}
+
+{% if saved %}{% call F.banner(tone='ok', title='Saved') %}{% endcall %}{% endif %}
+
+{% call L.section(title='Channels') %}
+{% call C.card() %}
+<p class="subtle" style="margin-top:0">
+  Both channels are optional. Leave fields blank to disable.
+</p>
+<form method="post" action="/settings/notifications" class="form-grid" style="max-width:none">
+  <h4 style="margin:0; font-size:0.88rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted)">ntfy</h4>
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">ntfy base URL</label>
+      <input class="field-input" type="url" name="ntfy_base_url" value="{{ ntfy_base_url }}" placeholder="https://ntfy.sh" />
+    </div>
+    <div class="field">
+      <label class="field-label">ntfy topic (blank disables)</label>
+      <input class="field-input" type="text" name="ntfy_topic" value="{{ ntfy_topic }}" placeholder="e.g. example-topic-7f2a" />
+    </div>
+  </div>
+  <div class="field">
+    <label class="field-label">ntfy bearer token (private topics only)</label>
+    <input class="field-input" type="password" name="ntfy_token" placeholder="{% if ntfy_token_set %}(set){% else %}(not set){% endif %}" autocomplete="off" />
+    <span class="field-hint">Leave blank to keep the existing token.</span>
+  </div>
+  <h4 style="margin:0; font-size:0.88rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted)">Pushover</h4>
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Pushover user key</label>
+      <input class="field-input" type="password" name="pushover_user_key" placeholder="{% if pushover_configured %}(set){% else %}(not set){% endif %}" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label class="field-label">Pushover API token</label>
+      <input class="field-input" type="password" name="pushover_api_token" placeholder="{% if pushover_configured %}(set){% else %}(not set){% endif %}" autocomplete="off" />
+    </div>
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Save channels', type='submit', variant='primary') }}</div>
+</form>
+{% endcall %}
+{% endcall %}
+
+{% call L.section(title='Thresholds') %}
+{% call C.card() %}
+<form method="post" action="/settings/notifications" class="form-grid" style="max-width:none">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Minimum uncategorized (USD) to push</label>
+      <input class="field-input" type="text" name="notify_min_fixme_usd" value="{{ notify_min_fixme_usd_raw }}" placeholder="500" />
+    </div>
+    <div class="field">
+      <label class="field-label">Weekly digest day</label>
+      <input class="field-input" type="text" name="notify_digest_day" list="weekday-datalist" value="{{ notify_digest_day }}" />
+      <datalist id="weekday-datalist">
+        {% for day in weekdays %}<option value="{{ day }}">{% endfor %}
+      </datalist>
+    </div>
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Save thresholds', type='submit', variant='primary') }}</div>
+</form>
+{% endcall %}
+{% endcall %}
+{% endblock %}

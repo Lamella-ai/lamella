@@ -1,0 +1,140 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<article class="entity-row {% if not e.display_name %}unlabeled{% endif %}" id="entity-row-{{ e.slug }}">
+  <form method="post" action="/settings/entities"
+        hx-post="/settings/entities"
+        hx-target="#entity-row-{{ e.slug }}"
+        hx-swap="outerHTML"
+        autocomplete="off"
+        class="entity-form">
+    <input type="hidden" name="slug" value="{{ e.slug }}" />
+    <input type="hidden" name="is_active" value="{{ e.is_active }}" />
+
+    {% set linked = (entity_counts or {}).get(e.slug, 0) %}
+    <div class="entity-row-primary">
+      <div class="entity-badges">
+        {% if saved_marker %}<span class="saved inline-flash">✓ saved</span>{% endif %}
+        {% if not e.display_name %}<span class="badge preferred">Unlabeled</span>
+        {% elif not e.is_active %}<span class="badge preferred">Inactive</span>
+        {% else %}<span class="badge required">Active</span>{% endif %}
+        {% if (e.entity_type or '') == 'skip' %}
+          <span class="badge" style="background:#f5f3ff;color:#5b21b6;">⤳ skipped</span>
+        {% endif %}
+        {% if linked == 0 %}
+          <span class="badge" style="background:var(--ok-soft);color:var(--ok);">no accounts — safe to delete</span>
+        {% else %}
+          <span class="badge" style="background:#eef2ff;color:#3730a3;">{{ linked }} account{{ '' if linked == 1 else 's' }} reference</span>
+        {% endif %}
+      </div>
+      <label class="entity-display-name">
+        <span class="muted small">Display name</span>
+        <input type="text" name="display_name" value="{{ e.display_name or '' }}"
+               placeholder="type display name" autocomplete="off" />
+      </label>
+      <div class="entity-slug-cell">
+        <span class="muted small">Slug</span>
+        <code>{{ e.slug }}</code>
+      </div>
+    </div>
+
+    <div class="entity-row-secondary">
+      <label>
+        <span class="muted small">Type</span>
+        <select name="entity_type">
+          {% for val, label in entity_types %}
+            <option value="{{ val }}" {% if e.entity_type == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span class="muted small">Tax schedule</span>
+        <select name="tax_schedule">
+          {% for val, label in tax_schedules %}
+            <option value="{{ val }}" {% if (e.tax_schedule or '') == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="entity-save-cell">
+        <button type="submit" class="primary-action">Save</button>
+      </div>
+    </div>
+
+    <details class="entity-advanced">
+      <summary class="muted small">More (dates, merge, delete)…</summary>
+      <div class="entity-row-advanced">
+        <label>
+          <span class="muted small">Start date</span>
+          <input type="date" name="start_date" value="{{ e.start_date or '' }}" />
+        </label>
+        <label>
+          <span class="muted small">Ceased date</span>
+          <input type="date" name="ceased_date" value="{{ e.ceased_date or '' }}" />
+        </label>
+      </div>
+    </details>
+    <details class="entity-classify-context" style="margin-top:0.5rem;">
+      <summary class="muted small">Classify context (told to the AI on every {{ e.slug }} classify)…</summary>
+      <div style="margin-top:0.4rem;">
+        <p class="muted small" style="margin-top:0;">
+          Plain-English description of what this entity does — how it
+          makes money, how it spends money, how it interacts with
+          your other entities. The AI sees this as STRONG BACKGROUND
+          before every classify call on {{ e.slug }}'s cards.
+        </p>
+        <textarea name="classify_context" rows="6" style="width:100%;font-family:inherit;"
+                  placeholder="e.g. &quot;{{ e.slug }} is an LLC formed 2008 that sells widget merchandise. Income: eBay, Shopify, direct sales. Expenses: shipping (UPS/USPS), inventory purchases, advertising (Facebook/Google), software. Intercompany: charges on Personal cards that belong to {{ e.slug }} get corrected via four-leg override.&quot;">{{ e.classify_context or '' }}</textarea>
+      </div>
+    </details>
+  </form>
+
+  <details class="entity-ai-draft" style="margin-top:0.5rem;">
+    <summary class="muted small">🪄 Generate draft description from ledger history…</summary>
+    <p class="muted small" style="margin:0.4rem 0;">
+      Analyze this entity's existing txns (top accounts, top merchants,
+      monthly average) and propose a draft description. You review,
+      edit, and paste into the textarea above before saving. Great
+      sanity check: if the auto-draft matches your mental model,
+      the classifier is already producing usable data.
+    </p>
+    <form hx-post="/settings/entities/{{ e.slug }}/generate-context"
+          hx-target="body" hx-swap="beforeend">
+      <button type="submit" class="secondary small">Generate draft</button>
+    </form>
+  </details>
+
+  <div class="entity-row-actions">
+    {% if e.tax_schedule in ['C', 'F'] %}
+      <a href="/settings/entities/{{ e.slug }}/scaffold" class="muted small">Scaffold accounts →</a>
+    {% elif e.tax_schedule in ['A', 'Personal'] or e.slug == 'Personal' or (e.entity_type or '') | lower == 'personal' %}
+      <a href="/settings/entities/{{ e.slug }}/scaffold" class="muted small">Scaffold Personal chart →</a>
+    {% endif %}
+    <details class="inline-merge">
+      <summary class="muted small">Merge into…</summary>
+      <form method="get" action="/settings/entities/{{ e.slug }}/merge" class="inline-form">
+        <input type="text" name="into" placeholder="TargetSlug" pattern="[A-Z][A-Za-z0-9-]*" required />
+        <button type="submit" class="secondary small">Preview merge</button>
+      </form>
+    </details>
+    <a href="/setup/entities/{{ e.slug }}/manage" class="muted small">
+      Manage / migrate ({{ linked }})
+    </a>
+    {% if not e.display_name %}
+      <form method="post" action="/settings/entities/{{ e.slug }}/delete"
+            hx-post="/settings/entities/{{ e.slug }}/delete"
+            hx-target="#entity-row-{{ e.slug }}"
+            hx-swap="outerHTML"
+            class="inline-form"
+            data-confirm="Delete unlabeled entity '{{ e.slug }}'? {% if linked %}{{ linked }} account(s) reference this slug — the delete will refuse server-side until those are migrated or closed.{% else %}No accounts reference it, so this is safe.{% endif %}"
+            data-confirm-button="Delete">
+        <button type="submit" class="secondary small"
+                title="Delete this unlabeled entity. Only works if no accounts reference it.">Delete</button>
+      </form>
+    {% endif %}
+  </div>
+</article>

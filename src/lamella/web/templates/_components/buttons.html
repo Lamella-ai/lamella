@@ -1,0 +1,86 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# ===========================================================
+   Button macros.
+
+   Use:
+     {% import "_components/buttons.html" as B %}
+     {% import "_components/_icons.html" as icon %}
+
+     {{ B.btn('Save', type='submit', variant='primary') }}
+     {{ B.btn('Cancel', href='/back', variant='ghost') }}
+     {{ B.btn('Delete', variant='danger', confirm='Delete this account?') }}
+     {{ B.btn('Sync now', icon=icon.refresh(), href='/simplefin') }}
+
+   Macros:
+     btn(label, href='', type='button', variant='default',
+         size='', icon='', confirm='', confirm_token='',
+         disabled=false, name='', value='', form='')
+
+     icon_btn(icon, label='', href='', variant='ghost')
+       — icon-only button with aria-label = label
+   =========================================================== #}
+
+{%- macro btn(
+    label,
+    href='',
+    type='button',
+    variant='default',
+    size='',
+    icon='',
+    confirm='',
+    confirm_token='',
+    confirm_button='',
+    disabled=false,
+    name='',
+    value='',
+    form='',
+    class=''
+) -%}
+{%- set cls = 'btn' -%}
+{%- if variant and variant != 'default' -%}{%- set cls = cls + ' btn-' + variant -%}{%- endif -%}
+{%- if size -%}{%- set cls = cls + ' btn-' + size -%}{%- endif -%}
+{%- if class -%}{%- set cls = cls + ' ' + class -%}{%- endif -%}
+{%- if href -%}
+<a class="{{ cls }}"
+   href="{{ href }}"
+   {%- if confirm %} data-confirm="{{ confirm }}"{% endif -%}
+   {%- if confirm_token %} data-confirm-strong="{{ confirm_token }}"{% endif -%}
+   {%- if confirm_button %} data-confirm-button="{{ confirm_button }}"{% endif -%}
+   {%- if disabled %} aria-disabled="true" tabindex="-1"{% endif -%}>
+  {% if icon %}{{ icon|safe }}{% endif %}<span>{{ label }}</span>
+</a>
+{%- else -%}
+<button class="{{ cls }}"
+        type="{{ type }}"
+        {%- if name %} name="{{ name }}"{% endif -%}
+        {%- if value %} value="{{ value }}"{% endif -%}
+        {%- if form %} form="{{ form }}"{% endif -%}
+        {%- if confirm %} data-confirm="{{ confirm }}"{% endif -%}
+        {%- if confirm_token %} data-confirm-strong="{{ confirm_token }}"{% endif -%}
+        {%- if confirm_button %} data-confirm-button="{{ confirm_button }}"{% endif -%}
+        {%- if disabled %} disabled{% endif -%}>
+  {% if icon %}{{ icon|safe }}{% endif %}<span>{{ label }}</span>
+</button>
+{%- endif -%}
+{%- endmacro -%}
+
+{%- macro icon_btn(icon, label='', href='', variant='ghost', class='') -%}
+{%- set cls = 'btn btn-' + variant + ' btn-icon-only' -%}
+{%- if class -%}{%- set cls = cls + ' ' + class -%}{%- endif -%}
+{%- if href -%}
+<a class="{{ cls }}" href="{{ href }}"{% if label %} aria-label="{{ label }}" title="{{ label }}"{% endif %}>{{ icon|safe }}</a>
+{%- else -%}
+<button type="button" class="{{ cls }}"{% if label %} aria-label="{{ label }}" title="{{ label }}"{% endif %}>{{ icon|safe }}</button>
+{%- endif -%}
+{%- endmacro -%}
+
+{%- macro action_row(align='') -%}
+<div class="action-row {% if align %}action-row--{{ align }}{% endif %}">{{ caller() }}</div>
+{%- endmacro -%}

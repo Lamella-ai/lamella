@@ -1,0 +1,60 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{#
+  One entity's chart-status row on /setup/charts. Renders on initial
+  page load AND as the HTMX swap response from
+  /setup/charts/<slug>/scaffold so the user sees "N missing → all
+  open" in-place without a page reload. Mirrors the vehicles +
+  properties row partials.
+#}
+<section id="setup-chart-{{ e.slug }}"
+         style="border:1px solid var(--border); border-radius:6px; padding:0.9em 1.1em; margin:0.6em 0; background:{% if not e.applicable %}var(--bg-elev){% elif e.missing == 0 %}var(--ok-soft){% else %}var(--warn-soft){% endif %};">
+  <div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:0.6em;">
+    <div>
+      {% if not e.applicable %}
+        ○ <code>{{ e.slug }}</code>
+        <span class="muted small">— no chart applies (entity_type / tax_schedule not set)</span>
+      {% elif e.missing == 0 %}
+        <strong style="color:var(--ok);">✓ {{ e.display_name or e.slug }}</strong>
+        <span class="muted small">— {{ e.schedule }}, all {{ e.total }} categories open</span>
+      {% else %}
+        <strong style="color:var(--warn);">⚠ {{ e.display_name or e.slug }}</strong>
+        <span class="muted small">— {{ e.schedule }}, {{ e.missing }} of {{ e.total }} missing</span>
+      {% endif %}
+    </div>
+    <div>
+      {% if e.applicable and e.missing %}
+        <form method="post" action="/setup/charts/{{ e.slug }}/scaffold"
+              hx-post="/setup/charts/{{ e.slug }}/scaffold"
+              hx-target="#setup-chart-{{ e.slug }}"
+              hx-swap="outerHTML"
+              style="display:inline;"
+              data-confirm="Open {{ e.missing }} chart account{{ '' if e.missing == 1 else 's' }} for {{ e.display_name or e.slug }} ({{ e.schedule }})? Writes Open directives into connector_accounts.bean. Bean-check runs after the batch — failure rolls back."
+              data-confirm-button="Scaffold {{ e.missing }} account{{ '' if e.missing == 1 else 's' }}">
+          <button type="submit" class="primary small">Scaffold {{ e.missing }} missing</button>
+        </form>
+      {% elif not e.applicable %}
+        <a href="/setup/entities" class="small">Set type →</a>
+      {% endif %}
+    </div>
+  </div>
+  {% if e.missing_paths %}
+  <details style="margin-top:0.4em;">
+    <summary class="small muted">Missing categories ({{ e.missing }})</summary>
+    <ul class="small" style="margin:0.3em 0 0 1.5em;">
+      {% for p in e.missing_paths %}
+      <li><code>{{ p }}</code></li>
+      {% endfor %}
+      {% if e.missing > e.missing_paths | length %}
+      <li class="muted">…and {{ e.missing - e.missing_paths | length }} more</li>
+      {% endif %}
+    </ul>
+  </details>
+  {% endif %}
+</section>

@@ -1,0 +1,1075 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}{{ vehicle.display_name or vehicle.slug }} — Vehicle{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}{{ vehicle.display_name or vehicle.slug }}{% endblock %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+{% set _subtitle_parts = [] %}
+{% if vehicle.year or vehicle.make or vehicle.model %}{% set _ = _subtitle_parts.append((vehicle.year|string + ' ' + (vehicle.make or '') + ' ' + (vehicle.model or '')).strip()) %}{% endif %}
+{% if vehicle.license_plate %}{% set _ = _subtitle_parts.append('Plate ' + vehicle.license_plate) %}{% endif %}
+{% if vehicle.vin %}{% set _ = _subtitle_parts.append('VIN ' + vehicle.vin) %}{% endif %}
+{% if vehicle.entity_slug %}{% set _ = _subtitle_parts.append('owned by ' + (vehicle.entity_display_name or vehicle.entity_slug)) %}{% else %}{% set _ = _subtitle_parts.append('Personal') %}{% endif %}
+
+{% call L.page_head(
+     title=vehicle.display_name or vehicle.slug,
+     subtitle=_subtitle_parts | join(' · '),
+     kicker='Vehicle · ' + vehicle.slug
+) %}
+  {{ B.btn('Edit', href='/vehicles/' + vehicle.slug + '/edit', icon=icon.edit()) }}
+  {{ B.btn('Log trip', href='/mileage?vehicle=' + (vehicle.display_name or vehicle.slug), icon=icon.car()) }}
+  {{ B.btn('Import mileage', href='/mileage/import', icon=icon.upload()) }}
+  {% if vehicle.is_active and not vehicle.disposal_txn_hash %}
+  {{ B.btn('Record disposal', href='/vehicles/' + vehicle.slug + '/dispose') }}
+  {% endif %}
+{% endcall %}
+
+{% if not vehicle.is_active or vehicle.sale_date %}
+<div style="margin-top:-1rem; margin-bottom:1.5rem; display:flex; gap:8px; flex-wrap:wrap">
+  {% if not vehicle.is_active %}{{ D.badge('Inactive', tone='muted') }}{% endif %}
+  {% if vehicle.sale_date %}{{ D.badge('sold ' + vehicle.sale_date|string, tone='muted') }}{% endif %}
+</div>
+{% endif %}
+
+{# ─── Year selector ─── #}
+{% if target_year and year_options|length > 1 %}
+<form method="get" action="/vehicles/{{ vehicle.slug }}" style="margin-bottom:1.25rem; display:flex; gap:8px; align-items:center;">
+  <label class="field-label" style="margin:0">Tax year:</label>
+  <input class="field-input" type="text" name="year" list="year-options-datalist"
+         value="{{ target_year }}" style="width:8em" onchange="this.form.submit()" />
+  <datalist id="year-options-datalist">
+    {% for y in year_options %}<option value="{{ y }}">{% endfor %}
+  </datalist>
+</form>
+{% endif %}
+
+{% if saved %}
+{% call F.banner(tone='ok', title='Saved') %}
+  {% if saved == 'promoted' %}Trip totals copied into the yearly row.{% else %}Saved.{% endif %}
+{% endcall %}
+{% endif %}
+
+{% if phase2_banner_active %}
+{% call F.banner(tone='warn', title='Heads-up — business-use calculation changed') %}
+  Previously this page assumed 100% business when no split was recorded on a trip.
+  From now on we show "unknown" instead and surface the missing splits in the
+  health panel below, so you know exactly which trips need a business / commuting /
+  personal ratio. Your recorded data didn't change.
+  <form method="post" action="/vehicles/{{ vehicle.slug }}/banner/phase2_unknown_business_use/dismiss" style="margin-top:0.75rem">
+    {{ B.btn('Dismiss', type='submit', size='sm') }}
+  </form>
+{% endcall %}
+{% endif %}
+
+{# ─── Reports / tax-doc dropdown actions ─── #}
+<div class="action-row" style="margin-bottom:1.5rem">
+  {{ B.btn('Mileage log ' + target_year|string, href='/reports/vehicles/mileage-log.pdf?year=' + target_year|string + '&vehicle=' + vehicle.slug, icon=icon.filetext(), size='sm') }}
+  {% if vehicle.entity_slug %}
+  {{ B.btn('Sch C Part IV', href='/reports/vehicles/schedule-c-part-iv.pdf?entity=' + vehicle.entity_slug + '&year=' + target_year|string, icon=icon.filetext(), size='sm') }}
+  {{ B.btn('Form 4562', href='/reports/vehicles/form-4562-worksheet.pdf?entity=' + vehicle.entity_slug + '&year=' + target_year|string, icon=icon.filetext(), size='sm') }}
+  {% endif %}
+</div>
+
+{# ─── KPI strip — headline numbers ─── #}
+{% call C.kpi_grid() %}
+  {{ C.kpi_tile(
+       label=target_year|string + ' total miles',
+       value='{:,.0f}'.format(deduction.total_miles)
+  ) }}
+  {{ C.kpi_tile(
+       label='Business miles',
+       value='{:,.0f}'.format(deduction.business_miles),
+       meta='%d%% of total' % deduction.business_pct if not deduction.business_pct_unknown else 'unknown',
+       tone='warn' if deduction.business_pct_unknown else ''
+  ) }}
+  {{ C.kpi_tile(
+       label='Standard deduction',
+       value=deduction.standard_deduction | money,
+       tone='ok' if deduction.better == 'standard' else '',
+       meta='✓ larger of the two methods' if deduction.better == 'standard' else ''
+  ) }}
+  {{ C.kpi_tile(
+       label='Equity',
+       value=(equity | money) if equity is not none else '—',
+       meta='Value − debt' if equity is not none else 'Add a valuation'
+  ) }}
+{% endcall %}
+
+{# ─── Data health ─── #}
+{% if health_issues %}
+{% call L.section(title='Data health', subtitle='Things worth fixing before tax time') %}
+{% call C.card() %}
+  <ul class="list-clean health-issue-list">
+    {% for issue in health_issues %}
+    <li class="health-issue health-issue--{{ issue.severity }}">
+      {% if issue.fix_url %}
+      <a href="{{ issue.fix_url }}"><strong>{{ issue.title }}</strong></a>
+      {% else %}
+      <strong>{{ issue.title }}</strong>
+      {% endif %}
+      {% if issue.detail %}<div class="subtle" style="margin-top:0.2rem">{{ issue.detail }}</div>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+{% endcall %}
+{% endcall %}
+{% else %}
+{% call L.section(title='Data health') %}
+{% call C.card() %}
+  <p style="margin:0; color:var(--ok)">✓ Everything looks good for {{ target_year }}.</p>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+{# ─── Cost basis / position / odometer ─── #}
+{% call L.section(title='Position & odometer') %}
+<div class="info-grid">
+  {% call C.card(title='Cost basis') %}
+    {{ C.stat_row(label='Purchase price', value=vehicle.purchase_price | money) }}
+    {% if vehicle.purchase_fees %}
+    {{ C.stat_row(label='Title / tag / doc fees', value=vehicle.purchase_fees | money) }}
+    {% endif %}
+    {{ C.stat_row(label='Total cost basis', value=cost_basis | money, tone='ok') }}
+    {% if book_value %}
+    {{ C.stat_row(label='Book value (ledger)', value=book_value | money) }}
+    {% endif %}
+  {% endcall %}
+
+  {% call C.card(title='Current position') %}
+    {% if current_value is not none %}
+    {{ C.stat_row(label='Current value', value=current_value | money) }}
+    {% else %}
+    {{ C.stat_row(label='Current value', value='—', sublabel='Add a valuation below') }}
+    {% endif %}
+    {{ C.stat_row(label='Debt (open auto loans)', value=current_debt | money) }}
+    {% if equity is not none %}
+    {{ C.stat_row(label='Equity', value=equity | money, tone='ok' if equity > 0 else 'err') }}
+    {% endif %}
+  {% endcall %}
+
+  {% call C.card(title='Odometer') %}
+    {% if vehicle.current_mileage %}
+    {{ C.stat_row(label='Current mileage', value='{:,}'.format(vehicle.current_mileage)) }}
+    {% else %}
+    {{ C.stat_row(label='Current mileage', value='—', sublabel='Set on Edit') }}
+    {% endif %}
+    {{ C.stat_row(label=target_year|string + ' total miles', value='{:,.1f}'.format(deduction.total_miles)) }}
+    {{ C.stat_row(
+        label='Business / Commuting / Personal',
+        value='{:,.0f} / {:,.0f} / {:,.0f}'.format(
+          deduction.business_miles,
+          deduction.commuting_miles or 0,
+          deduction.personal_miles
+        )
+    ) }}
+  {% endcall %}
+</div>
+
+{% if vehicle.gvwr_lbs or vehicle.placed_in_service_date or vehicle.fuel_type %}
+{% call C.card(title='Depreciation identity', subtitle='Captured for Form 4562 / Sch C Part IV') %}
+  <div class="info-grid info-grid--3">
+    {% if vehicle.gvwr_lbs %}
+    {{ C.stat_row(label='GVWR', value='{:,} lb'.format(vehicle.gvwr_lbs)) }}
+    {% endif %}
+    {% if vehicle.placed_in_service_date %}
+    {{ C.stat_row(label='Placed in service', value=vehicle.placed_in_service_date) }}
+    {% endif %}
+    {% if vehicle.fuel_type %}
+    {{ C.stat_row(label='Fuel type', value=vehicle.fuel_type) }}
+    {% endif %}
+  </div>
+{% endcall %}
+{% endif %}
+{% endcall %}
+
+{# ─── Deduction comparison ─── #}
+{% call L.section(
+     title=target_year|string + ' deduction',
+     subtitle='Standard mileage vs. actual expenses — IRS lets you take the larger'
+) %}
+{% if deduction.business_pct_unknown %}
+{% call F.banner(tone='warn', title='Business-use percentage is unknown') %}
+  No trip in {{ target_year }} has a business / commuting / personal split
+  recorded, so the actual-expense figure can't be scaled.
+  <a href="/mileage/all?vehicle={{ vehicle.display_name or vehicle.slug }}&fix=splits">Log splits for this year's trips →</a>
+{% endcall %}
+{% endif %}
+
+<div class="info-grid">
+  {% call C.card(title='Standard mileage', tone='ok' if deduction.better == 'standard' else '') %}
+    {{ C.stat_row(label='Business miles', value='{:,.1f}'.format(deduction.business_miles)) }}
+    {{ C.stat_row(
+        label='Deduction',
+        value=deduction.standard_deduction | money,
+        tone='ok' if deduction.better == 'standard' else ''
+    ) }}
+    <p class="subtle" style="margin:0.6rem 0 0">
+      {% if deduction.better == 'standard' %}{{ D.badge('larger', tone='ok') }}{% endif %}
+      Per-trip IRS rate from the <a href="/settings/mileage-rates">rates table</a>.
+    </p>
+  {% endcall %}
+
+  {% call C.card(title='Actual expenses', tone='ok' if deduction.better == 'actual' else '') %}
+    {{ C.stat_row(label='Operating expenses', value=deduction.actual_operating | money) }}
+    {{ C.stat_row(label='Depreciation booked', value=deduction.actual_depreciation | money) }}
+    {% if deduction.business_pct_unknown %}
+    {{ C.stat_row(label='Total × business-use', value=(deduction.actual_total | money) + ' × unknown', tone='warn') }}
+    {{ C.stat_row(label='Deduction', value='unknown', sublabel='split not recorded', tone='warn') }}
+    {% else %}
+    {{ C.stat_row(label='Total × ' + deduction.business_pct|string + '%', value=(deduction.actual_total | money) + ' × ' + deduction.business_pct|string + '%') }}
+    {{ C.stat_row(
+        label='Deduction',
+        value=deduction.actual_business_deduction | money,
+        tone='ok' if deduction.better == 'actual' else ''
+    ) }}
+    {% endif %}
+    {% if deduction.actual_by_category %}
+    <details style="margin-top:0.75rem">
+      <summary class="subtle" style="cursor:pointer">by category</summary>
+      <table class="tbl" style="margin-top:0.5rem">
+        <tbody>
+          {% for cat, amt in deduction.actual_by_category %}
+          <tr>
+            <td>{{ cat }}</td>
+            <td class="num">{{ amt | money }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+    {% endif %}
+    {% if deduction.better == 'actual' %}
+    <p class="subtle" style="margin:0.6rem 0 0">{{ D.badge('larger', tone='ok') }}</p>
+    {% endif %}
+  {% endcall %}
+</div>
+{% endcall %}
+
+{# ─── Monthly miles chart ─── #}
+{% call L.section(title='Monthly miles', subtitle=target_year|string) %}
+{% call C.card() %}
+<div class="chart-box"><canvas id="chart-mileage-monthly"></canvas></div>
+{% endcall %}
+{% endcall %}
+
+{# ─── Forecast ─── #}
+{% if forecast and forecast.projected_total_miles is not none %}
+<section id="forecast">
+{% call L.section(title='Forecast', subtitle='Linear extrapolation from YTD pace') %}
+<div class="info-grid">
+  {% call C.card(title='Year-end projection') %}
+    {{ C.stat_row(
+        label='YTD',
+        value='{:,.1f} mi'.format(forecast.ytd_miles),
+        sublabel='through %s · %d/%d days' % (
+          forecast.through_date.isoformat(),
+          forecast.days_elapsed,
+          forecast.days_in_year
+        )
+    ) }}
+    {{ C.stat_row(label='Projected total', value='{:,.0f} mi'.format(forecast.projected_total_miles), tone='ok') }}
+    {{ C.stat_row(label='Projected business', value='{:,.0f} mi'.format(forecast.projected_business_miles)) }}
+    {{ C.stat_row(label='Projected std deduction', value=forecast.projected_standard_deduction | money) }}
+    <p class="subtle" style="margin-top:0.6rem">Not an estimate of your tax liability.</p>
+  {% endcall %}
+
+  {% if cost_per_mile %}
+  {% call C.card(title='Cost per mile', subtitle=target_year|string, flush=true) %}
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Mo</th>
+          <th class="num">Miles</th>
+          <th class="num">Fuel $</th>
+          <th class="num">¢/mi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in cost_per_mile %}
+          {% if p.miles > 0 or p.cost_usd > 0 %}
+          <tr>
+            <td>{{ '%02d'|format(p.month) }}</td>
+            <td class="num">{{ '{:,.0f}'.format(p.miles) }}</td>
+            <td class="num">{{ p.cost_usd | money }}</td>
+            <td class="num">{% if p.cost_per_mile_cents is not none %}{{ p.cost_per_mile_cents }}{% else %}—{% endif %}</td>
+          </tr>
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endcall %}
+  {% endif %}
+</div>
+
+{% if yoy_overlay and yoy_overlay|length > 1 %}
+{% call C.card(title='Year-over-year overlay', subtitle='Month-bucketed miles', flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Month</th>
+      {% for s in yoy_overlay %}<th class="num">{{ s.year }}</th>{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for mo in range(1, 13) %}
+    <tr>
+      <td>{{ '%02d'|format(mo) }}</td>
+      {% for s in yoy_overlay %}
+        <td class="num">{{ '{:,.0f}'.format(s.months[mo - 1]) }}</td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endif %}
+{% endcall %}
+</section>
+{% endif %}
+
+{# ─── Mileage by year ─── #}
+{% if mileage_years %}
+{% call L.section(title='Mileage by year') %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Year</th>
+      <th class="num">Total</th>
+      <th class="num">Business</th>
+      <th class="num">Commuting</th>
+      <th class="num">Personal</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for m in mileage_years %}
+    <tr>
+      <td><a href="/vehicles/{{ vehicle.slug }}?year={{ m.yr }}">{{ m.yr }}</a></td>
+      <td class="num">{{ '{:,.1f}'.format(m.total_miles) }}</td>
+      <td class="num">{{ '{:,.1f}'.format(m.business_miles) }}</td>
+      <td class="num">{{ '{:,.1f}'.format(m.commuting_miles or 0) }}</td>
+      <td class="num">{{ '{:,.1f}'.format(m.personal_miles) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+{# ─── Recent trips ─── #}
+{% if recent_trips %}
+{% call L.section(title='Recent trips') %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th class="num">Miles</th>
+      <th class="num">Odo</th>
+      <th>Entity</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for t in recent_trips %}
+    <tr>
+      <td>
+        {{ t.entry_date }}
+        {% if t.entry_time %}<span class="subtle">{{ t.entry_time }}</span>{% endif %}
+      </td>
+      <td class="num">{{ '{:,.1f}'.format(t.miles) }}</td>
+      <td class="num muted-text">{{ t.odometer_end or '—' }}</td>
+      <td class="subtle">{{ t.entity or '—' }}</td>
+      <td class="subtle">
+        {% if t.purpose %}{{ t.purpose }}
+        {% elif t.from_loc or t.to_loc %}{{ t.from_loc or '' }} → {{ t.to_loc or '' }}
+        {% else %}{{ t.notes or '' }}{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+<p class="subtle" style="margin-top:0.5rem">
+  <a href="/vehicles/{{ vehicle.slug }}/trips">All trips for this vehicle →</a>
+</p>
+{% endcall %}
+{% endif %}
+
+{# ─── Linked loans ─── #}
+{% if linked_loans %}
+{% call L.section(title='Linked loans') %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Loan</th>
+      <th>Institution</th>
+      <th class="num">Original principal</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for l in linked_loans %}
+    <tr>
+      <td><a href="/settings/loans/{{ l.slug }}">{{ l.display_name or l.slug }}</a></td>
+      <td>{{ l.institution or '—' }}</td>
+      <td class="num">{{ l.original_principal | money }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+{# ─── Value history ─── #}
+{% call L.section(title='Value history', subtitle='KBB / NADA / Edmunds estimates or appraisals over time') %}
+{% if valuations %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>As of</th>
+      <th class="num">Value</th>
+      <th>Source</th>
+      <th>Notes</th>
+      <th class="shrink"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for v in valuations %}
+    <tr>
+      <td>{{ v.as_of_date }}</td>
+      <td class="num">{{ v.value | money }}</td>
+      <td>{{ v.source or '—' }}</td>
+      <td class="subtle">{{ v.notes or '' }}</td>
+      <td class="shrink">
+        <form method="post" action="/vehicles/{{ vehicle.slug }}/valuations/{{ v.id }}/delete"
+              data-confirm="Remove the {{ v.as_of_date }} valuation ({{ v.value | money }})? Depreciation calcs will fall back to the next-most-recent valuation."
+              data-confirm-button="Remove valuation">
+          {{ B.btn('Remove', type='submit', size='sm', variant='ghost') }}
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endif %}
+
+{% call C.card(title='Record a valuation') %}
+<form id="add-valuation" method="post" action="/vehicles/{{ vehicle.slug }}/valuations" class="form-grid" autocomplete="off" style="max-width:none">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">As of date</label>
+      <input class="field-input" type="date" name="as_of_date" required />
+    </div>
+    <div class="field">
+      <label class="field-label">Value</label>
+      <input class="field-input" type="text" name="value" placeholder="e.g. 18500" required />
+    </div>
+  </div>
+  <div class="field">
+    <label class="field-label">Source</label>
+    <input class="field-input" type="text" name="source" list="val-source-datalist" placeholder="—" />
+    <datalist id="val-source-datalist">
+      <option value="kbb" label="Kelley Blue Book">
+      <option value="nada" label="NADA guides">
+      <option value="edmunds" label="Edmunds">
+      <option value="appraisal" label="Appraisal">
+      <option value="sale" label="Comparable sale">
+      <option value="manual" label="Manual estimate">
+    </datalist>
+  </div>
+  <div class="field">
+    <label class="field-label">Notes</label>
+    <textarea class="field-textarea" name="notes" rows="2"></textarea>
+  </div>
+  <div class="form-actions">
+    <span class="spacer"></span>
+    {{ B.btn('Add valuation', type='submit', variant='primary') }}
+  </div>
+</form>
+{% endcall %}
+{% endcall %}
+
+{# ─── Disposals ─── #}
+{% if disposals %}
+{% call L.section(title='Disposals', subtitle='One row per disposal transaction written to the override file') %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Type</th>
+      <th class="num">Proceeds</th>
+      <th>To</th>
+      <th>Gain/Loss to</th>
+      <th>Status</th>
+      <th class="shrink"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d in disposals %}
+    <tr {% if d.revokes_disposal_id or d.revoked_by_disposal_id %}class="muted-text"{% endif %}>
+      <td>{{ d.disposal_date }}</td>
+      <td>{{ d.disposal_type }}</td>
+      <td class="num">{{ d.proceeds_amount }}</td>
+      <td><code>{{ d.proceeds_account or '—' }}</code></td>
+      <td><code>{{ d.gain_loss_account or '—' }}</code></td>
+      <td>
+        {% if d.revokes_disposal_id %}
+          {{ D.badge('revoke', tone='muted') }}
+        {% elif d.revoked_by_disposal_id %}
+          {{ D.badge('revoked', tone='muted') }}
+        {% else %}
+          {{ D.badge('live', tone='ok') }}
+        {% endif %}
+      </td>
+      <td class="shrink">
+        {% if not d.revokes_disposal_id and not d.revoked_by_disposal_id %}
+        <form method="post" action="/vehicles/{{ vehicle.slug }}/dispose/{{ d.disposal_id }}/revoke"
+              onsubmit="return confirm('Write a reversing transaction for this disposal? You can file a replacement afterwards.')">
+          {{ B.btn('Revoke', type='submit', size='sm') }}
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+{% if method_lock %}
+{% call F.banner(tone='warn', title='Method-lock advisory') %}
+  {{ method_lock.text }}
+{% endcall %}
+{% endif %}
+
+{# ─── Entity allocation ─── #}
+{% if allocation %}
+{% call L.section(title=target_year|string + ' entity allocation', subtitle="Per-entity split of this vehicle's miles") %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Entity</th>
+      <th class="num">Miles</th>
+      <th class="num">Share</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for a in allocation %}
+    <tr>
+      <td>{{ a.entity | entity }}</td>
+      <td class="num">{{ '{:,.1f}'.format(a.miles) }}</td>
+      <td class="num">{{ '%.1f%%'|format(a.share * 100) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+<p class="subtle" style="margin-top:0.5rem">
+  To reattribute individual trips, use the <em>Attribution override</em> form on a trip's
+  <a href="/mileage/all?vehicle={{ vehicle.display_name or vehicle.slug }}">edit page</a>.
+</p>
+{% endcall %}
+{% endif %}
+
+{# ─── Tax credits ─── #}
+{% call L.section(title='Tax credits / incentives', subtitle='Free-form capture · we do not determine eligibility') %}
+{% if credits %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Year</th>
+      <th>Credit</th>
+      <th class="num">Amount</th>
+      <th>Status</th>
+      <th>Notes</th>
+      <th class="shrink"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in credits %}
+    <tr>
+      <td>{{ c.tax_year }}</td>
+      <td>{{ c.credit_label }}</td>
+      <td class="num">{{ c.amount or '—' }}</td>
+      <td>{{ c.status or '—' }}</td>
+      <td class="subtle">{{ c.notes or '' }}</td>
+      <td class="shrink">
+        <form method="post" action="/vehicles/{{ vehicle.slug }}/credits/{{ c.id }}/delete"
+              data-confirm="Delete the {{ c.tax_year }} credit entry?"
+              data-confirm-button="Delete credit">
+          {{ B.btn('Delete', type='submit', variant='ghost', size='sm') }}
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endif %}
+
+{% call C.card(title='Add a credit / incentive') %}
+<form id="add-credit" method="post" action="/vehicles/{{ vehicle.slug }}/credits" class="form-grid" autocomplete="off" style="max-width:none">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Tax year</label>
+      <input class="field-input" type="number" name="tax_year" required />
+    </div>
+    <div class="field">
+      <label class="field-label">Amount (optional)</label>
+      <input class="field-input" type="text" name="amount" placeholder="e.g. 7500" />
+    </div>
+  </div>
+  <div class="field">
+    <label class="field-label">Credit label</label>
+    <input class="field-input" type="text" name="credit_label" placeholder='e.g. "Federal EV § 30D"' required />
+  </div>
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Status</label>
+      <input class="field-input" type="text" name="status" list="credit-status-datalist" />
+      <datalist id="credit-status-datalist">
+        <option value="claimed">
+        <option value="pending">
+        <option value="ineligible">
+        <option value="unknown">
+      </datalist>
+    </div>
+    <div class="field">
+      <label class="field-label">Notes</label>
+      <input class="field-input" type="text" name="notes" />
+    </div>
+  </div>
+  <div class="form-actions">
+    <span class="spacer"></span>
+    {{ B.btn('Save credit', type='submit', variant='primary') }}
+  </div>
+</form>
+{% endcall %}
+{% endcall %}
+
+{# ─── Renewals ─── #}
+{% call L.section(title='Renewal schedule', subtitle='Registration / inspection / insurance due dates') %}
+{% if renewals %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Kind</th>
+      <th>Due</th>
+      <th>Cadence</th>
+      <th>Last done</th>
+      <th>Status</th>
+      <th class="shrink"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in renewals %}
+    <tr {% if not r.is_active %}class="muted-text"{% endif %}>
+      <td>{{ r.renewal_kind }}</td>
+      <td>{{ r.due_date.isoformat() }}</td>
+      <td>{% if r.cadence_months %}{{ r.cadence_months }} mo{% else %}one-shot{% endif %}</td>
+      <td>{{ r.last_completed.isoformat() if r.last_completed else '—' }}</td>
+      <td>{% if r.is_active %}{{ D.badge('active', tone='ok') }}{% else %}{{ D.badge('done', tone='muted') }}{% endif %}</td>
+      <td class="shrink">
+        {% if r.is_active %}
+        <form method="post" action="/vehicles/{{ vehicle.slug }}/renewals/{{ r.id }}/complete" style="display:inline">
+          {{ B.btn('Complete', type='submit', size='sm') }}
+        </form>
+        {% endif %}
+        <form method="post" action="/vehicles/{{ vehicle.slug }}/renewals/{{ r.id }}/delete" style="display:inline"
+              data-confirm="Delete the {{ r.renewal_kind }} renewal due {{ r.due_date.isoformat() }}? Calendar reminders for this row stop firing."
+              data-confirm-button="Delete renewal">
+          {{ B.btn('Delete', type='submit', variant='ghost', size='sm') }}
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endif %}
+
+{% call C.card(title='Add a renewal') %}
+<form id="add-renewal" method="post" action="/vehicles/{{ vehicle.slug }}/renewals" class="form-grid" autocomplete="off" style="max-width:none">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Kind</label>
+      <input class="field-input" type="text" name="renewal_kind" list="renewal-kind-datalist" required />
+      <datalist id="renewal-kind-datalist">
+        <option value="registration">
+        <option value="inspection">
+        <option value="insurance">
+        <option value="other">
+      </datalist>
+    </div>
+    <div class="field">
+      <label class="field-label">Due date</label>
+      <input class="field-input" type="date" name="due_date" required />
+    </div>
+  </div>
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Cadence (months, optional)</label>
+      <input class="field-input" type="number" name="cadence_months" placeholder="e.g. 12" />
+    </div>
+    <div class="field">
+      <label class="field-label">Notes</label>
+      <input class="field-input" type="text" name="notes" />
+    </div>
+  </div>
+  <div class="form-actions">
+    <span class="spacer"></span>
+    {{ B.btn('Save renewal', type='submit', variant='primary') }}
+  </div>
+</form>
+{% endcall %}
+{% endcall %}
+
+{# ─── Tax elections (read-only here; edit on /edit) ─── #}
+{% if elections %}
+{% call L.section(title='Tax elections', subtitle='§179 / bonus / MACRS · informational capture') %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Year</th>
+      <th>Method</th>
+      <th class="num">§179</th>
+      <th class="num">Bonus</th>
+      <th class="num">Basis</th>
+      <th class="num">Biz-use %</th>
+      <th>Listed</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for el in elections %}
+    <tr>
+      <td>{{ el.tax_year }}</td>
+      <td>{{ el.depreciation_method or '—' }}</td>
+      <td class="num">{{ el.section_179_amount or '—' }}</td>
+      <td class="num">{{ el.bonus_depreciation_amount or '—' }}</td>
+      <td class="num">{{ el.basis_at_placed_in_service or '—' }}</td>
+      <td class="num">
+        {% if el.business_use_pct_override is not none %}
+          {{ '%.0f%%'|format(el.business_use_pct_override * 100) }}
+        {% else %}—{% endif %}
+      </td>
+      <td>
+        {% if el.listed_property_qualified == 1 %}yes
+        {% elif el.listed_property_qualified == 0 %}no
+        {% else %}—{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+<p class="subtle" style="margin-top:0.5rem">
+  <a href="/vehicles/{{ vehicle.slug }}/edit#elections">Manage elections →</a>
+</p>
+{% endcall %}
+{% endif %}
+
+{# ─── Fuel log ─── #}
+{% call L.section(
+     title='Fuel log',
+     subtitle=target_year|string + ' · gallons / kWh / odometer per fill-up'
+) %}
+{% if fuel_stats.events_count > 0 %}
+<div class="info-grid">
+  {% call C.card(title=target_year|string + ' totals') %}
+    {{ C.stat_row(label='Events', value=fuel_stats.events_count) }}
+    {% if fuel_stats.total_gallons %}
+    {{ C.stat_row(label='Gallons', value='%.2f'|format(fuel_stats.total_gallons)) }}
+    {% endif %}
+    {% if fuel_stats.total_kwh %}
+    {{ C.stat_row(label='kWh', value='%.2f'|format(fuel_stats.total_kwh)) }}
+    {% endif %}
+    {% if fuel_stats.total_cost_usd %}
+    {{ C.stat_row(label='Total cost', value=fuel_stats.total_cost_usd | money) }}
+    {% endif %}
+  {% endcall %}
+
+  {% call C.card(title='Derived') %}
+    {% if fuel_stats.miles_covered %}
+    {{ C.stat_row(label='Miles covered', value='{:,}'.format(fuel_stats.miles_covered)) }}
+    {% else %}
+    {{ C.stat_row(label='Miles covered', value='unknown', sublabel='need ≥2 odometer readings') }}
+    {% endif %}
+    {% if fuel_stats.mpg %}{{ C.stat_row(label='MPG', value='%.1f'|format(fuel_stats.mpg)) }}{% endif %}
+    {% if fuel_stats.miles_per_kwh %}{{ C.stat_row(label='Miles / kWh', value='%.2f'|format(fuel_stats.miles_per_kwh)) }}{% endif %}
+    {% if fuel_stats.cost_per_mile_cents %}{{ C.stat_row(label='Cost / mile', value='%.1f¢'|format(fuel_stats.cost_per_mile_cents)) }}{% endif %}
+    {% if fuel_stats.cost_per_gallon %}{{ C.stat_row(label='$ / gallon', value='$%.3f'|format(fuel_stats.cost_per_gallon)) }}{% endif %}
+    {% if fuel_stats.cost_per_kwh %}{{ C.stat_row(label='$ / kWh', value='$%.3f'|format(fuel_stats.cost_per_kwh)) }}{% endif %}
+  {% endcall %}
+</div>
+{% endif %}
+
+{% if fuel_events %}
+{% call C.card(title='Recent events', flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Type</th>
+      <th class="num">Qty</th>
+      <th class="num">Cost</th>
+      <th class="num">Odo</th>
+      <th>Location / notes</th>
+      <th class="shrink"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for e in fuel_events %}
+    <tr>
+      <td>{{ e.as_of_date.isoformat() }}</td>
+      <td>{{ e.fuel_type }}</td>
+      <td class="num">{{ '%.2f'|format(e.quantity) }} {{ e.unit }}</td>
+      <td class="num">{% if e.cost_usd %}{{ e.cost_usd | money }}{% else %}<span class="muted-text">—</span>{% endif %}</td>
+      <td class="num">{% if e.odometer %}{{ '{:,}'.format(e.odometer) }}{% else %}<span class="muted-text">—</span>{% endif %}</td>
+      <td class="subtle">
+        {% if e.location %}{{ e.location }}{% endif %}
+        {% if e.notes %}{% if e.location %}<br>{% endif %}<span class="muted-text">{{ e.notes }}</span>{% endif %}
+      </td>
+      <td class="shrink">
+        <form method="post" action="/vehicles/{{ vehicle.slug }}/fuel/{{ e.id }}/delete"
+              data-confirm="Delete the {{ e.as_of_date }} fuel event? MPG history loses this data point."
+              data-confirm-button="Delete fuel event">
+          {{ B.btn('Delete', type='submit', variant='ghost', size='sm') }}
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endif %}
+
+{% call C.card(title='Record a fuel event') %}
+<form method="post" action="/vehicles/{{ vehicle.slug }}/fuel" class="form-grid" autocomplete="off" style="max-width:none">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Date</label>
+      <input class="field-input" type="date" name="as_of_date" required />
+    </div>
+    <div class="field">
+      <label class="field-label">Fuel type</label>
+      <input class="field-input" type="text" name="fuel_type" list="fuel-type-datalist" value="gasoline" required />
+      <datalist id="fuel-type-datalist">
+        <option value="gasoline">
+        <option value="diesel">
+        <option value="ev" label="EV (kWh)">
+        <option value="phev">
+        <option value="hybrid">
+        <option value="other">
+      </datalist>
+    </div>
+  </div>
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Unit</label>
+      <input class="field-input" type="text" name="unit" list="fuel-unit-datalist" value="gallon" required />
+      <datalist id="fuel-unit-datalist">
+        <option value="gallon" label="gallons">
+        <option value="kwh" label="kWh">
+      </datalist>
+    </div>
+    <div class="field">
+      <label class="field-label">Quantity</label>
+      <input class="field-input" type="number" step="0.001" name="quantity" min="0" required />
+    </div>
+  </div>
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Cost (USD)</label>
+      <input class="field-input" type="number" step="0.01" name="cost_usd" min="0" placeholder="optional" />
+    </div>
+    <div class="field">
+      <label class="field-label">Odometer</label>
+      <input class="field-input" type="number" name="odometer" placeholder="optional" />
+    </div>
+  </div>
+  <div class="field">
+    <label class="field-label">Location (optional)</label>
+    <input class="field-input" type="text" name="location" />
+  </div>
+  <div class="field">
+    <label class="field-label">Notes (optional)</label>
+    <textarea class="field-textarea" name="notes" rows="2"></textarea>
+  </div>
+  <div class="form-actions">
+    <span class="spacer"></span>
+    {{ B.btn('Record event', type='submit', variant='primary') }}
+  </div>
+</form>
+{% endcall %}
+{% endcall %}
+
+{# ─── Schedule C Part IV totals ─── #}
+{% if yearly_rows or deduction.total_miles > 0 %}
+{% call L.section(title='Schedule C Part IV', subtitle='Yearly totals · separate from the trip log') %}
+{% if yearly_rows %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Year</th>
+      <th class="num">Start</th>
+      <th class="num">End</th>
+      <th class="num">Business</th>
+      <th class="num">Commuting</th>
+      <th class="num">Personal</th>
+      <th class="shrink"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for y in yearly_rows %}
+    <tr>
+      <td>{{ y.year }}</td>
+      <td class="num">{{ y.start_mileage or '—' }}</td>
+      <td class="num">{{ y.end_mileage or '—' }}</td>
+      <td class="num">{{ y.business_miles or 0 }}</td>
+      <td class="num">{{ y.commuting_miles or 0 }}</td>
+      <td class="num">{{ y.personal_miles or 0 }}</td>
+      <td class="shrink">
+        <form method="post" action="/vehicles/{{ vehicle.slug }}/promote-trips?year={{ y.year }}">
+          {{ B.btn('↻ from trips', type='submit', size='sm') }}
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endif %}
+
+{% if deduction.total_miles > 0 %}
+  {% set has_row_for_target = false %}
+  {% for y in yearly_rows or [] %}
+    {% if y.year == target_year %}{% set has_row_for_target = true %}{% endif %}
+  {% endfor %}
+  {% if not has_row_for_target %}
+  <form method="post" action="/vehicles/{{ vehicle.slug }}/promote-trips?year={{ target_year }}" style="margin-top:0.75rem">
+    {{ B.btn('Copy ' + target_year|string + ' trip totals → new yearly row', type='submit') }}
+  </form>
+  {% endif %}
+{% endif %}
+
+<p class="subtle" style="margin-top:0.5rem">
+  <a href="/vehicles/{{ vehicle.slug }}/edit#schedule-c">Edit yearly totals →</a>
+</p>
+{% endcall %}
+{% endif %}
+
+{# ─── Expense rollup ─── #}
+{% if expense_rollup %}
+{% call L.section(title='Expense rollup (all-time)', subtitle="Every posting under this vehicle's expense subtree") %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Category</th>
+      <th class="num">Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for acct, amt in expense_rollup %}
+    <tr>
+      <td title="{{ acct }}">{{ acct | alias }}</td>
+      <td class="num">{{ amt | money }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+<p class="subtle" style="margin-top:1.5rem">
+  <a href="/vehicles">← back to Vehicles</a>
+</p>
+
+<script>
+  (function () {
+    const ctx = document.getElementById('chart-mileage-monthly');
+    if (!ctx || !window.Chart) return;
+    const cs = getComputedStyle(document.documentElement);
+    const c = name => cs.getPropertyValue(name).trim();
+    const fg = c('--fg') || '#0f172a';
+    const grid = c('--border') || '#e4e7ec';
+    Chart.defaults.color = fg;
+    Chart.defaults.borderColor = grid;
+    const data = {{ monthly_series | tojson }};
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: data.map(d => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.month-1]),
+        datasets: [{
+          label: 'Miles',
+          data: data.map(d => d.miles),
+          backgroundColor: c('--chart-net'),
+        }],
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, grid: { color: grid } },
+          x: { grid: { color: grid } },
+        },
+      },
+    });
+  })();
+</script>
+
+<style>
+  .chart-box { height: 280px; padding: 0.75rem; }
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  .info-grid--3 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.4rem 1rem;
+  }
+  .health-issue-list { display: flex; flex-direction: column; gap: 6px; }
+  .health-issue {
+    padding: 8px 12px;
+    border-left: 3px solid var(--muted);
+    background: var(--panel-2);
+    border-radius: 4px;
+  }
+  .health-issue--error { border-left-color: var(--err); }
+  .health-issue--warn  { border-left-color: var(--warn); }
+  .health-issue--info  { border-left-color: var(--accent); }
+</style>
+{% endblock %}

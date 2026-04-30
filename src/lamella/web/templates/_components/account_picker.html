@@ -1,0 +1,136 @@
+{# ─── account_picker — B6 Step 0 foundation ──────────────────────
+   Server-rendered popup, mounted by a small vanilla-JS controller
+   (see static/account_picker.js). Designed to coexist with the
+   legacy `T.account_picker` macro at `_components/_txn.html:166`
+   until the per-surface migration in B6 Step 4 retires it.
+
+   Inputs (all optional unless noted):
+     name           str — form field name (default: "target_account")
+     value          str — current value. Discipline rules (B5):
+                          - blank: no prefill, popup ranks on focus.
+                          - prefilled with edit_row=true: edit form,
+                            no badge.
+                          - prefilled with prefill_reason="…": true
+                            heuristic guess, badge + X-clear shown.
+                          - prefilled from a confirmed source (rule
+                            applied / AI classified / recent-merchant
+                            memory): pass `prefill_reason="confirmed"`
+                            (or any value in CONFIRMED_REASONS — see
+                            below) to bypass the badge per
+                            decisions-pending §1.1.
+                          - prefilled with neither flag: TemplateError.
+     kind           str|None — "Expenses" | "Assets" | "Liabilities"
+                          | "Income" | "Equity". When set, results are
+                          filtered to this root AND a "remove filter"
+                          escape-hatch button appears in the popup
+                          (decisions-pending §1.2).
+     entity_hint    str|None — entity slug to boost in ranking.
+     mode           str — "picker" (default) | "filter".
+     allow_create   bool — when true, no-match shows "Press Enter to
+                          use as-is".
+     prefill_reason str|None — see B5 / §1.1. None means no badge.
+     edit_row       bool — when true, value is treated as the
+                          row's current value (no badge).
+     placeholder    str
+     required       bool
+     extra_class    str — passed through on the input
+     id             str — for label `for` binding
+     autofocus      bool
+     list_id        str|None — DEPRECATED back-compat arg, ignored.
+   ─────────────────────────────────────────────────────────────── #}
+
+{# Reasons that designate a *confirmed* source. These bypass the
+   badge the same way edit_row=true does (decisions-pending §1.1).
+   Keep this list short and explicit; new confirmed sources should
+   add their string here so callers don't accidentally bypass the
+   badge for a heuristic guess by passing a freeform reason. #}
+{% set CONFIRMED_REASONS = (
+     'confirmed',
+     'rule-applied',
+     'ai-classified',
+     'recent-merchant-memory',
+) %}
+
+{%- macro account_picker(
+     name='target_account',
+     value='',
+     kind=none,
+     entity_hint=none,
+     mode='picker',
+     allow_create=false,
+     prefill_reason=none,
+     edit_row=false,
+     placeholder='',
+     required=false,
+     extra_class='',
+     id='',
+     autofocus=false,
+     list_id=none
+) -%}
+{#- Server-side enforcement of the prefill discipline (B5).
+    Picker mode + a non-empty value MUST come with one of:
+       - edit_row=true (existing-row edit form), OR
+       - prefill_reason set (heuristic guess, badge shown), OR
+       - confirmed-source bypass (prefill_reason in CONFIRMED_REASONS).
+    Filter mode skips the check entirely (URL state, no badge). -#}
+{%- if mode == 'picker'
+       and value
+       and not edit_row
+       and not prefill_reason -%}
+  {#- Deliberate: call an undefined name to raise UndefinedError
+      (a Jinja TemplateError subclass) at render time, surfacing
+      the discipline violation as a hard render failure rather
+      than a silent missing-badge bug. -#}
+  {{ raise_account_picker_prefill_discipline_violation_undeclared_reason() }}
+{%- endif -%}
+
+{#- Decide whether to render the badge.
+    - edit_row: never (it's the user's existing value).
+    - confirmed-source: never (it's a confirmed result, not a guess).
+    - prefill_reason set + heuristic: yes. -#}
+{%- set _show_badge = (
+     prefill_reason
+     and not edit_row
+     and prefill_reason not in CONFIRMED_REASONS
+) -%}
+
+{%- set _kind_attr = kind or '' -%}
+{%- set _entity_attr = entity_hint or '' -%}
+{%- set _placeholder = placeholder or (
+     'Liabilities:Personal:…' if kind == 'Liabilities'
+     else ('Assets:Personal:…' if kind == 'Assets'
+     else ('Expenses:Acme:Office:Supplies …' if kind == 'Expenses'
+     else 'Type to search accounts …'))
+) -%}
+<div class="acct-picker field-clearable"
+     data-acct-picker
+     data-kind="{{ _kind_attr }}"
+     data-entity-hint="{{ _entity_attr }}"
+     data-mode="{{ mode }}"
+     data-allow-create="{{ '1' if allow_create else '0' }}">
+  <input
+    {%- if id %} id="{{ id }}"{%- endif %}
+    class="field-input acct-picker-input {{ extra_class }}"
+    type="text"
+    name="{{ name }}"
+    value="{{ value or '' }}"
+    autocomplete="off"
+    spellcheck="false"
+    aria-autocomplete="list"
+    aria-expanded="false"
+    placeholder="{{ _placeholder }}"
+    {%- if required %} required{%- endif %}
+    {%- if autofocus %} autofocus{%- endif %} />
+  {%- if _show_badge %}
+  <span class="acct-picker-prefill-badge" role="status">
+    {{ prefill_reason }} — clear?
+  </span>
+  {%- endif %}
+  <button type="button"
+          class="field-clear acct-picker-clear"
+          aria-label="Clear"
+          tabindex="-1"
+          {%- if not value %} hidden{%- endif %}>×</button>
+  <div class="acct-picker-popup" role="listbox" hidden></div>
+</div>
+{%- endmacro -%}

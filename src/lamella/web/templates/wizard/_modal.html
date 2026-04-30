@@ -1,0 +1,110 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# ===========================================================
+   Reusable wizard modal component.
+
+   Used at body level in wizard/_layout.html via the {% block modal %}
+   block, so the backdrop is a sibling of <div class="wiz"> rather
+   than a descendant of <main class="wiz-main">. .wiz-main has a
+   slide-in transform animation, which creates a containing block
+   for position:fixed descendants — that's why the previous in-page
+   modal "drifted" while the page animation was running and then
+   snapped to viewport-center once it finished. Rendering the modal
+   outside that containing block keeps it anchored to the viewport
+   from the first frame.
+
+   Usage in a step template:
+
+     {% block modal %}
+     {% if open_modal == 'something' %}
+     {% import "wizard/_modal.html" as M %}
+     {% call M.modal(title="Add a person", action_label="Add person",
+                     submit_form_id="my-form") %}
+       <form id="my-form" method="post" action="…">
+         …fields…
+       </form>
+     {% endcall %}
+     {% endif %}
+     {% endblock %}
+
+   The macro renders the backdrop + frame + close button. The body
+   you pass in is rendered inside the .wiz-modal-body wrapper. The
+   submit + cancel buttons are rendered in a footer outside the
+   form; the submit uses `form="…"` to bind back to your form,
+   which keeps the markup clean.
+   =========================================================== #}
+
+{%- macro modal(
+    title,
+    submit_form_id,
+    action_label="Save",
+    cancel_href="",
+    width="560px"
+) -%}
+<div class="wiz-modal-backdrop is-open" id="wiz-modal" data-cancel-href="{{ cancel_href }}">
+  <div class="wiz-modal" role="dialog" aria-modal="true" aria-labelledby="wiz-modal-title" style="max-width: {{ width }}">
+    <header class="wiz-modal-head">
+      <h3 id="wiz-modal-title">{{ title }}</h3>
+      {% if cancel_href %}
+      <a class="wiz-modal-close" href="{{ cancel_href }}" aria-label="Close">×</a>
+      {% else %}
+      <button class="wiz-modal-close" type="button" data-modal-close aria-label="Close">×</button>
+      {% endif %}
+    </header>
+    <div class="wiz-modal-body">
+      {{ caller() }}
+    </div>
+    <footer class="wiz-modal-foot">
+      {% if cancel_href %}
+      <a class="wiz-btn wiz-btn-link" href="{{ cancel_href }}">Cancel</a>
+      {% else %}
+      <button class="wiz-btn wiz-btn-link" type="button" data-modal-close>Cancel</button>
+      {% endif %}
+      <span class="spacer"></span>
+      <button class="wiz-btn wiz-btn-primary" type="submit" form="{{ submit_form_id }}">
+        {{ action_label }}
+      </button>
+    </footer>
+  </div>
+</div>
+
+<script>
+  /* Generic modal wiring — close on:
+       - backdrop click (target === backdrop, not a child)
+       - Escape key
+       - any button with data-modal-close
+     If a `data-cancel-href` is set, navigate there; otherwise
+     remove the .is-open class so the modal hides without losing
+     wizard state. */
+  (function () {
+    var backdrop = document.getElementById("wiz-modal");
+    if (!backdrop || backdrop.__wiz_modal_wired) return;
+    backdrop.__wiz_modal_wired = true;
+    var cancelHref = backdrop.dataset.cancelHref || "";
+    function close() {
+      if (cancelHref) {
+        window.location.href = cancelHref;
+      } else {
+        backdrop.classList.remove("is-open");
+      }
+    }
+    backdrop.addEventListener("click", function (ev) {
+      if (ev.target === backdrop) close();
+    });
+    document.addEventListener("keydown", function (ev) {
+      if (ev.key === "Escape" && backdrop.classList.contains("is-open")) {
+        close();
+      }
+    });
+    backdrop.querySelectorAll("[data-modal-close]").forEach(function (el) {
+      el.addEventListener("click", close);
+    });
+  })();
+</script>
+{%- endmacro -%}

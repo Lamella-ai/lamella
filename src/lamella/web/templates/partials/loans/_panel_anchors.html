@@ -1,0 +1,64 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Balance anchors table + add-form. Unchanged behavior from classic. #}
+<h3>Balance anchors</h3>
+<p class="muted small">
+  Anchor reality to a statement-observed balance on a specific date.
+  Use this when extra-principal payments broke the amortization
+  schedule, the loan predates your ledger, or the servicer changed
+  (refi, assumption).
+</p>
+
+{% if anchors %}
+  <table class="data">
+    <thead>
+      <tr><th>Date</th><th>Balance</th><th>Source</th><th>Notes</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for a in anchors %}
+        <tr>
+          <td>{{ a.as_of_date }}</td>
+          <td class="num">{{ a.balance | money }}</td>
+          <td>{{ a.source or '—' }}</td>
+          <td>{{ a.notes or '' }}</td>
+          <td>
+            <form method="post"
+                  action="/settings/loans/{{ loan.slug }}/anchors/{{ a.id }}/delete"
+                  class="inline-form">
+              <button type="submit" class="small danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p class="muted small">No anchors on record yet.</p>
+{% endif %}
+
+<details>
+  <summary>Add a balance anchor</summary>
+  <form method="post" action="/settings/loans/{{ loan.slug }}/anchors"
+        class="stacked-form">
+    <label>As-of date
+      <input type="date" name="as_of_date" required />
+    </label>
+    <label>Balance
+      <input type="number" step="0.01" name="balance" required />
+    </label>
+    <label>Source
+      <input type="text" name="source"
+             placeholder="statement / payoff letter / servicer portal / 1098 / manual" />
+    </label>
+    <label>Notes
+      <input type="text" name="notes" />
+    </label>
+    <button type="submit" class="primary-action">Add anchor</button>
+  </form>
+</details>

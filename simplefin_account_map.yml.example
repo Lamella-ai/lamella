@@ -1,0 +1,19 @@
+# Map SimpleFIN account.id → Beancount source account.
+# Copy this file to ${LEDGER_DIR}/simplefin_account_map.yml and fill in the
+# accounts that match your ledger's entity-first hierarchy.
+#
+# The SimpleFIN account.id is the opaque id the bridge returns; look it up
+# on /simplefin (shadow mode prints the id for every account in the first
+# fetch) or directly from a bridge response JSON.
+#
+# Entries are case-sensitive. Accounts not listed here will trigger a
+# high-priority `simplefin_unmapped_account` review item on the next fetch.
+
+# Flat shape — id → account.
+# account-12345: Liabilities:Acme:Card:CardA1234
+# account-67890: Liabilities:Personal:Card:CardB9876
+# account-99999: Assets:Acme:Checking
+
+# Or wrapped under an `accounts` key:
+# accounts:
+#   account-12345: Liabilities:Acme:Card:CardA1234

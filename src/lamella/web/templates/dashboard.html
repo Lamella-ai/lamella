@@ -1,0 +1,566 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+
+{% block title %}Dashboard — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{#- Aggregate the headline numbers up here so the KPI strip can
+    read them without recomputing inside the template. -#}
+{%- set total_assets       = balances|map(attribute='assets')|sum     if balances else 0 -%}
+{%- set total_liabilities  = balances|map(attribute='liabilities')|sum if balances else 0 -%}
+{%- set total_net_worth    = total_assets + total_liabilities -%}
+{%- set total_attention    = (activity.needs_attention if activity and activity.needs_attention else 0) -%}
+{%- set has_open_work      = (activity and activity.needs_categorizing > 0) or review_count > 0 or note_count > 0 or import_open > 0 -%}
+{%- set total_open_items   = (activity.needs_categorizing if activity else 0) + review_count + (import_open or 0) -%}
+
+{% block content %}
+
+{# ─── First-run welcome panel ─── #}
+{% if show_welcome %}
+<div id="dashboard-welcome" class="card card--ok" style="margin-bottom:1.25rem">
+  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem">
+    <div>
+      <h3 style="margin:0 0 0.35rem; font-size:1.05rem">
+        Welcome{% if welcome_name %}, {{ welcome_name }}{% endif %} — you&rsquo;re all set.
+      </h3>
+      <p class="muted-text" style="margin:0 0 0.6rem">
+        {% if welcome_simplefin %}
+          Your transactions will start syncing in the background. The dashboard will fill in as they arrive.
+        {% else %}
+          Add your first transaction with the Capture note button, or import a CSV from <a href="/import">Import</a>.
+        {% endif %}
+      </p>
+      <p class="muted-text" style="margin:0; font-size:0.85rem">
+        Tip: hook up Paperless or OpenRouter from <a href="/settings">Settings</a> when you&rsquo;re ready.
+      </p>
+    </div>
+    <form method="post" action="/dashboard/welcome/dismiss"
+          hx-post="/dashboard/welcome/dismiss"
+          hx-target="#dashboard-welcome"
+          hx-swap="outerHTML"
+          style="margin:0">
+      <button type="submit" class="btn btn-ghost" aria-label="Dismiss welcome panel" title="Dismiss">×</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{# ─── Ledger errors banner — only when present ─── #}
+{% if ledger_errors %}
+{% call F.banner(tone='warn', title='Ledger has %d parse warning%s' % (ledger_errors|length, 's' if ledger_errors|length != 1 else '')) %}
+  <ul class="list-clean">
+    {% for err in ledger_errors[:5] %}<li>{{ err.message }}</li>{% endfor %}
+    {% if ledger_errors|length > 5 %}
+    <li class="muted-text">…and {{ ledger_errors|length - 5 }} more</li>
+    {% endif %}
+  </ul>
+{% endcall %}
+{% endif %}
+
+{# ─── Page head ─── #}
+{% call L.page_head(
+     title='Dashboard',
+     subtitle=(
+       (total_open_items|string) + ' item' + ('s' if total_open_items != 1 else '') + ' waiting on you'
+     ) if has_open_work else 'Everything is up to date.',
+     kicker='Workspace'
+) %}
+  <a class="btn" href="/simplefin">{{ icon.refresh() }} Sync SimpleFIN</a>
+  <a class="btn btn-primary" href="/notes">{{ icon.plus() }} Capture note</a>
+{% endcall %}
+
+{# ─── Inbox: pending work that wants your attention. Each tile is a
+     count + deep-link to the focused page that owns the workflow. The
+     full row hides automatically when nothing is pending so the
+     dashboard doesn't carry empty noise. #}
+{%- set _inbox_total = inbox_staged_total + inbox_ai_pending + inbox_legacy_review + inbox_receipts_needed -%}
+{% if _inbox_total %}
+{% call L.section(title='Inbox', subtitle=(_inbox_total|string) ~ ' item' ~ ('s' if _inbox_total != 1 else '') ~ ' across the app waiting on you.') %}
+{% call C.kpi_grid() %}
+  {{ C.kpi_tile(
+       label='Pending in staging',
+       value=inbox_staged_total|string,
+       meta='New SimpleFIN / CSV / paste rows awaiting classification.',
+       href='/inbox',
+       tone=('warn' if inbox_staged_total > 25 else ('ok' if inbox_staged_total == 0 else ''))
+  ) }}
+  {{ C.kpi_tile(
+       label='AI suggestions',
+       value=inbox_ai_pending|string,
+       meta='Classifications proposed but not yet confirmed.',
+       href='/ai/suggestions',
+       tone=('warn' if inbox_ai_pending > 50 else '')
+  ) }}
+  {{ C.kpi_tile(
+       label='Uncategorized in ledger',
+       value=inbox_legacy_review|string,
+       meta='Already-written rows still uncategorized.',
+       href='/transactions?fixme_only=1',
+       tone=('warn' if inbox_legacy_review > 0 else 'ok')
+  ) }}
+  {{ C.kpi_tile(
+       label='Receipts needed',
+       value=inbox_receipts_needed|string,
+       meta='Transactions over the receipt-required threshold without a receipt yet.',
+       href='/receipts/needed?required_only=true',
+       tone=('warn' if inbox_receipts_needed > 10 else '')
+  ) }}
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+{# ─── At-a-glance strip ───
+   Net worth + today-only activity. The "Pending in staging" /
+   "AI suggestions" / "Receipts needed" tiles are already covered
+   in the Inbox section above — duplicating them here was the
+   "lots of duplicate information cards" complaint. This strip
+   is now strictly orthogonal to the Inbox grid: cumulative
+   balance + today's activity, never overlapping with the
+   action-queue counts. #}
+{% call C.kpi_grid() %}
+  {# Standard accounting sign placement: -$1,234 not $-1,234. #}
+  {%- set _nw_abs = '{:,.2f}'.format(total_net_worth if total_net_worth >= 0 else -total_net_worth) -%}
+  {%- set _nw_str = ('-$' if total_net_worth < 0 else '$') ~ _nw_abs -%}
+  {%- set _ta_abs = '{:,.0f}'.format(total_assets if total_assets >= 0 else -total_assets) -%}
+  {%- set _ta_str = ('-$' if total_assets < 0 else '$') ~ _ta_abs -%}
+  {%- set _tl_abs = '{:,.0f}'.format(total_liabilities if total_liabilities >= 0 else -total_liabilities) -%}
+  {%- set _tl_str = ('-$' if total_liabilities < 0 else '$') ~ _tl_abs -%}
+  {{ C.kpi_tile(
+       label='Net worth',
+       value=_nw_str,
+       meta='%d entit%s · assets %s, liab. %s' % (
+         balances|length,
+         'ies' if balances|length != 1 else 'y',
+         _ta_str,
+         _tl_str
+       ) if balances else 'No entities yet',
+       href='#balances'
+  ) }}
+  {# Two separate tiles so each is independently clickable. The earlier
+     single-tile design buried "new transactions today" in the meta
+     string, which hid that the user wanted to drill into either
+     metric. "Attached today" is unambiguous: receipts whose link row
+     was created today, regardless of the underlying txn date. #}
+  {{ C.kpi_tile(
+       label='Receipts attached today',
+       value=(activity.receipts_linked_today if activity else 0)|string,
+       meta='Receipts linked to a transaction today.',
+       href='/receipts?link_status=linked&linked_since=0',
+       tone='ok' if activity and activity.receipts_linked_today > 0 else ''
+  ) }}
+  {{ C.kpi_tile(
+       label='New transactions today',
+       value=(activity.new_txns_today if activity else 0)|string,
+       meta='Transactions added to the ledger today.',
+       href='/transactions?days=1',
+       tone='ok' if activity and activity.new_txns_today > 0 else ''
+  ) }}
+{% endcall %}
+
+{# ─── Main split: Money + Upcoming on the left, action queue + health on the right ─── #}
+{% call L.detail_split() %}
+
+  {# ===== LEFT COLUMN ===== #}
+  {% call L.main_col() %}
+
+    {# --- Money by entity --- #}
+    {% if money %}
+    {% call C.card(title='Money by entity', subtitle='Live balances from the ledger') %}
+      <div class="money-by-entity">
+        {% for g in money %}
+        <section class="money-entity">
+          <header class="money-entity-head">
+            <h4>{{ g.display_name }}</h4>
+            {%- set entity_total = g.lines|map(attribute='balance')|sum -%}
+            {{ D.money(entity_total, signed=false) }}
+          </header>
+          <ul class="money-entity-lines">
+            {% for line in g.lines %}
+            <li class="money-line">
+              <div class="money-line-label">
+                <span class="money-line-name" title="{{ line.account_path }}">{{ line.display_name }}</span>
+                {% if line.last_four %}<span class="money-line-card">····{{ line.last_four }}</span>{% endif %}
+              </div>
+              <div class="money-line-amount">{{ D.money(line.balance, signed=false) }}</div>
+            </li>
+            {% endfor %}
+          </ul>
+        </section>
+        {% endfor %}
+      </div>
+    {% endcall %}
+    {% else %}
+    {% call C.card(title='Money by entity') %}
+      {{ F.empty_state(
+          'No entities found in the ledger yet. Make sure main.bean is mounted and accounts use the entity-first hierarchy.',
+          'View accounts',
+          '/accounts'
+      ) }}
+    {% endcall %}
+    {% endif %}
+
+    {# --- Upcoming expenses --- #}
+    {% call C.card(
+        title='Upcoming expenses',
+        subtitle='Confirmed recurring · next 14 days'
+    ) %}
+      {% if upcoming %}
+      <ul class="upcoming-list list-clean">
+        {% for u in upcoming %}
+        <li class="upcoming-item upcoming-item--{{ 'overdue' if u.overdue else 'ahead' }}">
+          <div class="upcoming-item-marker" aria-hidden="true"></div>
+          <div class="upcoming-item-body">
+            <div class="upcoming-item-head">
+              <span class="upcoming-item-label">{{ u.label }}</span>
+              {{ D.money(u.expected_amount, signed=false) }}
+            </div>
+            <div class="upcoming-item-meta">
+              <time datetime="{{ u.expected_date.isoformat() }}">{{ u.expected_date.strftime('%b %d') }}</time>
+              <span class="dot-sep">·</span>
+              <span class="acct-path" title="{{ u.source_account }}">{{ u.source_account | alias }}</span>
+              <span class="dot-sep">·</span>
+              <span>{{ u.cadence }}</span>
+              {% if u.overdue %}<span class="dot-sep">·</span>{{ D.badge('Overdue', tone='err') }}{% endif %}
+            </div>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      {{ F.empty_state(
+          'Nothing recurring expected in the next 14 days.',
+          'Review proposed recurring',
+          '/recurring'
+      ) }}
+      {% endif %}
+    {% endcall %}
+
+  {% endcall %}{# /main_col #}
+
+  {# ===== RIGHT COLUMN ===== #}
+  {% call L.aside_col() %}
+
+    {# --- Action queue --- #}
+    {% call C.card(title='Action queue', actions='<a class="btn btn-ghost btn-sm" href="/transactions">All transactions</a>'|safe) %}
+      {{ C.stat_row(
+          label='To categorize',
+          value=(activity.needs_categorizing if activity else 0),
+          sublabel='Open the queue',
+          tone='warn' if activity and activity.needs_categorizing > 5 else ''
+      ) }}
+      {{ C.stat_row(
+          label='Open review',
+          value=review_count,
+          sublabel='Items needing your eyes',
+          tone='warn' if review_count > 10 else ''
+      ) }}
+      {{ C.stat_row(
+          label='Open notes',
+          value=note_count,
+          sublabel='Captured but not parsed'
+      ) }}
+      {% if import_open %}
+      {{ C.stat_row(
+          label='Imports waiting',
+          value=import_open,
+          sublabel='Spreadsheet uploads',
+          tone='warn'
+      ) }}
+      {% endif %}
+      {% if total_attention %}
+      {{ C.stat_row(
+          label='Skipped 3+ times',
+          value=total_attention,
+          sublabel='Need a closer look',
+          tone='err'
+      ) }}
+      {% endif %}
+    {% endcall %}
+
+    {# --- Today's activity --- #}
+    {% if activity %}
+    {% call C.card(title="Today's activity") %}
+      {{ C.stat_row(label='New transactions', value=activity.new_txns_today) }}
+      {{ C.stat_row(
+          label='Receipts linked',
+          value=activity.receipts_linked_today,
+          tone='ok' if activity.receipts_linked_today > 0 else ''
+      ) }}
+    {% endcall %}
+    {% endif %}
+
+    {# --- System health --- #}
+    {% call C.card(title='System health') %}
+      <div class="health-rows">
+        <div class="health-row">
+          <span class="health-row-label">{{ icon.activity(14) }} SimpleFIN ({{ simplefin_mode }})</span>
+          <span class="health-row-value">
+            {% if last_simplefin and last_simplefin.started_at %}
+              {{ last_simplefin.started_at.strftime('%b %d, %H:%M') }}
+              {% if last_simplefin.error %}{{ D.badge('error', tone='err') }}{% endif %}
+            {% else %}
+              <span class="muted-text">never</span>
+            {% endif %}
+          </span>
+        </div>
+        <div class="health-row">
+          <span class="health-row-label">{{ icon.inbox(14) }} Paperless webhook</span>
+          <span class="health-row-value">
+            {% if last_webhook_at %}
+              {{ last_webhook_at.strftime('%b %d, %H:%M') }}
+            {% else %}
+              <span class="muted-text">never</span>
+            {% endif %}
+          </span>
+        </div>
+        <div class="health-row">
+          <span class="health-row-label">{{ icon.bell(14) }} Last notification</span>
+          <span class="health-row-value">
+            {% if last_notification and last_notification.sent_at %}
+              {{ last_notification.sent_at.strftime('%b %d, %H:%M') }}
+              {% if last_notification.delivered %}{{ D.badge('sent', tone='ok') }}{% else %}{{ D.badge(last_notification.error or 'failed', tone='err') }}{% endif %}
+            {% else %}
+              <span class="muted-text">never</span>
+            {% endif %}
+          </span>
+        </div>
+      </div>
+    {% endcall %}
+
+  {% endcall %}{# /aside_col #}
+
+{% endcall %}{# /detail_split #}
+
+{# ─── Budgets — full width ─── #}
+{% call L.section(title='Budgets', subtitle=('%d configured' % budget_progresses|length) if budget_progresses else '') %}
+  {% if budget_progresses %}
+  {% call C.card(flush=true) %}
+    <table class="dash-tbl">
+      <thead>
+        <tr>
+          <th>Label</th>
+          <th>Entity</th>
+          <th>Period</th>
+          <th class="num">Spent / Cap</th>
+          <th>Progress</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in budget_progresses %}
+        <tr>
+          <td><strong>{{ p.budget.label }}</strong></td>
+          <td>{{ p.budget.entity | entity }}</td>
+          <td><span class="muted-text">{{ p.budget.period.value }}</span></td>
+          <td class="num">{{ D.money(p.spent, signed=false) }} <span class="muted-text">/ {{ D.money(p.budget.amount, signed=false) }}</span></td>
+          <td style="min-width:160px">{{ D.progress_bar(p.ratio, label='%.0f%%' % (p.ratio * 100)) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endcall %}
+  {% else %}
+  {{ F.empty_state(
+      'No budgets configured yet.',
+      'Add your first budget',
+      '/budgets'
+  ) }}
+  {% endif %}
+{% endcall %}
+
+{# ─── Suggestion cards — observed-state nudges. Placed below the
+   active-workspace summary (KPIs + actions + health) and above the
+   reference-data section so they are visible but never block the
+   primary numbers. Renders nothing when empty. #}
+{% if suggestion_cards %}
+{% call L.section(title='Recommended') %}
+  {{ C.suggestion_strip(suggestion_cards) }}
+{% endcall %}
+{% endif %}
+
+{# ─── Balances by entity — full width ─── #}
+{% if balances %}
+{% call L.section(title='Balances by entity') %}
+  <div id="balances" class="balance-cards">
+    {% for balance in balances %}
+    {% call C.card(title=(balance.entity | entity)) %}
+      {{ C.stat_row(label='Assets',     value=D.money(balance.assets,      signed=false)) }}
+      {{ C.stat_row(label='Liabilities', value=D.money(balance.liabilities, signed=false)) }}
+      {{ C.stat_row(label='Net worth',  value=D.money(balance.net_worth,   signed=true), tone='ok' if balance.net_worth > 0 else 'err') }}
+      {{ C.stat_row(label='Income',     value=D.money(balance.income,      signed=false)) }}
+      {{ C.stat_row(label='Expenses',   value=D.money(balance.expenses,    signed=false)) }}
+      {{ C.stat_row(label='Net income', value=D.money(balance.net_income,  signed=true), tone='ok' if balance.net_income > 0 else 'err') }}
+    {% endcall %}
+    {% endfor %}
+  </div>
+{% endcall %}
+{% endif %}
+
+{% endblock %}
+
+{% block head_extra %}
+<style>
+  /* Dashboard-specific layout — narrowly scoped to .page--wide on this
+     page so it doesn't bleed into other migrations. The pieces here
+     only exist because the data shape (money-by-entity nested lists,
+     upcoming-expenses with overdue marker, balance card grid) doesn't
+     map 1:1 onto a generic component yet. As more pages reach for
+     these, promote into _components/. */
+
+  /* Money-by-entity nested list */
+  .money-by-entity { display: flex; flex-direction: column; gap: 1.25rem; }
+  .money-entity { display: flex; flex-direction: column; gap: 6px; }
+  .money-entity-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .money-entity-head h4 {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .money-entity-head .money { font-weight: 700; font-size: 1rem; color: var(--fg); }
+  .money-entity-lines { list-style: none; padding: 0; margin: 0; }
+  .money-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 6px 0;
+    font-size: 0.92rem;
+  }
+  .money-line + .money-line { border-top: 1px solid var(--border-soft); }
+  .money-line-label { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .money-line-name { color: var(--fg-soft); }
+  .money-line-card { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); }
+
+  /* Upcoming expense list */
+  .upcoming-list { display: flex; flex-direction: column; gap: 0; }
+  .upcoming-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid var(--border-soft);
+  }
+  .upcoming-item:first-child { border-top: 0; padding-top: 0; }
+  .upcoming-item:last-child  { padding-bottom: 0; }
+  .upcoming-item-marker {
+    width: 4px;
+    flex-shrink: 0;
+    border-radius: 2px;
+  }
+  .upcoming-item--ahead   .upcoming-item-marker { background: var(--ok); }
+  .upcoming-item--overdue .upcoming-item-marker { background: var(--err); }
+  .upcoming-item-body { flex: 1; min-width: 0; }
+  .upcoming-item-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+  }
+  .upcoming-item-label { font-weight: 500; }
+  .upcoming-item-meta {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 0.82rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: baseline;
+  }
+  .upcoming-item-meta .dot-sep { color: var(--muted-soft); }
+
+  /* System health rows in the right column */
+  .health-rows { display: flex; flex-direction: column; gap: 8px; }
+  .health-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.88rem;
+  }
+  .health-row-label {
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .health-row-value {
+    font-weight: 500;
+    text-align: right;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  /* Balance cards grid */
+  .balance-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+
+  /* Inline tables that live inside cards on this page */
+  .dash-tbl { width: 100%; border-collapse: collapse; }
+  .dash-tbl th, .dash-tbl td {
+    padding: 11px 18px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-soft);
+    vertical-align: middle;
+  }
+  .dash-tbl tbody tr:last-child td { border-bottom: 0; }
+  .dash-tbl tbody tr:hover td { background: var(--panel-2); }
+  .dash-tbl th {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    font-weight: 600;
+    background: var(--panel-2);
+  }
+  .dash-tbl th.num, .dash-tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* btn / btn-primary baseline (will move to _components/buttons.html
+     when forms phase needs them). Lightweight stand-in for now. */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.88rem;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--fg);
+    text-decoration: none;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .btn:hover { background: var(--panel-2); text-decoration: none; color: var(--fg); }
+  .btn-primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  .btn-primary:hover { background: var(--accent-deep); border-color: var(--accent-deep); color: var(--accent-fg); }
+</style>
+{% endblock %}

@@ -1,0 +1,272 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Receipts needed — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Receipts needed{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Receipts needed',
+     subtitle='Expenses waiting for a receipt. Transactions ≥ $%.0f are IRS-required; smaller ones are preferred.' % threshold_usd,
+     kicker='Library'
+) %}
+  {{ B.btn('All Paperless', href='/receipts', icon=icon.receipt()) }}
+{% endcall %}
+
+{% call C.card(title='Filter') %}
+<form method="get" action="/receipts/needed" class="needs-filter-bar">
+  <div class="field needs-filter-search">
+    <label class="field-label">Search</label>
+    <input class="field-input" type="search" name="q"
+           value="{{ query or '' }}"
+           placeholder="payee, narration, account…" />
+  </div>
+  <div class="field" style="min-width:160px">
+    <label class="field-label">Account contains</label>
+    <input class="field-input" type="text" name="account"
+           value="{{ account_filter or '' }}"
+           placeholder="e.g. Travel" />
+  </div>
+  <div class="field" style="min-width:96px">
+    <label class="field-label">Min $</label>
+    <input class="field-input" type="number" step="any" name="min_amount"
+           value="{{ min_amount or '' }}" />
+  </div>
+  <div class="field" style="min-width:96px">
+    <label class="field-label">Max $</label>
+    <input class="field-input" type="number" step="any" name="max_amount"
+           value="{{ max_amount or '' }}" />
+  </div>
+  <div class="field" style="min-width:120px">
+    <label class="field-label">Lookback</label>
+    <input class="field-input" type="text" name="lookback_days" list="needs-lookback-datalist" value="{{ lookback_days }}" />
+    <datalist id="needs-lookback-datalist">
+      {% for n in [30, 60, 90, 180, 365, 730] %}<option value="{{ n }}" label="{{ n }} days">{% endfor %}
+    </datalist>
+  </div>
+  <div class="field" style="min-width:96px">
+    <label class="field-label">Page size</label>
+    <input class="field-input" type="text" name="page_size" list="needs-pagesize-datalist" value="{{ page_size }}" />
+    <datalist id="needs-pagesize-datalist">
+      {% for n in [10, 25, 50, 100] %}<option value="{{ n }}">{% endfor %}
+    </datalist>
+  </div>
+  <div class="needs-filter-checks">
+    <label class="filter-checkbox">
+      <input type="checkbox" name="required_only" value="true" {% if required_only %}checked{% endif %} />
+      Required only (≥ ${{ "%.0f"|format(threshold_usd) }})
+    </label>
+  </div>
+  <div class="needs-filter-actions">
+    {{ B.btn('Apply', type='submit', variant='primary') }}
+    <a href="/receipts/needed" class="muted small needs-filter-clear">Clear</a>
+  </div>
+  <details class="needs-filter-advanced">
+    <summary>Advanced flags</summary>
+    <div class="needs-filter-checks">
+      <label class="filter-checkbox">
+        <input type="checkbox" name="include_non_receipt" value="true" {% if include_non_receipt %}checked{% endif %} />
+        Include transfers / fees
+      </label>
+      <label class="filter-checkbox">
+        <input type="checkbox" name="include_linked" value="true" {% if include_linked %}checked{% endif %} />
+        Include already-linked
+      </label>
+      <label class="filter-checkbox">
+        <input type="checkbox" name="include_dismissed" value="true" {% if include_dismissed %}checked{% endif %} />
+        Include dismissed
+      </label>
+    </div>
+  </details>
+</form>
+{% endcall %}
+
+{# Bulk-dismiss form lives on the shell so it survives row swaps. Row
+   checkboxes use form="needs-bulk-form" to associate. The floating
+   action bar appears via JS when ≥ 1 row is checked. #}
+<form id="needs-bulk-form" method="post"
+      action="/receipts/needed/bulk/dismiss"
+      hx-post="/receipts/needed/bulk/dismiss"
+      hx-swap="none"
+      class="needs-bulk-form-noop"></form>
+
+<div id="needs-bulk-bar" class="needs-bulk-bar" hidden>
+  <div class="needs-bulk-bar-inner">
+    <strong><span id="needs-bulk-count">0</span> selected</strong>
+    <input type="text" name="reason" placeholder="Reason (e.g. cash tip)"
+           form="needs-bulk-form" class="needs-bulk-reason" />
+    <button type="submit" form="needs-bulk-form"
+            class="primary-action"
+            data-confirm="Dismiss selected transactions as 'no receipt expected'?">
+      Dismiss as no-receipt
+    </button>
+    <button type="button" id="needs-bulk-clear" class="secondary">Clear</button>
+  </div>
+</div>
+
+{# Row body + stats + orphans + sync status all live in the partial so the
+   shell paints instantly and the slow per-row candidate scan happens in
+   a second request the user can watch progress on. #}
+<div id="needs-body" class="needs-body-loading"
+     hx-get="{{ partial_url }}"
+     hx-trigger="load"
+     hx-swap="innerHTML"
+     hx-on:htmx:response-error="this.innerHTML = window.__needsErrorHtml('Server error '+event.detail.xhr.status+' loading the queue.')"
+     hx-on:htmx:send-error="this.innerHTML = window.__needsErrorHtml('Network error contacting the server. Check that the container is healthy and reload.')"
+     hx-on:htmx:timeout="this.innerHTML = window.__needsErrorHtml('Timed out after 60s. Large ledgers can exceed this — try narrowing the lookback window or a tighter search filter, then retry.')"
+     hx-request='{"timeout": 60000}'
+     style="margin-top:1.5rem">
+  <div id="needs-loading-panel"
+       style="display:flex; flex-direction:column; align-items:center; gap:14px; padding:3rem 1rem">
+    <div class="loading-spinner" aria-hidden="true"></div>
+    <div style="text-align:center; max-width:36ch">
+      <strong>Scanning transactions and matching receipts…</strong>
+      <p class="subtle" style="margin-top:0.4rem">
+        Each row runs a cascading query against the Paperless index — this
+        can take a few seconds on large ledgers. The shell rendered
+        instantly; rows appear as the match pass finishes.
+      </p>
+      <p class="muted small" id="needs-slow-hint" style="margin-top:0.6rem; display:none">
+        Still working — over 15 seconds in. If your ledger is large
+        this is normal; if it's not, check the container logs.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* /receipts/needed loading-state UX:
+     1. After 15s of nothing back from the partial endpoint, reveal a
+        "still working" hint so the user knows the page didn't lock up.
+     2. The hx-on:htmx:* handlers above call __needsErrorHtml() to
+        render an actionable error block on transport / response /
+        timeout errors instead of letting the loading state sit forever.
+     3. hx-request timeout: 60s — covers a slow Paperless candidate
+        scan on big ledgers without sitting forever on a hung backend. */
+  (function () {
+    var hint = document.getElementById("needs-slow-hint");
+    if (hint) setTimeout(function () { hint.style.display = ""; }, 15000);
+
+    window.__needsErrorHtml = function (msg) {
+      var safe = String(msg).replace(/[&<>]/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c];
+      });
+      return (
+        '<div class="needs-error-panel" role="alert">'
+          + '<strong>Couldn\'t load the queue.</strong>'
+          + '<p>' + safe + '</p>'
+          + '<button type="button" class="primary-action" onclick="window.location.reload()">Retry</button>'
+        + '</div>'
+      );
+    };
+  })();
+</script>
+
+<script>
+  /* Bulk-select wiring for /receipts/needed.
+     The form scaffold + floating bar live in the shell template (this
+     file); per-row checkboxes are inside the swappable partial. So:
+       - Listen on document for change events from .bulk-select-cb.
+       - Recount + show/hide the bar.
+       - "Clear" un-checks every selection.
+     The form's hx-post handles the submit; the response sets HX-Refresh
+     to redraw the queue without the dismissed rows. */
+  (function () {
+    var bar = document.getElementById("needs-bulk-bar");
+    var count = document.getElementById("needs-bulk-count");
+    var clearBtn = document.getElementById("needs-bulk-clear");
+    if (!bar || !count) return;
+
+    function selected() {
+      return Array.prototype.slice.call(
+        document.querySelectorAll(".bulk-select-cb:checked")
+      );
+    }
+    function update() {
+      var n = selected().length;
+      count.textContent = String(n);
+      bar.hidden = n === 0;
+    }
+    document.addEventListener("change", function (ev) {
+      if (ev.target && ev.target.classList &&
+          ev.target.classList.contains("bulk-select-cb")) {
+        update();
+      }
+    });
+    /* Re-count after htmx swaps (page partial loads, row replaces). */
+    document.addEventListener("htmx:afterSwap", update);
+    if (clearBtn) {
+      clearBtn.addEventListener("click", function () {
+        selected().forEach(function (cb) { cb.checked = false; });
+        update();
+      });
+    }
+  })();
+</script>
+
+<style>
+  .needs-filter-bar {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+  .needs-filter-search { flex: 1 1 220px; min-width: 200px; }
+  .needs-filter-checks {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding-bottom: 8px;
+  }
+  .filter-checkbox {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    font-size: 0.9rem;
+  }
+  .needs-filter-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding-bottom: 4px;
+  }
+  .needs-filter-clear {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .needs-filter-advanced {
+    flex-basis: 100%;
+    margin-top: 4px;
+  }
+  .needs-filter-advanced > summary {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 0.85rem;
+    padding: 4px 0;
+    list-style: none;
+  }
+  .needs-filter-advanced > summary::-webkit-details-marker { display: none; }
+  .needs-filter-advanced > summary::before {
+    content: "▸ ";
+    display: inline-block;
+    transition: transform 0.15s;
+  }
+  .needs-filter-advanced[open] > summary::before { content: "▾ "; }
+  .needs-bulk-form-noop { display: none; }
+</style>
+{% endblock %}

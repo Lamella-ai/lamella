@@ -1,0 +1,125 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Body of /receipts/needed — rendered via hx-get so the main page
+   returns its shell instantly and the slow per-row candidate query
+   doesn't block initial paint. #}
+{% if stats %}
+  <p class="muted stats-line">
+    Scanned {{ stats.scanned }} &middot;
+    showing {{ start_index }}–{{ end_index }} of {{ total_rows }}
+    {% if stats.excluded_non_receipt %} &middot; hid {{ stats.excluded_non_receipt }} non-receipt (transfers / fees / payments){% endif %}
+    {% if stats.excluded_linked %} &middot; {{ stats.excluded_linked }} already linked{% endif %}
+    {% if stats.excluded_dismissed %} &middot; {{ stats.excluded_dismissed }} dismissed{% endif %}
+    {% if stats.excluded_no_expense %} &middot; {{ stats.excluded_no_expense }} not expenses{% endif %}
+  </p>
+{% endif %}
+
+{% if orphans %}
+<section class="orphan-dismissals">
+  <h2>Previously dismissed, transaction edited</h2>
+  <p class="muted">
+    These transactions were dismissed earlier but have since been
+    edited (narration changed, amount adjusted, postings split).
+    Their old dismissal no longer matches the new transaction hash,
+    so they've re-surfaced for review. Confirm to re-dismiss against
+    the current version, or clear to drop the stale dismissal.
+  </p>
+  <table class="orphan-list">
+    <thead>
+      <tr>
+        <th>Original txn_hash</th>
+        <th>Dismissed on</th>
+        <th>Reason</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for o in orphans %}
+        <tr id="orphan-row-{{ o.txn_hash }}">
+          <td><code>{{ o.txn_hash[:10] }}…</code></td>
+          <td>{{ o.dismissed_at }}</td>
+          <td>{{ o.reason or "—" }}</td>
+          <td>
+            <form method="post"
+                  action="/receipts/needed/{{ o.txn_hash }}/undismiss"
+                  hx-post="/receipts/needed/{{ o.txn_hash }}/undismiss"
+                  hx-target="#orphan-row-{{ o.txn_hash }}"
+                  hx-swap="outerHTML"
+                  style="display:inline">
+              <button type="submit" class="secondary">Clear</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+{% if sync_state %}
+  <p class="muted sync-status">
+    Paperless index: {{ sync_state.doc_count or 0 }} docs
+    {% if sync_state.last_incremental_sync_at %}
+      &middot; last sync {{ sync_state.last_incremental_sync_at }}
+    {% else %}
+      &middot; <strong>never synced</strong> — configure Paperless &amp; wait for sync, or trigger from Settings.
+    {% endif %}
+    {% if sync_state.last_status == "error" and sync_state.last_error %}
+      &middot; <span class="error-inline">last error: {{ sync_state.last_error }}</span>
+    {% endif %}
+  </p>
+{% endif %}
+
+{% if rows %}
+<div class="needs-cards-toolbar">
+  <label class="needs-select-all-label">
+    <input type="checkbox" id="needs-select-all"
+           aria-label="Select all on this page"
+           onclick="(function(t){var cbs=document.querySelectorAll('.bulk-select-cb');for(var i=0;i&lt;cbs.length;i++){cbs[i].checked=t.checked;cbs[i].dispatchEvent(new Event('change',{bubbles:true}));}})(this)" />
+    <span>Select all on this page</span>
+  </label>
+</div>
+<ul class="needs-cards" role="list">
+  {% for row in rows %}
+    {% include "partials/needs_receipt_row.html" %}
+  {% endfor %}
+</ul>
+
+{% if total_pages > 1 %}
+<nav class="pager">
+  {% set qs_base = '?lookback_days=' ~ lookback_days ~ '&page_size=' ~ page_size %}
+  {% if required_only %}{% set qs_base = qs_base ~ '&required_only=true' %}{% endif %}
+  {% if include_non_receipt %}{% set qs_base = qs_base ~ '&include_non_receipt=true' %}{% endif %}
+  {% if include_linked %}{% set qs_base = qs_base ~ '&include_linked=true' %}{% endif %}
+  {% if include_dismissed %}{% set qs_base = qs_base ~ '&include_dismissed=true' %}{% endif %}
+  {% if query %}{% set qs_base = qs_base ~ '&q=' ~ (query | urlencode) %}{% endif %}
+  {% if account_filter %}{% set qs_base = qs_base ~ '&account=' ~ (account_filter | urlencode) %}{% endif %}
+  {% if min_amount %}{% set qs_base = qs_base ~ '&min_amount=' ~ min_amount %}{% endif %}
+  {% if max_amount %}{% set qs_base = qs_base ~ '&max_amount=' ~ max_amount %}{% endif %}
+  {% if page > 1 %}
+    <a href="{{ qs_base }}&page={{ page - 1 }}">&larr; previous</a>
+  {% else %}
+    <span class="muted">&larr; previous</span>
+  {% endif %}
+  <span>Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}
+    <a href="{{ qs_base }}&page={{ page + 1 }}">next &rarr;</a>
+  {% else %}
+    <span class="muted">next &rarr;</span>
+  {% endif %}
+</nav>
+{% endif %}
+{% else %}
+  <p class="muted">
+    Nothing waiting for a receipt with the current filters.
+    {% if not include_non_receipt and stats and stats.excluded_non_receipt %}
+      ({{ stats.excluded_non_receipt }} transfers/fees hidden — toggle above to include.)
+    {% endif %}
+  </p>
+{% endif %}

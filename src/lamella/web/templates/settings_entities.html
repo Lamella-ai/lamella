@@ -1,0 +1,103 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Entities — Settings{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Entities{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Entities',
+     subtitle='Your businesses, farms, and personal self — the "who" behind every transaction.',
+     kicker='Settings'
+) %}
+  <form method="post" action="/settings/entities-cleanup" style="display:inline"
+        data-confirm="Bulk-delete unlabeled system slugs (Clearing, OpeningBalances, PayPal, Venmo, Zelle, Retained, Unattributed, Uncategorized, RegularTransacion*) — but only the ones with NO account references."
+        data-confirm-button="Run cleanup">
+    {{ B.btn('Cleanup system slugs', type='submit') }}
+  </form>
+{% endcall %}
+
+{% if saved %}{% call F.banner(tone='ok', title='Saved') %}{{ saved }}{% endcall %}{% endif %}
+
+<div class="entity-list" autocomplete="off">
+  {% for e in entities %}
+    {% include "partials/entity_row.html" %}
+  {% endfor %}
+</div>
+
+<a id="add-new"></a>
+{% call L.section(title='Add a new entity') %}
+{% call C.card() %}
+<p class="subtle" style="margin-top:0">
+  You can only add an entity that doesn't already exist in your ledger.
+  Existing ledger entities appear above — edit those instead of duplicating.
+</p>
+<form method="post" action="/settings/entities" class="form-grid" style="max-width:none" autocomplete="off">
+  <div class="field">
+    <label class="field-label">Display name</label>
+    <input class="field-input" type="text" name="display_name" placeholder="e.g. Acme Co." required
+           hx-get="/settings/entities/suggest-slug"
+           hx-trigger="input changed delay:300ms"
+           hx-target="#slug-suggestion"
+           hx-swap="innerHTML" autocomplete="off" />
+  </div>
+  <div class="field">
+    <label class="field-label">Slug <span class="subtle">(letters / digits / dashes; must start with a capital)</span></label>
+    <input class="field-input" type="text" name="slug" id="slug-input" pattern="[A-Z][A-Za-z0-9-]*"
+           placeholder="auto-suggested from the display name" autocomplete="off" />
+    <span id="slug-suggestion" class="field-hint"></span>
+  </div>
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Type</label>
+      <input class="field-input" type="text" name="entity_type" list="entity-types-datalist" />
+      <datalist id="entity-types-datalist">
+        {% for val, label in entity_types %}<option value="{{ val }}" label="{{ label }}">{% endfor %}
+      </datalist>
+      <span class="field-hint">
+        Personal + Sole-Prop are commingled (no intercompany). LLC/Partnership/Corp
+        get full 4-leg DueFrom/DueTo separation.
+      </span>
+    </div>
+    <div class="field">
+      <label class="field-label">Tax schedule</label>
+      <input class="field-input" type="text" name="tax_schedule" list="tax-schedules-datalist" />
+      <datalist id="tax-schedules-datalist">
+        {% for val, label in tax_schedules %}<option value="{{ val }}" label="{{ label }}">{% endfor %}
+      </datalist>
+    </div>
+  </div>
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Start date</label>
+      <input class="field-input" type="date" name="start_date" />
+    </div>
+    <div class="field">
+      <label class="field-label">Ceased date</label>
+      <input class="field-input" type="date" name="ceased_date" />
+    </div>
+  </div>
+  <div class="field">
+    <label class="field-label">Notes</label>
+    <textarea class="field-textarea" name="notes" rows="2"></textarea>
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Add entity', type='submit', variant='primary', icon=icon.plus()) }}</div>
+</form>
+{% endcall %}
+{% endcall %}
+
+<p class="subtle" style="margin-top:1.5rem"><a href="/settings">← back to Settings</a></p>
+{% endblock %}
