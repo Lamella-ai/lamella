@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lamella. Bookkeeping that remembers what you were doing.</title>
+<meta name="description" content="Self-hosted, open-source bookkeeping. Plain-text books with mileage logs, project notes, and receipts feeding the same ledger.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="styles.css?v=4">
+<link rel="icon" type="image/svg+xml" href="assets/lamella.svg">
+</head>
+<body>
+
+<!-- ============== Header ============== -->
+<header class="site-header">
+  <div class="wrap">
+    <a href="#" class="brand" aria-label="Lamella home">
+      <img src="assets/lamella.svg" alt="">
+      <span class="wordmark">Lame<span class="ll">ll</span>a</span>
+    </a>
+    <nav class="nav-actions" aria-label="Primary">
+      <!-- TODO: confirm final GitHub URL -->
+      <a class="btn btn-ghost" href="https://github.com/lamella-ai/lamella">GitHub</a>
+      <a class="btn btn-secondary" href="#get-started">Install</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<!-- ============== 1. Hero ============== -->
+<section class="hero">
+  <div class="wrap">
+    <h1>Bookkeeping that remembers what&nbsp;you were doing.</h1>
+    <p class="lede">Plain-text books with mileage logs, project notes, and receipts feeding the same ledger. A hardware store charge from a Saturday afternoon knows it belongs to the home improvement project.</p>
+
+    <div class="terminal-wrap">
+      <div class="code" data-copy>
+        <button class="copy-btn" type="button" aria-label="Copy command" data-label="Copy">Copy</button>
+<pre data-copy-src><span class="tok-cmd">docker</span> <span class="tok-arg">run</span> <span class="tok-flag">-d</span> <span class="tok-flag">-p</span> <span class="tok-num">8080:8080</span> <span class="tok-flag">-v</span> <span class="tok-arg">lamella-data:/data</span> <span class="tok-str">ghcr.io/lamella-ai/lamella:latest</span></pre>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <!-- TODO: confirm final GitHub URL -->
+      <a class="btn btn-primary" href="https://github.com/lamella-ai/lamella">View on GitHub →</a>
+      <a class="btn btn-secondary" href="#get-started">Install guide →</a>
+    </div>
+
+    <div class="badges" aria-label="Project facts">
+      <span class="badge"><span class="dot"></span>Apache 2.0</span>
+      <span class="badge"><span class="dot"></span>Self-hosted</span>
+      <span class="badge"><span class="dot"></span>No telemetry</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 2. The worked example ============== -->
+<section class="section example">
+  <div class="wrap">
+    <div class="heading-block">
+      <p class="eyebrow">A worked example</p>
+      <h2>Context turns transactions into something you can read.</h2>
+      <p class="lede" style="margin-top:14px;">The same Tuesday, from your phone and from your bank. Lamella matches them up.</p>
+    </div>
+
+    <div class="example-section-head">
+      <span class="example-label">What you wrote</span>
+    </div>
+
+    <div class="example-inputs">
+      <article class="input-card">
+        <div class="card-label">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 17h2l1-3h12l1 3h2"/><path d="M5 14l1-5h12l1 5"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/>
+          </svg>
+          Mileage Log · Tue, Mar 12
+        </div>
+        <p class="card-body">Lunch with Sara at Bistro 21 (Acme Pitch). Stopped at Staples for presentation board, post office for the contract, back to the office. 24 mi.</p>
+      </article>
+
+      <article class="input-card">
+        <div class="card-label">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+          </svg>
+          Project · Acme Pitch
+        </div>
+        <p class="card-body">Q2 proposal for Acme Corp. Presentation due Mar 15. Expected vendors: Staples, Bistro 21.</p>
+      </article>
+
+      <article class="input-card">
+        <div class="card-label">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21V3z"/><path d="M9 8h6M9 12h6M9 16h4"/>
+          </svg>
+          Receipt · Staples #4892
+        </div>
+        <pre class="receipt-body">Foam board, 30x40    $18.99
+Markers, set of 4    $13.16
+Tax                   $1.85
+Total                $33.00</pre>
+      </article>
+    </div>
+
+    <div class="example-bridge" aria-hidden="true">
+      <div class="bridge-top">
+        <div class="service-chip">
+          <span class="chip-name">Paperless</span>
+          <span class="chip-role">receipts</span>
+        </div>
+        <span class="bridge-arrow vertical">⇅</span>
+      </div>
+      <div class="bridge-row">
+        <div class="service-chip">
+          <span class="chip-name">SimpleFIN</span>
+          <span class="chip-role">bank data</span>
+        </div>
+        <span class="bridge-arrow horizontal">→</span>
+        <div class="bridge-pill">
+          <img src="assets/lamella.svg" alt="">
+          <span class="wordmark">Lame<span class="ll">ll</span>a</span>
+        </div>
+        <span class="bridge-arrow horizontal">→</span>
+        <div class="service-chip">
+          <span class="chip-name">Beancount</span>
+          <span class="chip-role">plain-text books</span>
+        </div>
+      </div>
+      <div class="bridge-bottom">
+        <span class="bridge-arrow vertical">⇅</span>
+        <div class="service-chip">
+          <span class="chip-name">OpenRouter</span>
+          <span class="chip-role">consult</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="example-section-head">
+      <span class="example-label">What ended up in your books</span>
+    </div>
+
+    <div class="example-outputs">
+      <div class="txn-row">
+        <span class="date">Mar 12</span>
+        <span class="payee">Bistro 21</span>
+        <span class="amount">$48.20</span>
+        <span class="ctx">Meals: Client Lunch · Acme Pitch · billable</span>
+      </div>
+      <div class="txn-row">
+        <span class="date">Mar 12</span>
+        <span class="payee">Staples #4892</span>
+        <span class="amount">$33.00</span>
+        <span class="ctx">Office Supplies · Acme Pitch · receipt linked</span>
+      </div>
+      <div class="txn-row">
+        <span class="date">Mar 12</span>
+        <span class="payee">USPS</span>
+        <span class="amount">$0.71</span>
+        <span class="ctx">Postage</span>
+      </div>
+      <div class="txn-row derived">
+        <span class="date">Mar 12</span>
+        <span class="payee">Mileage (24 mi)</span>
+        <span class="amount">$16.08</span>
+        <span class="ctx">Vehicle: Business Mileage · IRS standard rate</span>
+      </div>
+    </div>
+
+    <p class="diagram-caption">Same data Lamella saw: a mileage log entry, a project, and a Staples receipt. The transactions classified themselves.</p>
+  </div>
+</section>
+
+<!-- ============== 2.5 Screenshots ============== -->
+<section class="section screenshots">
+  <div class="wrap">
+    <div class="heading-block" style="margin-bottom:40px;">
+      <p class="eyebrow">What it looks like</p>
+      <h2>The whole UI in five screenshots.</h2>
+      <p class="lede" style="margin-top:14px;">Self-hosted Beancount with the rough edges sanded off. Personal and business entities live side by side. Vehicles, properties, and projects each get a real surface.</p>
+    </div>
+
+    <figure class="screenshot screenshot-feature">
+      <img src="assets/dashboard-example.png" alt="Lamella dashboard showing net activity and the next thing to triage" loading="lazy">
+      <figcaption>Dashboard — the next thing to triage, today's activity, and a 30-day net.</figcaption>
+    </figure>
+
+    <div class="screenshot-grid">
+      <figure class="screenshot">
+        <img src="assets/personal-page-example.png" alt="Personal entity dashboard" loading="lazy">
+        <figcaption>Personal entity — Schedule A flavor.</figcaption>
+      </figure>
+      <figure class="screenshot">
+        <img src="assets/business-page-example.png" alt="Business entity dashboard" loading="lazy">
+        <figcaption>Business entity — P&amp;L, COGS, Schedule C.</figcaption>
+      </figure>
+      <figure class="screenshot">
+        <img src="assets/transactions-example.png" alt="Transactions list with filters" loading="lazy">
+        <figcaption>Transactions — search, filter, drill in.</figcaption>
+      </figure>
+      <figure class="screenshot">
+        <img src="assets/vehicle-example.png" alt="Vehicle mileage and standard deduction" loading="lazy">
+        <figcaption>Vehicles — mileage log + standard deduction.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 3. Five sources of context ============== -->
+<section class="section">
+  <div class="wrap">
+    <div class="heading-block" style="margin-bottom:48px;">
+      <p class="eyebrow">Context</p>
+      <h2>Five places your books learn from.</h2>
+    </div>
+
+    <div class="grid grid-3">
+      <article class="card">
+        <div class="ico-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17h2l1-3h10l1 3h2"/><path d="M6 14l1-5h10l1 5"/><circle cx="8" cy="17.5" r="1.5"/><circle cx="16" cy="17.5" r="1.5"/></svg>
+        </div>
+        <p class="num">01</p>
+        <h3>Mileage logs</h3>
+        <p>Write down where you went and why, in plain English. Lamella turns it into both a deductible mileage entry and context for the day's other transactions.</p>
+      </article>
+
+      <article class="card">
+        <div class="ico-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6h6l2 2h6v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/><path d="M8 14h8"/></svg>
+        </div>
+        <p class="num">02</p>
+        <h3>Notes</h3>
+        <p>A line or two about what you worked on today. The grocery run during a kitchen remodel reads differently than the grocery run on a normal Tuesday.</p>
+      </article>
+
+      <article class="card">
+        <div class="ico-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>
+        </div>
+        <p class="num">03</p>
+        <h3>Projects</h3>
+        <p>Long-lived context. A home improvement project, a client engagement, a side hustle. Define expected vendors and timeline once; relevant transactions get attached automatically.</p>
+      </article>
+
+      <article class="card">
+        <div class="ico-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/></svg>
+        </div>
+        <p class="num">04</p>
+        <h3>Memos</h3>
+        <p>A note left on a specific transaction. Useful when you want a second opinion. Ask "is this a charitable deduction?" and your AI can answer with a recommendation.</p>
+      </article>
+
+      <article class="card">
+        <div class="ico-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21V3z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>
+        </div>
+        <p class="num">05</p>
+        <h3>Receipts</h3>
+        <p>Connect Lamella to <a href="https://docs.paperless-ngx.com/" target="_blank" rel="noopener">Paperless-ngx</a>. Receipts go from photographs to line items the ledger can actually reason about.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 4. The ledger underneath ============== -->
+<section class="section">
+  <div class="wrap">
+    <div class="heading-block" style="margin-bottom:40px;">
+      <p class="eyebrow">The ledger underneath</p>
+      <h2>Beancount underneath, plain English on top.</h2>
+    </div>
+
+    <div class="split">
+      <div>
+        <p>Lamella stores every transaction in <a href="https://beancount.github.io/" target="_blank" rel="noopener">Beancount</a>, the plain-text accounting format that's been quietly running serious finances for over a decade. Your data is text files. They survive Lamella. They version in git. They open in any text editor.</p>
+        <p>What Lamella adds is the part Beancount asks you to do yourself: friendly category names mapped to IRS Schedule A, C, and F lines; double-entry transfers automatically linked across accounts; a database with a vector index for fast search and similarity matching; and a UI that doesn't require you to memorize the syntax.</p>
+        <p>If Lamella turns out not to be a fit, export your <code style="font-size:14px;background:var(--slate-100);padding:2px 6px;border-radius:4px;">.beancount</code> files any time and walk away. The ledger goes with you.</p>
+      </div>
+
+      <div>
+        <div class="code-block" data-copy>
+          <button class="copy-btn" type="button" aria-label="Copy" data-label="Copy">Copy</button>
+<pre data-copy-src><span class="tok-c">; simplefin_transactions.bean</span>
+
+<span class="tok-num">2024-03-12</span> <span class="tok-kw">*</span> <span class="tok-str">"Staples #4892"</span> <span class="tok-str">"Foam board for Acme pitch"</span>
+  <span class="tok-flag">lamella-simplefin-id:</span> <span class="tok-str">"ACT-1J8h_4892"</span>
+  <span class="tok-flag">lamella-ai-classified:</span> <span class="tok-num">TRUE</span>
+  <span class="tok-flag">lamella-ai-decision-id:</span> <span class="tok-str">"1428"</span>
+  <span class="tok-arg">Liabilities:CreditCard:Chase</span>    <span class="tok-num">-33.00 USD</span>
+  <span class="tok-arg">Expenses:Acme:Supplies</span>           <span class="tok-num">33.00 USD</span>
+
+<span class="tok-c">; connector_links.bean</span>
+
+<span class="tok-num">2024-03-12</span> <span class="tok-kw">custom</span> <span class="tok-str">"receipt-link"</span> <span class="tok-str">"8f3a4d2e"</span>
+  <span class="tok-flag">lamella-paperless-id:</span> <span class="tok-num">4892</span>
+  <span class="tok-flag">lamella-match-method:</span> <span class="tok-str">"ai-suggested"</span>
+  <span class="tok-flag">lamella-match-confidence:</span> <span class="tok-num">0.94</span>
+  <span class="tok-flag">lamella-txn-date:</span> <span class="tok-num">2024-03-12</span>
+  <span class="tok-flag">lamella-txn-amount:</span> <span class="tok-num">33.00 USD</span></pre>
+        </div>
+        <span class="caption" style="display:block;margin-top:14px;font-size:13px;color:var(--slate-500);font-style:italic;">This is what Lamella writes. You never have to.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 5. AI on your terms ============== -->
+<section class="section ai-section" style="background:var(--slate-50);">
+  <div class="wrap">
+    <div class="prose">
+      <p class="eyebrow">AI</p>
+      <h2>Steady context in. Classified books out.</h2>
+
+      <div style="margin-top:28px;">
+        <p>Lamella doesn't race to label every transaction the moment it imports. It works alongside you. Drop in a mileage log when you remember the trip. Forward a receipt to Paperless when you get one. Leave a note about what the day was about. The transactions classify themselves as the context catches up.</p>
+        <p>The system learns from what you've already done. Classify a few similar charges by hand and it picks up the pattern. The vector database keeps a running index of your own decisions so the next ambiguous charge has somewhere to look.</p>
+        <p>When you want a second opinion, point Lamella at any model on <a href="https://openrouter.ai" target="_blank" rel="noopener">OpenRouter</a><!-- TODO: verify model availability before publishing -->. Ask for a category suggestion. Ask whether a charge is deductible. Ask the model to summarize your day.</p>
+        <p style="margin-top:24px;">A few things we believe:</p>
+
+        <ul class="ai-list">
+          <li><strong>Bring your own model.</strong> OpenRouter API key, your account, your bill. We don't proxy anything.</li>
+          <li><strong>Restraint by default.</strong> Background classification is paced, not aggressive. It prefers waiting for context to arrive over guessing now. Your API budget is yours.</li>
+          <li><strong>Learns from you.</strong> Classify a handful of charges manually and the system uses those as examples. Patterns surface from your own history before any model is consulted.</li>
+          <li><strong>Local first.</strong> The vector index, the ledger, the receipts. All on your machine. When the model is consulted, Lamella sends the current transaction along with the context it needs to answer well: similar past transactions pulled from your vector index, the relevant project, the day's notes, the linked receipt. Nothing leaves your machine unless it's part of that bundle.</li>
+          <li><strong>Receipts get a hand too.</strong> If receipt OCR comes in messy or under-classified, the model can clean it up and slot it into the right category. The first few might miss; once it has seen how you handle a vendor, it gets reliable.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 6. Imports ============== -->
+<section class="section">
+  <div class="wrap">
+    <div class="heading-block" style="margin-bottom:40px;">
+      <p class="eyebrow">Imports</p>
+      <h2>Get your data in.</h2>
+    </div>
+
+    <div class="imports-grid">
+      <div class="imports-card">
+        <span class="tag">Banks</span>
+        <h3>SimpleFIN bring-your-own-token.</h3>
+        <p><a href="https://www.simplefin.org" target="_blank" rel="noopener">SimpleFIN</a> is a $1.50/month service that gives you read-only access to your bank data. You sign up, you pay them, you paste a token into Lamella. Your bank credentials never touch us.</p>
+      </div>
+
+      <div class="imports-card">
+        <span class="tag">Files</span>
+        <h3>Or skip the bank entirely.</h3>
+        <div class="format-row">
+          <span class="fmt">CSV</span><span class="fmt">OFX</span><span class="fmt">QIF</span><span class="fmt">QBX</span><span class="fmt">SimpleFIN</span>
+        </div>
+        <p>Or paste statement text directly from your bank's website. Lamella's importer asks a few clarifying questions and figures out the rest. Built-in importers for PayPal, eBay, Amazon, and more.</p>
+        <p>Duplicate detection runs across all sources. Pull the same Chase transactions in from a CSV and a SimpleFIN feed; they merge cleanly. Because the ledger is double-entry, transfers between your own accounts find both sides and link up automatically.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 7. Beyond the ledger ============== -->
+<section class="section">
+  <div class="wrap">
+    <div class="heading-block" style="margin-bottom:40px;">
+      <p class="eyebrow">In the box</p>
+      <h2>What else is in the box.</h2>
+    </div>
+
+    <div class="grid-6">
+      <article class="card">
+        <div class="ico-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg></div>
+        <h3>Calendar view</h3>
+        <p>See every day's transactions, mileage, notes, and project activity in one place.</p>
+      </article>
+      <article class="card">
+        <div class="ico-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 8-8"/><path d="M14 8h6v6"/></svg></div>
+        <h3>Loans &amp; amortization</h3>
+        <p>Mortgages, auto loans, student loans. Live amortization tables and "what if I pay extra" projections.</p>
+      </article>
+      <article class="card">
+        <div class="ico-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17V13l2-5h11l3 4v5"/><circle cx="7" cy="17.5" r="1.5"/><circle cx="17" cy="17.5" r="1.5"/></svg></div>
+        <h3>Vehicle tracking</h3>
+        <p>Per-vehicle mileage, fuel, maintenance, and total cost of ownership.</p>
+      </article>
+      <article class="card">
+        <div class="ico-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 14l3-3 3 3 4-5"/></svg></div>
+        <h3>Budgeting</h3>
+        <p>Set targets per category. See variance over time without leaving the ledger.</p>
+      </article>
+      <article class="card">
+        <div class="ico-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/><path d="M11 8v3l2 2"/></svg></div>
+        <h3>Audit reports</h3>
+        <p>Find untagged transactions, missing receipts, and inconsistencies before tax time.</p>
+      </article>
+      <article class="card">
+        <div class="ico-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v4h4"/><path d="M9 13h6M9 17h4"/></svg></div>
+        <h3>Schedule-aware</h3>
+        <p>Categories map to IRS Schedule A, C, and F line items. Year-end exports do most of the work.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 8. Audience ============== -->
+<section class="section">
+  <div class="wrap">
+    <div class="heading-block" style="margin-bottom:40px;">
+      <p class="eyebrow">Fit</p>
+      <h2>Is this for you?</h2>
+    </div>
+
+    <div class="audience">
+      <div class="audience-col yes">
+        <h3><span class="marker">+</span>Probably yes</h3>
+        <ul>
+          <li>Freelancers and contractors who want their books to make sense in April</li>
+          <li>Side-hustle operators juggling personal and business</li>
+          <li>Small business owners who don't need payroll for fifty</li>
+          <li>Multi-business operators who lose track of which expense belongs where</li>
+          <li>Plain-text accounting users who want context without leaving their format</li>
+          <li>US filers (Schedule A, C, F)</li>
+        </ul>
+      </div>
+
+      <div class="audience-col no">
+        <h3><span class="marker">−</span>Probably not</h3>
+        <ul>
+          <li>Payroll for more than a handful of employees. Lamella doesn't do this</li>
+          <li>Full ERP, inventory management, or POS integration</li>
+          <li>Non-US tax structures (yet)</li>
+          <li>People who want a fully managed, hosted SaaS. That's not what this is</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 9. Open source ============== -->
+<section class="section opensource">
+  <div class="wrap">
+    <div class="prose">
+      <p class="eyebrow">Open source</p>
+      <h2>Yours. All of it.</h2>
+      <div style="margin-top:24px;">
+        <p>Apache 2.0 licensed. The repository is on <a href="https://github.com/lamella-ai/lamella" target="_blank" rel="noopener">GitHub</a><!-- TODO: confirm final repo URL -->. Issues, discussions, and pull requests are welcome.</p>
+        <p>Lamella runs on your hardware. There is no telemetry, no analytics, no "anonymous usage data." We don't know you installed it. The only network traffic Lamella initiates is to the services you connect: your bank's SimpleFIN endpoint, your Paperless instance, your chosen OpenRouter model. Everything else stays on the box.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 10. Get started ============== -->
+<section class="section" id="get-started">
+  <div class="wrap">
+    <div class="heading-block" style="margin-bottom:40px;">
+      <p class="eyebrow">Install</p>
+      <h2>Get started.</h2>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <span class="num">1</span>
+        <div>
+          <h3>Pull the image.</h3>
+          <div class="code" data-copy>
+            <button class="copy-btn" type="button" aria-label="Copy command" data-label="Copy">Copy</button>
+<pre data-copy-src><span class="tok-cmd">docker</span> <span class="tok-arg">run</span> <span class="tok-flag">-d</span> <span class="tok-flag">-p</span> <span class="tok-num">8080:8080</span> <span class="tok-flag">-v</span> <span class="tok-arg">lamella-data:/data</span> <span class="tok-str">ghcr.io/lamella-ai/lamella:latest</span></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <span class="num">2</span>
+        <div>
+          <h3>Open the app.</h3>
+          <p>Visit <code style="font-size:14px;background:var(--slate-100);padding:2px 6px;border-radius:4px;">http://localhost:8080</code>. Create your first ledger. Pick your business types so Lamella knows which IRS schedules to wire up.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <span class="num">3</span>
+        <div>
+          <h3>Bring your data.</h3>
+          <p>Paste a CSV, paste a SimpleFIN token, or paste raw text from your bank's website. The importer takes it from there.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="cta-row">
+      <!-- TODO: link to README anchor / install guide -->
+      <a class="btn btn-primary" href="https://github.com/lamella-ai/lamella#install">Full install guide →</a>
+      <a class="btn btn-secondary" href="https://github.com/lamella-ai/lamella/discussions">GitHub Discussions →</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============== Footer ============== -->
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="#" class="brand" style="font-size:16px;">
+          <img src="assets/lamella.svg" alt="" style="height:24px;">
+          <span class="wordmark">Lame<span class="ll">ll</span>a</span>
+        </a>
+        <p class="tagline">Bookkeeping that remembers what you were doing.<br><span class="tagline-aside">So you don’t have to.</span></p>
+      </div>
+
+      <div>
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/lamella-ai/lamella" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/lamella-ai/lamella/blob/main/LICENSE" target="_blank" rel="noopener">License (Apache 2.0)</a></li>
+          <li><a href="#get-started">Install guide</a></li>
+          <li><a href="trademark.html">Trademark policy</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Built on</h4>
+        <ul>
+          <li><a href="https://beancount.github.io/" target="_blank" rel="noopener">Beancount</a></li>
+          <li><a href="https://docs.paperless-ngx.com/" target="_blank" rel="noopener">Paperless-ngx</a></li>
+          <li><a href="https://www.simplefin.org" target="_blank" rel="noopener">SimpleFIN</a></li>
+          <li><a href="https://openrouter.ai" target="_blank" rel="noopener">OpenRouter</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      Lamella™ and the Lamella logo are trademarks of Lamella LLC. The software is licensed under the Apache License 2.0. If you build on Lamella, we'd appreciate a "Powered by Lamella" attribution. See the <a href="trademark.html">trademark policy</a>.
+      <span class="footer-bottom-sep">·</span>
+      <a class="footer-kofi" href="https://ko-fi.com/ajquick" target="_blank" rel="noopener" title="Support Lamella on Ko-fi">Buy me a coffee</a>
+    </div>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
