@@ -1,0 +1,73 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Back-fill audit — Vehicles{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Back-fill audit{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Back-fill audit',
+     subtitle='Dates whose mileage log was filled in after the trip happened. Transactions on these dates that were classified before the back-fill landed may deserve a re-review — the AI didn’t have the new mileage context when it decided.',
+     kicker='Vehicles'
+) %}
+  {{ B.btn('Back to vehicles', href='/vehicles', variant='ghost') }}
+{% endcall %}
+
+{% if total_dates == 0 %}
+{{ F.empty_state('Nothing to audit. No mileage rows have been logged more than a couple days after the trip they describe.') }}
+{% else %}
+
+<p class="subtle" style="margin:-8px 0 1rem">
+  <strong>{{ total_dates }}</strong> {{ 'date' if total_dates == 1 else 'dates' }} ·
+  <strong>{{ total_entries }}</strong> back-filled {{ 'entry' if total_entries == 1 else 'entries' }}
+  {% if oldest and newest %} · range {{ oldest }} → {{ newest }}{% endif %}
+</p>
+
+{% for yr in years %}
+{% call L.section(title=yr|string) %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr><th>Date</th><th class="num">Back-filled rows</th><th>Gap</th><th>Latest back-fill</th><th class="shrink"></th></tr>
+  </thead>
+  <tbody>
+    {% for r in by_year[yr] %}
+    <tr>
+      <td><time>{{ r.entry_date }}</time></td>
+      <td class="num">{{ r.backfill_entry_count }}</td>
+      <td>
+        {{ r.gap_days_max }}
+        {% if r.gap_days_max >= 365 %}{{ D.badge((r.gap_days_max / 365)|round(1)|string ~ ' years', tone='warn') }}
+        {% elif r.gap_days_max >= 30 %}{{ D.badge(((r.gap_days_max / 30)|round(0)|int|string) ~ ' months', tone='warn') }}
+        {% else %}<span class="subtle">days</span>{% endif %}
+      </td>
+      <td class="subtle" style="font-size:0.85rem">{{ r.backfill_latest_at }}</td>
+      <td class="shrink">{{ B.btn('txns on this date', href='/search?q=' ~ r.entry_date|string, variant='ghost', size='sm') }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+{% endfor %}
+
+{% endif %}
+
+<p class="subtle" style="margin-top:1.5rem">
+  This list is a cache, rebuilt from <code>mileage_entries</code> on every app boot and after every mileage write — safe to drop or recreate; contents regenerate automatically.
+</p>
+{% endblock %}

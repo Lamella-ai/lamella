@@ -1,0 +1,40 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Ingest #{{ record.id }} — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Import · Ingest{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Ingest import #' + record.id|string,
+     subtitle='Per-source ingesters parse every primary sheet into raw_rows, detect in-batch transfers, and categorize via rules and (if enabled) the AI classifier.',
+     kicker='Intake · Import'
+) %}
+  {{ B.btn('← Back', href='/import/' + record.id|string) }}
+{% endcall %}
+
+{% call C.card(title='Sheets to ingest') %}
+<ul class="list-clean" style="font-family:var(--font-mono); font-size:0.9rem">
+  {% for src in sources %}
+    {% if src.sheet_type == "primary" %}
+    <li><code>{{ src.sheet_name }}</code> — {{ src.source_class }} ({{ src.entity or "—" }})</li>
+    {% endif %}
+  {% endfor %}
+</ul>
+<form hx-post="/import/{{ record.id }}/ingest" hx-target="body" hx-swap="beforeend" style="margin-top:1rem">
+  {{ B.btn('Run ingest', type='submit', variant='primary', icon=icon.upload()) }}
+</form>
+{% endcall %}
+{% endblock %}

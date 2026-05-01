@@ -1,0 +1,147 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}{{ p.display_name }} — project{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}{{ p.display_name }}{% endblock %}
+
+{% block content %}
+{% set _bits = [] %}
+{% if p.entity_slug %}{% set _ = _bits.append('Entity ' ~ (p.entity_slug | entity)) %}{% endif %}
+{% if p.property_slug %}{% set _ = _bits.append('Property ' ~ p.property_slug) %}{% endif %}
+{% if p.project_type %}{% set _ = _bits.append(p.project_type) %}{% endif %}
+{% if p.start_date %}{% set _ = _bits.append(p.start_date|string ~ (' → ' ~ p.end_date|string if p.end_date else ' → ongoing')) %}{% endif %}
+
+{% call L.page_head(
+     title=p.display_name,
+     subtitle=' · '.join(_bits),
+     kicker='Projects'
+) %}
+  {{ B.btn('All projects', href='/projects', variant='ghost') }}
+{% endcall %}
+
+{% if not p.is_active %}<div style="margin:-8px 0 1rem">{{ D.badge('closed', tone='muted') }}</div>{% endif %}
+
+{% call C.kpi_grid() %}
+  {{ C.kpi_tile(label='Txns attributed', value=totals.n) }}
+  {{ C.kpi_tile(label='Spent to date', value=D.money(totals.total, signed=false)) }}
+  {% if p.budget_amount %}
+  {{ C.kpi_tile(label='Budget', value='$' ~ p.budget_amount, meta=('%.0f' % pct_used) ~ '% used', tone=('err' if over_budget else 'warn')) }}
+  {% endif %}
+{% endcall %}
+
+{% if chain and chain|length > 1 %}
+{% call C.card(title='Continuation chain', subtitle='Aggregate across %d project(s): %d txns · %s total' % (chain|length, chain_txns, D.money(chain_total, signed=false)), tone='info') %}
+<ol style="margin:0; padding-left:1.2rem">
+  {% for c in chain %}
+    <li>
+      {% if c.slug == p.slug %}<strong>{{ c.display_name }}</strong> (this one)
+      {% else %}<a href="/projects/{{ c.slug }}">{{ c.display_name }}</a>{% endif %}
+      <span class="subtle" style="font-size:0.85rem">({{ c.start_date }}{% if c.end_date %} – {{ c.end_date }}{% else %} – ongoing{% endif %})</span>
+    </li>
+  {% endfor %}
+</ol>
+{% endcall %}
+{% endif %}
+
+{% if p.description %}
+{% call C.card(title='Description') %}
+<p style="white-space:pre-wrap; margin:0">{{ p.description }}</p>
+{% endcall %}
+{% endif %}
+
+{% if p.closeout_json %}
+{% call C.card(title='Closeout', tone='muted') %}
+<pre style="white-space:pre-wrap; margin:0; font-family:var(--font-mono); font-size:0.85rem">{{ p.closeout_json | tojson(indent=2) }}</pre>
+{% endcall %}
+{% endif %}
+
+<datalist id="proj-types-datalist">{% for val, lbl in project_types %}<option value="{{ val }}" label="{{ lbl }}">{% endfor %}</datalist>
+<datalist id="proj-entities-datalist">{% for e in entities %}<option value="{{ e.slug }}" label="{{ e.display_name or e.slug }}">{% endfor %}</datalist>
+<datalist id="proj-properties-datalist">{% for pr in properties %}<option value="{{ pr.slug }}" label="{{ pr.display_name or pr.slug }}">{% endfor %}</datalist>
+<datalist id="proj-active-datalist"><option value="1" label="Active"><option value="0" label="Inactive"></datalist>
+<datalist id="proj-prev-datalist">
+  {% for other in all_projects %}{% if other.slug != p.slug %}<option value="{{ other.slug }}" label="{{ other.display_name }} ({{ other.start_date }})">{% endif %}{% endfor %}
+</datalist>
+
+{% call C.card(title='Edit project') %}
+<form method="post" action="/projects/{{ p.slug }}" class="form-grid" style="max-width:none">
+  <div class="field">
+    <label class="field-label">Display name</label>
+    <input class="field-input" type="text" name="display_name" value="{{ p.display_name }}" required />
+  </div>
+  <div class="form-row-2">
+    <div class="field"><label class="field-label">Type</label><input class="field-input" type="text" name="project_type" list="proj-types-datalist" value="{{ p.project_type or '' }}" /></div>
+    <div class="field"><label class="field-label">Entity</label><input class="field-input" type="text" name="entity_slug" list="proj-entities-datalist" value="{{ p.entity_slug or '' }}" placeholder="(none)" /></div>
+  </div>
+  <div class="form-row-2">
+    <div class="field"><label class="field-label">Property</label><input class="field-input" type="text" name="property_slug" list="proj-properties-datalist" value="{{ p.property_slug or '' }}" placeholder="(none)" /></div>
+    <div class="field"><label class="field-label">Active</label><input class="field-input" type="text" name="is_active" list="proj-active-datalist" value="{{ '1' if p.is_active else '0' }}" /></div>
+  </div>
+  <div class="form-row-2">
+    <div class="field"><label class="field-label">Start date</label><input class="field-input" type="date" name="start_date" value="{{ p.start_date }}" required /></div>
+    <div class="field"><label class="field-label">End date</label><input class="field-input" type="date" name="end_date" value="{{ p.end_date or '' }}" /></div>
+  </div>
+  <div class="field"><label class="field-label">Budget</label><input class="field-input" type="text" name="budget_amount" value="{{ p.budget_amount or '' }}" /></div>
+  <div class="field"><label class="field-label">Expected merchants (one per line)</label><textarea class="field-textarea" name="expected_merchants" rows="3">{{ merchants_textarea }}</textarea></div>
+  <div class="field"><label class="field-label">Description</label><textarea class="field-textarea" name="description" rows="6">{{ p.description or '' }}</textarea></div>
+  <div class="field"><label class="field-label">Continuation of</label><input class="field-input" type="text" name="previous_project_slug" list="proj-prev-datalist" value="{{ p.previous_project_slug or '' }}" placeholder="(none)" /></div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Save changes', type='submit', variant='primary') }}</div>
+</form>
+{% endcall %}
+
+{% if p.is_active %}
+{% call C.card(title='Close project', tone='warn') %}
+<form method="post" action="/projects/{{ p.slug }}/close" class="form-grid" style="max-width:none">
+  <div class="field">
+    <label class="field-label">Closeout notes</label>
+    <textarea class="field-textarea" name="closeout_notes" rows="3"
+              placeholder="Final cost $X vs. budget $Y. Tax treatment: split N% home office, M% personal. CPA confirmed on <date>."></textarea>
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Close this project', type='submit', variant='primary') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+
+{% call L.section(title='Attributed transactions', subtitle='%d txns' % totals.n) %}
+{% if txns %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead><tr><th>Date</th><th class="num">Amount</th><th>Merchant</th><th>Decided by</th><th>When</th></tr></thead>
+  <tbody>
+    {% for t in txns %}
+    <tr>
+      <td>{{ t.txn_date }}</td>
+      <td class="num">${{ t.txn_amount }}</td>
+      <td>{{ t.merchant_text or "(no merchant)" }}</td>
+      <td class="subtle" style="font-size:0.85rem">{{ t.decided_by }}</td>
+      <td class="subtle" style="font-size:0.85rem">{{ t.decided_at }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% else %}
+{{ F.empty_state('No transactions attributed yet. Projects attract txns via classify — once a txn at an expected merchant lands during the window and gets classified, it shows up here.') }}
+{% endif %}
+{% endcall %}
+
+<form method="post" action="/projects/{{ p.slug }}/delete" style="margin-top:1.5rem"
+      data-confirm="Delete project '{{ p.label or p.slug }}'? Its project_txns rows are deleted too. Ledger classifications are NOT affected — project membership was a tagging layer on top of the ledger."
+      data-confirm-button="Delete project">
+  {{ B.btn('Delete project', type='submit', variant='danger', size='sm') }}
+</form>
+{% endblock %}

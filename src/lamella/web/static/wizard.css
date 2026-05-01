@@ -1,0 +1,1326 @@
+/*
+ * Copyright 2026 Lamella LLC
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+ * https://lamella.ai
+ */
+
+/* =====================================================================
+   wizard.css — first-run onboarding.
+
+   Loaded only on /setup/wizard/* (the wizard layout adds it directly
+   in <head>). Deliberately compact: no main-app chrome to share with.
+
+   The wizard layout is standalone (does NOT extend base.html) which
+   means it doesn't inherit shell.css's theme tokens. We therefore
+   re-declare the full token set here so light + dark themes both
+   work. Keep these in sync with shell.css's :root and
+   [data-theme="dark"] blocks.
+
+   Layout: a single full-viewport column with the brand at the top, a
+   progress bar, the centered card-like content, and a tiny footer.
+   ===================================================================== */
+
+/* ---------- Theme tokens (mirror of shell.css) -------------------- */
+
+:root, [data-theme="light"] {
+  --bg:           #f7f8fa;
+  --bg-elev:      #ffffff;
+  --panel:        #ffffff;
+  --panel-2:      #f3f5f8;
+  --border:       #e4e7ec;
+  --border-soft:  #eef0f3;
+  --fg:           #0f172a;
+  --text:         #0f172a;
+  --fg-soft:      #1f2937;
+  --muted:        #64748b;
+  --muted-soft:   #94a3b8;
+  --placeholder:  #b4b7bd;
+  --accent:       #2563eb;
+  --accent-fg:    #ffffff;
+  --accent-soft:  #eef4ff;
+  --accent-deep:  #1d4ed8;
+  --ok:           #15803d;
+  --ok-soft:      #dcfce7;
+  --warn:         #b45309;
+  --warn-soft:    #fef3c7;
+  --err:          #b91c1c;
+  --err-soft:     #fee2e2;
+  --info-soft:    #dbeafe;
+  /* Brand tokens — mirror of shell.css. See static/img/lamella-icon.svg
+     for the indigo ramp used in the SVG mark; --brand-accent is the
+     teal "ll" highlight in the wordmark. */
+  --brand-wordmark:      #1f2937;
+  --brand-accent:        #14b8a6;
+}
+
+[data-theme="dark"] {
+  --bg:           #0b0f17;
+  --bg-elev:      #131823;
+  --panel:        #131823;
+  --panel-2:      #1a2030;
+  --border:       #232b3c;
+  --border-soft:  #1c2333;
+  --fg:           #e7ecf2;
+  --text:         #e7ecf2;
+  --fg-soft:      #cdd5e1;
+  --muted:        #8b95a7;
+  --muted-soft:   #5e6878;
+  --placeholder:  #4f5868;
+  --accent:       #4a90ff;
+  --accent-fg:    #0b0f17;
+  --accent-soft:  rgba(74,144,255,0.14);
+  --accent-deep:  #6aa6ff;
+  --ok:           #34d399;
+  --ok-soft:      rgba(52,211,153,0.12);
+  --warn:         #fbbf24;
+  --warn-soft:    rgba(251,191,36,0.12);
+  --err:          #f87171;
+  --err-soft:     rgba(248,113,113,0.12);
+  --info-soft:    rgba(74,144,255,0.12);
+  /* Brand tokens — dark theme. Wordmark goes near-white so it reads on
+     the dark wizard background; lighter teal pops better than #14b8a6. */
+  --brand-wordmark:      #f1f5f9;
+  --brand-accent:        #5eead4;
+}
+
+/* ---------- Layout-level overrides --------------------------------- */
+
+body[data-layout="wizard"] {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+}
+
+/* The HTML5 [hidden] attribute is normally display:none via the
+   user-agent stylesheet, but any class-based `display: …` rule
+   (e.g. our .wiz-banner { display: grid }) outranks the UA rule
+   in specificity. Enforce hidden via an attribute selector with
+   !important so JS-driven hide actually hides — without this the
+   intent-change warning stays visible after we set the attr. */
+body[data-layout="wizard"] [hidden] { display: none !important; }
+
+body[data-layout="wizard"] *,
+body[data-layout="wizard"] *::before,
+body[data-layout="wizard"] *::after {
+  box-sizing: border-box;
+}
+
+/* ---------- Outer scaffold ----------------------------------------- */
+
+.wiz {
+  --wiz-max: 720px;
+  --wiz-radius: 14px;
+  --wiz-pad-x: clamp(1rem, 4vw, 2rem);
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  background:
+    radial-gradient(1100px 600px at 90% -10%, color-mix(in srgb, var(--accent, #2563eb) 8%, transparent), transparent 70%),
+    radial-gradient(900px 500px at -10% 110%, color-mix(in srgb, var(--accent, #2563eb) 6%, transparent), transparent 70%),
+    var(--bg);
+}
+
+/* ---------- Brand + topbar ---------------------------------------- */
+
+.wiz-head {
+  padding: clamp(0.85rem, 2vw, 1.25rem) var(--wiz-pad-x);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.wiz-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  text-decoration: none;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.wiz-brand-mark {
+  height: 36px;
+  width: auto;
+  display: block;
+  flex: none;
+}
+
+.wiz-brand-name {
+  font-family: "Poppins", "IBM Plex Sans", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--brand-wordmark, var(--text));
+  letter-spacing: -0.01em;
+}
+.wiz-brand-name .brand-wordmark-accent { color: var(--brand-accent, #14b8a6); }
+
+.wiz-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.wiz-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev, var(--bg));
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    background 160ms ease;
+}
+
+.wiz-icon-btn:hover {
+  border-color: color-mix(in srgb, var(--accent, #2563eb) 50%, var(--border));
+  color: var(--text);
+}
+
+/* Theme toggle — show the icon for the OPPOSITE theme (clicking
+   the moon takes you to dark; clicking the sun back to light). */
+.wiz-icon-btn .icon-sun { display: none; }
+.wiz-icon-btn .icon-moon { display: block; }
+[data-theme="dark"] .wiz-icon-btn .icon-sun { display: block; }
+[data-theme="dark"] .wiz-icon-btn .icon-moon { display: none; }
+
+/* ---------- Progress steps (pill style — number + label inside
+   one rounded container, rails between pills) ------------------ */
+
+.wiz-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  max-width: 100%;
+  padding: 0 var(--wiz-pad-x);
+  margin: 0 auto 1.75rem;
+  overflow: hidden;
+}
+
+.wiz-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 6px 14px 6px 8px;
+  border-radius: 999px;
+  /* Future / not-yet-reached steps: pill on the page background
+     with a subtle border so the shape reads as a pill on both
+     light and dark themes — not a floating number. */
+  background: var(--bg-elev, var(--bg));
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 500;
+  text-decoration: none;
+  flex-shrink: 1;
+  min-width: 0;
+  transition:
+    background 220ms ease,
+    color 220ms ease,
+    border-color 220ms ease,
+    transform 220ms cubic-bezier(.2,.7,.3,1);
+}
+
+a.wiz-step:hover {
+  background: color-mix(in srgb, var(--accent, #2563eb) 14%, var(--bg));
+  color: var(--accent, #2563eb);
+}
+
+.wiz-step-num {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  background: var(--bg-elev, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  flex: none;
+  transition:
+    border-color 220ms ease,
+    background 220ms ease,
+    color 220ms ease;
+}
+
+.wiz-step-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 14ch;
+}
+
+.wiz-step.is-done {
+  background: color-mix(in srgb, var(--ok, #16a34a) 16%, var(--bg));
+  border-color: color-mix(in srgb, var(--ok, #16a34a) 35%, var(--border));
+  color: color-mix(in srgb, var(--ok, #16a34a) 90%, var(--text));
+}
+
+.wiz-step.is-done .wiz-step-num {
+  background: var(--ok, #16a34a);
+  border-color: var(--ok, #16a34a);
+  color: #fff;
+}
+
+.wiz-step.is-current {
+  background: color-mix(in srgb, var(--accent, #2563eb) 14%, var(--bg));
+  border-color: color-mix(in srgb, var(--accent, #2563eb) 50%, var(--border));
+  color: var(--accent, #2563eb);
+}
+
+.wiz-step.is-current .wiz-step-num {
+  background: var(--accent, #2563eb);
+  border-color: var(--accent, #2563eb);
+  color: #fff;
+}
+
+.wiz-step-rail {
+  flex: 0 0 22px;
+  height: 1.5px;
+  background: var(--border);
+  border-radius: 999px;
+}
+
+@media (max-width: 600px) {
+  .wiz-steps { gap: 4px; }
+  .wiz-step { padding: 6px 8px 6px 6px; }
+  .wiz-step-label { display: none; }
+  .wiz-step-rail { flex-basis: 12px; }
+}
+
+/* ---------- Centered content card ---------------------------------- */
+
+.wiz-main {
+  width: 100%;
+  max-width: var(--wiz-max);
+  margin: 0 auto;
+  padding: clamp(1.25rem, 4vw, 2.5rem) var(--wiz-pad-x) clamp(2rem, 5vw, 3.5rem);
+  animation: wiz-fade-in 280ms cubic-bezier(.2,.7,.3,1);
+}
+
+@keyframes wiz-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.wiz-header { margin-bottom: 1.5rem; }
+
+.wiz-h1 {
+  font-size: clamp(1.6rem, 3.4vw, 2.2rem);
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.015em;
+  font-weight: 700;
+}
+
+/* Tint the "ll" in a wordmark inside the wiz H1 with the same
+   teal accent every other wordmark in the app uses. The
+   brand-wordmark-accent class is shared (sidebar / topbar /
+   footer / wizard layout); this scoped rule extends the
+   convention into the welcome heading without coupling to a
+   different color. */
+.wiz-h1 .brand-wordmark-accent { color: var(--brand-accent, #14b8a6); }
+
+.wiz-sub {
+  font-size: 1rem;
+  line-height: 1.55;
+  margin: 0;
+  color: var(--muted);
+  max-width: 56ch;
+}
+
+.wiz-body-content { display: grid; gap: 1.25rem; }
+
+/* ---------- Form fields ------------------------------------------- */
+
+.wiz-field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.wiz-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.wiz-help {
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.wiz-input,
+.wiz-select {
+  width: 100%;
+  font: inherit;
+  padding: 0.7rem 0.9rem;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-elev, var(--bg));
+  color: var(--text);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+  min-height: 44px;
+}
+
+.wiz-input:focus,
+.wiz-select:focus {
+  outline: none;
+  border-color: var(--accent, #2563eb);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #2563eb) 20%, transparent);
+}
+
+.wiz-error {
+  color: var(--err, #b42318);
+  font-size: 0.85rem;
+}
+
+.wiz-input.is-invalid,
+.wiz-select.is-invalid {
+  border-color: var(--err, #b42318);
+}
+
+/* ---------- Intent radio cards ------------------------------------ */
+
+.wiz-radio-grid {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.wiz-radio-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.85rem;
+  align-items: start;
+  padding: 0.95rem 1rem;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-elev, var(--bg));
+  cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    transform 180ms cubic-bezier(.2,.7,.3,1);
+}
+
+.wiz-radio-card:hover { border-color: color-mix(in srgb, var(--accent, #2563eb) 50%, var(--border)); }
+
+.wiz-radio-card input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--bg);
+  display: grid;
+  place-items: center;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.wiz-radio-card input[type="radio"]::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent, #2563eb);
+  transform: scale(0);
+  transition: transform 180ms cubic-bezier(.2,.7,.3,1);
+}
+
+.wiz-radio-card input[type="radio"]:checked { border-color: var(--accent, #2563eb); }
+.wiz-radio-card input[type="radio"]:checked::after { transform: scale(1); }
+
+.wiz-radio-card:has(input:checked) {
+  border-color: var(--accent, #2563eb);
+  background: color-mix(in srgb, var(--accent, #2563eb) 6%, var(--bg-elev, var(--bg)));
+}
+
+.wiz-radio-title {
+  font-weight: 600;
+  font-size: 0.98rem;
+  color: var(--text);
+  display: block;
+  margin-bottom: 0.15rem;
+}
+
+.wiz-radio-blurb {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+/* ---------- Entity rows (wizard step 2) --------------------------- */
+
+.wiz-entity-row {
+  display: grid;
+  gap: 1.1rem;
+  grid-template-columns: 1fr;
+  padding: 1rem 0;
+  border-bottom: 1px dashed var(--border);
+}
+
+.wiz-entity-row:first-child { padding-top: 0; }
+.wiz-entity-row:last-child  { border-bottom: none; padding-bottom: 0; }
+
+.wiz-input--slug {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.92rem;
+  letter-spacing: 0.01em;
+}
+
+.wiz-radio-grid--compact {
+  gap: 0.4rem;
+}
+
+.wiz-radio-card--compact {
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  gap: 0.7rem;
+}
+
+.wiz-radio-card--compact .wiz-radio-title {
+  font-size: 0.92rem;
+  margin-bottom: 0.05rem;
+}
+
+.wiz-radio-card--compact .wiz-radio-blurb {
+  font-size: 0.82rem;
+}
+
+.wiz-radio-card--compact input[type="radio"] {
+  width: 18px;
+  height: 18px;
+}
+
+.wiz-radio-card--compact input[type="radio"]::after {
+  width: 8px;
+  height: 8px;
+}
+
+.wiz-radio-grid--inline {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.4rem;
+}
+
+@media (min-width: 600px) {
+  .wiz-radio-grid--inline { grid-template-columns: 1fr 1fr; }
+}
+
+/* ---------- Entity / account row cards ----------------------------- */
+
+.wiz-card {
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-elev, var(--bg));
+  padding: 1rem 1.1rem;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.wiz-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.wiz-card-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.wiz-row {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .wiz-row.is-double { grid-template-columns: 1fr 1fr; }
+  .wiz-row.is-triple { grid-template-columns: 1fr 1fr 1fr; }
+}
+
+/* ---------- Account table (SimpleFIN path) ------------------------ */
+
+.wiz-table {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.wiz-table-row {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.85rem 0.9rem;
+  background: var(--bg-elev, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 760px) {
+  .wiz-table-row {
+    grid-template-columns: 1.6fr 1fr 0.6fr 1fr 1fr;
+    align-items: center;
+  }
+}
+
+.wiz-cell-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+}
+
+@media (min-width: 760px) {
+  .wiz-cell-label { display: none; }
+}
+
+/* ---------- Tag chips (default category previews) ------------------ */
+
+.wiz-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.wiz-chip {
+  padding: 0.18rem 0.6rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent, #2563eb) 8%, var(--bg-elev, var(--bg)));
+  color: var(--muted);
+  font-size: 0.75rem;
+  border: 1px solid var(--border);
+}
+
+/* ---------- Action row -------------------------------------------- */
+
+.wiz-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  margin-top: 1.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.wiz-actions .spacer { flex: 1; }
+
+.wiz-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.2rem;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border-radius: 10px;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  min-height: 44px;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.wiz-btn[disabled],
+.wiz-btn.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Loading state — used by the SimpleFIN Connect button while the
+   server is claiming the token + fetching accounts (a few seconds).
+   Default: hide the loading spinner. .is-loading swaps it in. */
+.wiz-btn-loading { display: none; align-items: center; gap: 0.4rem; }
+.wiz-btn-loading svg { animation: wiz-spin 900ms linear infinite; }
+.wiz-btn.is-loading .wiz-btn-label { display: none; }
+.wiz-btn.is-loading .wiz-btn-loading { display: inline-flex; }
+
+@keyframes wiz-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiz-btn-loading svg { animation: none; }
+}
+
+.wiz-btn-primary {
+  background: var(--accent, #2563eb);
+  color: #fff;
+}
+
+.wiz-btn-primary:hover:not([disabled]):not(.is-disabled) {
+  box-shadow: 0 6px 18px -10px var(--accent, #2563eb);
+  transform: translateY(-1px);
+}
+
+.wiz-btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.wiz-btn-ghost:hover { background: var(--bg-elev, var(--bg)); }
+
+.wiz-btn-link {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  padding: 0.5rem 0.6rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.wiz-btn-link:hover { color: var(--text); }
+
+/* ---------- Add-another button (inline expand) -------------------- */
+
+.wiz-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 10px;
+  border: 1.5px dashed var(--border);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+
+.wiz-add:hover {
+  border-color: var(--accent, #2563eb);
+  color: var(--accent, #2563eb);
+  background: color-mix(in srgb, var(--accent, #2563eb) 4%, transparent);
+}
+
+/* ---------- Banner / notice cards --------------------------------- */
+
+.wiz-banner {
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-elev, var(--bg));
+  display: grid;
+  gap: 0.4rem;
+}
+
+.wiz-banner-title { font-weight: 600; font-size: 0.95rem; }
+.wiz-banner-body  { color: var(--muted); font-size: 0.9rem; line-height: 1.45; }
+
+.wiz-banner.is-warn {
+  border-color: color-mix(in srgb, var(--warn, #b54708) 60%, var(--border));
+  background: color-mix(in srgb, var(--warn, #b54708) 8%, var(--bg-elev, var(--bg)));
+}
+
+.wiz-banner.is-info {
+  border-color: color-mix(in srgb, var(--accent, #2563eb) 50%, var(--border));
+  background: color-mix(in srgb, var(--accent, #2563eb) 5%, var(--bg-elev, var(--bg)));
+}
+
+/* ---------- Existing-entity list (entities step, read-only) ----- */
+
+.wiz-card--readonly {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--accent, #2563eb) 30%, var(--border));
+  background: color-mix(in srgb, var(--accent, #2563eb) 4%, var(--bg-elev, var(--bg)));
+}
+
+.wiz-pill-info {
+  display: inline-block;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  background: var(--bg-elev, var(--bg));
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.wiz-existing-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.wiz-existing-list li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.55rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+.wiz-existing-mark {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  font-weight: 700;
+  font-size: 0.72rem;
+  flex: none;
+  color: #fff;
+}
+
+.wiz-existing-mark--indiv { background: #16a34a; }
+.wiz-existing-mark--biz   { background: #2563eb; }
+
+.wiz-existing-name { font-weight: 600; }
+
+.wiz-existing-slug {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  color: var(--muted);
+  padding: 0.05rem 0.4rem;
+  border-radius: 4px;
+  background: var(--bg-elev, var(--bg));
+}
+
+.wiz-existing-tag {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: lowercase;
+}
+
+/* Draft (wizard-created) rows get inline action buttons after the
+   tag. Existing/read-only rows hide actions entirely. */
+.wiz-existing-list li.is-draft {
+  border-color: color-mix(in srgb, var(--accent, #2563eb) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent, #2563eb) 4%, var(--bg));
+}
+
+.wiz-existing-list li.is-draft .wiz-existing-tag {
+  margin-left: 0;
+}
+
+.wiz-row-actions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+/* Inline form inside wiz-row-actions: don't let it expand or take
+   block layout. */
+.wiz-row-actions form {
+  display: inline-flex;
+  margin: 0;
+  padding: 0;
+}
+
+.wiz-row-action {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+
+.wiz-row-action:hover {
+  border-color: var(--accent, #2563eb);
+  color: var(--accent, #2563eb);
+  text-decoration: none;
+}
+
+.wiz-row-action--danger:hover {
+  border-color: var(--err, #b42318);
+  color: var(--err, #b42318);
+}
+
+/* Prompt-styled action — for "Set up" on incomplete rows. Calls
+   attention via the accent color so the user knows it needs them. */
+.wiz-row-action--prompt {
+  border-color: var(--accent, #2563eb);
+  background: var(--accent, #2563eb);
+  color: #fff;
+}
+
+.wiz-row-action--prompt:hover {
+  border-color: var(--accent-deep, #1d4ed8);
+  background: var(--accent-deep, #1d4ed8);
+  color: #fff;
+}
+
+/* Incomplete draft row — slight warning hue + dashed border so the
+   user notices it. */
+.wiz-existing-list li.is-draft.is-incomplete {
+  border-color: color-mix(in srgb, var(--warn, #b45309) 40%, var(--border));
+  background: color-mix(in srgb, var(--warn, #b45309) 5%, var(--bg));
+  border-style: dashed;
+}
+
+/* ---------- Modal ------------------------------------------------- */
+
+.wiz-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(2px);
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding: clamp(1rem, 5vh, 3rem) 1rem;
+  z-index: 100;
+  overflow-y: auto;
+  animation: wiz-modal-fade-in 200ms ease;
+}
+
+.wiz-modal-backdrop.is-open { display: flex; }
+
+@keyframes wiz-modal-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.wiz-modal {
+  width: 100%;
+  max-width: 560px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  animation: wiz-modal-pop 220ms cubic-bezier(.2,.7,.3,1);
+}
+
+@keyframes wiz-modal-pop {
+  from { opacity: 0; transform: translateY(-12px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.wiz-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.wiz-modal-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.wiz-modal-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.wiz-modal-close:hover {
+  background: var(--panel-2, var(--bg));
+  color: var(--text);
+}
+
+.wiz-modal-body {
+  padding: 1.2rem;
+  max-height: calc(100vh - 14rem);
+  overflow-y: auto;
+}
+
+/* The form inside the modal body provides the grid spacing; the
+   body itself just owns padding + scroll. */
+.wiz-modal-form {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.wiz-modal-foot {
+  padding: 0.9rem 1.2rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.wiz-modal-foot .spacer { flex: 1; }
+
+.wiz-input[readonly] {
+  opacity: 0.7;
+  background: var(--panel-2, var(--bg));
+  cursor: not-allowed;
+}
+
+/* ---------- Locked intent (existing-install case) ---------------- */
+
+.wiz-radio-card.is-locked {
+  cursor: not-allowed;
+  border-color: var(--accent, #2563eb);
+  background: color-mix(in srgb, var(--accent, #2563eb) 8%, var(--bg-elev, var(--bg)));
+}
+
+.wiz-radio-card.is-locked input[type="radio"] {
+  cursor: not-allowed;
+}
+
+.wiz-pill-lock {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  background: var(--accent, #2563eb);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  vertical-align: 1px;
+}
+
+/* ---------- Confirm-row (intent-change checkbox) ----------------- */
+
+.wiz-confirm-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  font-weight: 500;
+  user-select: none;
+}
+
+.wiz-confirm-row input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border: 1.5px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.wiz-confirm-row input[type="checkbox"]:checked {
+  background: var(--accent, #2563eb);
+  border-color: var(--accent, #2563eb);
+}
+
+.wiz-confirm-row input[type="checkbox"]:checked::after {
+  content: "";
+  width: 10px;
+  height: 6px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: translateY(-1px) rotate(-45deg);
+}
+
+/* ---------- Import-pivot (welcome step) --------------------------- */
+
+.wiz-import-pivot {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.wiz-import-pivot a { color: var(--accent, #2563eb); font-weight: 600; }
+.wiz-import-pivot a:hover { color: var(--text); }
+
+/* ---------- Footer ------------------------------------------------- */
+
+.wiz-foot {
+  padding: 1rem var(--wiz-pad-x);
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+/* ---------- Mobile fine-tuning ------------------------------------ */
+
+@media (max-width: 600px) {
+  .wiz-actions { flex-direction: column-reverse; align-items: stretch; }
+  .wiz-actions .wiz-btn { width: 100%; }
+  .wiz-actions .spacer { display: none; }
+}
+
+/* ===================================================================
+   Finalizing screen — the celebratory "Creating your books…" page
+   that runs between Done's submit and the dashboard.
+   =================================================================== */
+
+.wiz-finalizing-body {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(900px 500px at 50% -20%, color-mix(in srgb, var(--accent, #2563eb) 12%, transparent), transparent 70%),
+    radial-gradient(700px 400px at 50% 120%, color-mix(in srgb, var(--accent, #2563eb) 10%, transparent), transparent 70%),
+    var(--bg);
+  transition: opacity 700ms ease;
+}
+
+.wiz-finalizing-body.is-fading-out { opacity: 0; }
+
+.wiz-finalizing {
+  width: 100%;
+  max-width: 560px;
+  padding: clamp(1rem, 4vw, 2rem);
+}
+
+.wiz-finalizing-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.25rem, 4vw, 2.25rem);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18);
+  text-align: center;
+  animation: wiz-finalizing-pop 360ms cubic-bezier(.2, .7, .3, 1);
+}
+
+@keyframes wiz-finalizing-pop {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.wiz-finalizing-mark {
+  height: 44px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 0.75rem;
+  display: grid;
+  place-items: center;
+}
+.wiz-finalizing-mark img {
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  display: block;
+  filter: drop-shadow(0 4px 10px color-mix(in srgb, var(--brand-indigo-deep, #312e81) 24%, transparent));
+}
+
+.wiz-finalizing-card.is-complete .wiz-finalizing-mark img {
+  /* On commit-success swap the indigo drop-shadow for a soft green —
+     a quiet acknowledgement, not a full-screen pulse. */
+  filter: drop-shadow(0 4px 12px color-mix(in srgb, var(--ok, #16a34a) 38%, transparent));
+}
+
+.wiz-finalizing-progress {
+  height: 6px;
+  width: 100%;
+  background: color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 0 0 1.1rem;
+}
+
+.wiz-finalizing-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(
+    90deg,
+    var(--accent, #2563eb),
+    color-mix(in srgb, var(--accent, #2563eb) 75%, var(--ok, #16a34a))
+  );
+  border-radius: 999px;
+  transition: width 280ms ease-out;
+}
+
+.wiz-finalizing-log {
+  margin: 0.85rem 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: left;
+  min-height: 1.2em;
+}
+
+.wiz-finalizing-log-line {
+  font-family: var(--mono, ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", monospace);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.85;
+}
+
+.wiz-finalizing-title {
+  font-size: clamp(1.4rem, 3vw, 1.85rem);
+  margin: 0 0 0.4rem;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+.wiz-finalizing-sub {
+  margin: 0 0 1.6rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.wiz-step-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+  text-align: left;
+}
+
+.wiz-step-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 0.92rem;
+  color: var(--muted);
+  transition: background 220ms ease, border-color 220ms ease, color 220ms ease;
+}
+
+.wiz-step-list li.is-active {
+  background: color-mix(in srgb, var(--accent, #2563eb) 8%, var(--bg));
+  border-color: color-mix(in srgb, var(--accent, #2563eb) 50%, var(--border));
+  color: var(--text);
+}
+
+.wiz-step-list li.is-done {
+  background: color-mix(in srgb, var(--ok, #16a34a) 9%, var(--bg));
+  border-color: color-mix(in srgb, var(--ok, #16a34a) 35%, var(--border));
+  color: color-mix(in srgb, var(--ok, #16a34a) 80%, var(--text));
+}
+
+.wiz-step-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: transparent;
+  position: relative;
+  flex: none;
+  transition: border-color 220ms ease, background 220ms ease;
+}
+
+.wiz-step-list li.is-active .wiz-step-dot {
+  border-color: var(--accent, #2563eb);
+  border-top-color: transparent;
+  border-right-color: transparent;
+  animation: wiz-spin-dot 800ms linear infinite;
+}
+
+.wiz-step-list li.is-done .wiz-step-dot {
+  border-color: var(--ok, #16a34a);
+  background: var(--ok, #16a34a);
+}
+
+.wiz-step-list li.is-done .wiz-step-dot::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 8px;
+  border-right: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  /* Translate to the visual center, then rotate. The -55% Y nudge
+     compensates for the rotated glyph's pivot — a plain -50% sits
+     low because the bounding box is taller than the visible mark. */
+  transform: translate(-50%, -55%) rotate(45deg);
+}
+
+.wiz-step-list li.is-failed {
+  background: color-mix(in srgb, var(--danger, #dc2626) 9%, var(--bg));
+  border-color: color-mix(in srgb, var(--danger, #dc2626) 35%, var(--border));
+  color: color-mix(in srgb, var(--danger, #dc2626) 80%, var(--text));
+}
+
+.wiz-step-list li.is-failed .wiz-step-dot {
+  border-color: var(--danger, #dc2626);
+  background: var(--danger, #dc2626);
+  animation: none;
+}
+
+.wiz-step-list li.is-failed .wiz-step-dot::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  background:
+    linear-gradient(45deg, transparent calc(50% - 1px), #fff calc(50% - 1px), #fff calc(50% + 1px), transparent calc(50% + 1px)),
+    linear-gradient(-45deg, transparent calc(50% - 1px), #fff calc(50% - 1px), #fff calc(50% + 1px), transparent calc(50% + 1px));
+  transform: translate(-50%, -50%);
+}
+
+@keyframes wiz-spin-dot {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiz-finalizing-body { transition: none; }
+  .wiz-finalizing-card { animation: none; }
+  .wiz-finalizing-card.is-complete .wiz-finalizing-mark img { animation: none; }
+  .wiz-step-list li.is-active .wiz-step-dot { animation: none; }
+}
+
+/* ---------- Reduced-motion respect -------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .wiz-main { animation: none; }
+  .wiz-step,
+  .wiz-step-num,
+  .wiz-radio-card,
+  .wiz-radio-card input[type="radio"]::after,
+  .wiz-btn-primary { transition: none; transform: none !important; }
+}

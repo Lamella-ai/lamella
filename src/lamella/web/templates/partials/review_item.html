@@ -1,0 +1,231 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<li class="review-item priority-{{ entry.item.priority }}{% if entry.pair %} is-pair{% endif %}" id="review-item-{{ entry.item.id }}">
+  {% if entry.pair %}
+    {# Transfer pair: two halves of one transfer between the user's own accounts. #}
+    <header class="pair-context">
+      <div class="pair-badge">↔ Transfer pair detected
+        {% if entry.pair.ref %}(REF {{ entry.pair.ref }}){% else %}(matched by amount + date){% endif %}
+      </div>
+      <div class="txn-headline">
+        <time>{{ entry.txn.date }}</time>
+        <span class="amount">{% if fmt_amount is defined %}{{ fmt_amount(entry.txn.amount, 2) }}{% else %}{{ "%.2f"|format(entry.txn.amount) }}{% endif %} {{ entry.txn.currency }}</span>
+        <span class="payee">
+          {% if entry.txn.payee %}{{ entry.txn.payee }}{% endif %}
+        </span>
+      </div>
+      <div class="pair-flow">
+        <span class="from" title="{{ entry.pair_from_account or entry.txn.card_account or entry.txn.from_account }}">{{ (entry.pair_from_account or entry.txn.card_account or entry.txn.from_account) | alias }}</span>
+        &nbsp;&rarr;&nbsp;
+        <span class="to" title="{{ entry.pair_to_account or (entry.partner_txn.card_account if entry.partner_txn else entry.pair.partner_account) }}">{{ (entry.pair_to_account or (entry.partner_txn.card_account if entry.partner_txn else entry.pair.partner_account)) | alias }}</span>
+      </div>
+      <details class="pair-narration muted">
+        <summary>What the bank said</summary>
+        <p>Side A: {{ entry.txn.narration or "(no narration)" }}</p>
+        <p>Side B: {{ entry.partner_txn.narration if entry.partner_txn else "(partner not loaded)" }}</p>
+      </details>
+    </header>
+    <form method="post"
+          action="/review/{{ entry.item.id }}/mark_transfer"
+          hx-post="/review/{{ entry.item.id }}/mark_transfer"
+          hx-target="#review-item-{{ entry.item.id }}"
+          hx-swap="outerHTML"
+          class="review-actions pair-actions">
+      <button type="submit" class="primary-action transfer-action">
+        ✓ Yes, this is a transfer between my accounts
+      </button>
+      <details class="not-a-transfer">
+        <summary>Not a transfer — categorize each side separately</summary>
+        <p class="muted">
+          If the match is wrong (e.g., different events that happened to share a REF number),
+          you can resolve each half individually instead. Use the regular form below on each row.
+        </p>
+      </details>
+    </form>
+  {% elif entry.txn %}
+    <header class="txn-context">
+      <div class="txn-headline">
+        <time>{{ entry.txn.date }}</time>
+        {% if entry.txn.amount is not none %}
+          <span class="amount">{% if fmt_amount is defined %}{{ fmt_amount(entry.txn.amount, 2) }}{% else %}{{ "%.2f"|format(entry.txn.amount) }}{% endif %} {{ entry.txn.currency }}</span>
+        {% endif %}
+        <span class="payee">
+          {% if entry.txn.payee %}{{ entry.txn.payee }} &middot; {% endif %}{{ entry.txn.narration or "(no narration)" }}
+        </span>
+      </div>
+      <div class="txn-accounts muted">
+        <span class="from" title="{{ entry.txn.from_account or 'Uncategorized' }}">{{ (entry.txn.from_account or "Uncategorized") | alias }}</span>
+        {% if entry.txn.other_accounts %}
+          &rarr;
+          {% for acct in entry.txn.other_accounts %}
+            <span class="to" title="{{ acct }}">{{ acct | alias }}</span>{% if not loop.last %}, {% endif %}
+          {% endfor %}
+        {% endif %}
+      </div>
+      <div class="txn-meta muted">
+        priority {{ entry.item.priority }}
+        {% if entry.txn.filename %}&middot; {{ entry.txn.filename }}{% if entry.txn.lineno %}:{{ entry.txn.lineno }}{% endif %}{% endif %}
+        &middot; <small>{{ entry.item.source_ref }}</small>
+        {% if entry.lamella_txn_id or entry.txn_hash %}
+          &middot; <a href="/txn/{{ entry.lamella_txn_id or entry.txn_hash }}" class="small"
+                      title="Full transaction detail page">Detail →</a>
+        {% endif %}
+      </div>
+    </header>
+  {% else %}
+    <div class="meta">
+      <span class="source">{{ entry.item.source_ref }}</span>
+      <span class="priority">priority {{ entry.item.priority }}</span>
+      <time>{{ entry.item.created_at|local_ts }}</time>
+      <span class="muted">(transaction not found in current ledger)</span>
+    </div>
+  {% endif %}
+
+  {% if not entry.pair %}
+    {% if entry.receipt_link %}
+      <div class="linked-receipt muted small" style="margin:0.25rem 0;padding:0.3rem 0.5rem;border-left:3px solid var(--accent);background:#f4f8ff;">
+        <strong>📎 Linked receipt</strong>
+        <a href="/paperless/preview/{{ entry.receipt_link.paperless_id }}" target="_blank" rel="noopener">
+          #{{ entry.receipt_link.paperless_id }}
+        </a>
+        {% if entry.receipt_link.vendor %}· {{ entry.receipt_link.vendor }}{% endif %}
+        {% if entry.receipt_link.receipt_date %}· dated {{ entry.receipt_link.receipt_date }}{% endif %}
+        {% if entry.receipt_link.total_amount %}· {{ entry.receipt_link.total_amount }}{% endif %}
+        {% if entry.receipt_link.date_mismatch_likely %}
+          <div style="margin-top:0.25rem;">
+            ⚠ OCR date is &gt;30 days off from txn date — likely OCR error.
+          </div>
+        {% endif %}
+        <form hx-post="/paperless/{{ entry.receipt_link.paperless_id }}/verify"
+              hx-target="body"
+              hx-swap="beforeend"
+              class="inline-form"
+              style="display:inline;margin-left:0.5rem;">
+          <input type="hidden" name="suspected_date"
+                 value="{{ entry.txn.date if entry.txn else '' }}" />
+          <input type="hidden" name="reason"
+                 value="triggered from review queue; txn date is {{ entry.txn.date if entry.txn else 'unknown' }}" />
+          <button type="submit" class="small" title="Re-OCR the image via vision AI and PATCH corrections to Paperless">
+            Verify receipt
+          </button>
+        </form>
+      </div>
+    {% endif %}
+    {% if entry.suggestion %}
+      {% include "partials/rule_suggestion.html" %}
+    {% endif %}
+    {% if entry.ai %}
+      {% include "partials/ai_suggestion.html" %}
+    {% endif %}
+    {% if not entry.suggestion and not entry.ai and entry.item.ai_suggestion %}
+      <pre class="suggestion">{{ entry.item.ai_suggestion }}</pre>
+    {% endif %}
+
+    <form method="post" action="/review/{{ entry.item.id }}/resolve"
+          hx-post="/review/{{ entry.item.id }}/resolve"
+          hx-target="#review-item-{{ entry.item.id }}"
+          hx-swap="outerHTML"
+          class="review-actions">
+
+      {% if entry.item.kind == "fixme" %}
+        {% if entry.suggestion %}
+          <button type="submit" name="action" value="accept_rule"
+                  formaction="/review/{{ entry.item.id }}/resolve"
+                  hx-vals='{"target_account": "{{ entry.suggestion.target_account }}"}'
+                  title="{{ entry.suggestion.target_account }}">
+            Accept rule → {{ entry.suggestion.target_account | alias }}
+          </button>
+        {% endif %}
+        {% if entry.ai %}
+          <details class="accept-ai">
+            <summary title="{{ entry.ai.target_account }}">Accept AI → {{ entry.ai.target_account | alias }} ({{ "%.2f"|format(entry.ai.confidence) }})</summary>
+            <input type="hidden" name="target_account" value="{{ entry.ai.target_account }}" />
+            <input type="hidden" name="rule_pattern_type" value="merchant_contains" />
+            <label>Save as rule (pattern)
+              <input type="text" name="rule_pattern_value"
+                     value="{{ entry.txn.narration if entry.txn else '' }}"
+                     placeholder="merchant substring" />
+            </label>
+            <label>Card scope (optional)
+              <input type="text" name="rule_card_account" list="accounts-datalist"
+                     value="{{ entry.txn.card_account if entry.txn else '' }}"
+                     placeholder="Liabilities:Entity:Card:xxxx" />
+            </label>
+            <button type="submit" name="action" value="accept_ai">Accept AI &amp; save rule</button>
+          </details>
+        {% endif %}
+        <details class="accept-new primary">
+          <summary>Categorize as an expense &amp; save rule</summary>
+          <p class="muted small">
+            Pick the expense category this transaction belongs to. Start typing to
+            see matches (e.g. &ldquo;exp gas&rdquo; filters to Expenses:Vehicle:Fuel).
+          </p>
+          <label>Expense category
+            <input type="text" name="target_account"
+                   list="accounts-datalist"
+                   placeholder="Expenses:…" autocomplete="off" />
+          </label>
+          <label>Also save a reusable rule that matches
+            <select name="rule_pattern_type">
+              <option value="merchant_contains" selected>text contains</option>
+              <option value="merchant_exact">text is exactly</option>
+              <option value="regex">regex (advanced)</option>
+              <option value="amount_range">amount range lo..hi</option>
+            </select>
+            <input type="text" name="rule_pattern_value"
+                   value="{{ entry.txn.narration if entry.txn else '' }}"
+                   placeholder="substring that identifies this merchant" />
+          </label>
+          <label>Scope to one card (optional)
+            <input type="text" name="rule_card_account" list="accounts-datalist"
+                   value="{{ entry.txn.card_account if entry.txn else '' }}"
+                   placeholder="Liabilities:… or Assets:… — leave blank for all cards" />
+          </label>
+          <button type="submit" name="action" value="accept_new_rule" class="primary-action">Save rule &amp; apply</button>
+        </details>
+        <button type="submit" name="action" value="reject" class="secondary">Skip / leave uncategorized</button>
+      {% else %}
+        <input type="text" name="user_decision" placeholder="Decision note (optional)" />
+        <button type="submit" name="action" value="note">Resolve</button>
+      {% endif %}
+    </form>
+
+    {% if entry.item.kind == "fixme" %}
+      {# Manual transfer: user picks the other-side account when the
+         auto-pair detector didn't find it (brokerage sweep, account not
+         yet in the ledger, etc.). #}
+      <details class="accept-transfer">
+        <summary class="muted small">Or mark as a transfer between my accounts…</summary>
+        <form method="post"
+              action="/review/{{ entry.item.id }}/mark_transfer_to"
+              hx-post="/review/{{ entry.item.id }}/mark_transfer_to"
+              hx-target="#review-item-{{ entry.item.id }}"
+              hx-swap="outerHTML"
+              class="review-actions"
+              autocomplete="off">
+          <p class="muted small">
+            Use this when the money moved between accounts you own (brokerage
+            sweep, cash pull to BrokerageOne, etc.). Writes a single override
+            that routes the uncategorized leg to the account you pick.
+          </p>
+          <label>Other-side account
+            <input type="text" name="target_account" list="accounts-datalist"
+                   placeholder="Assets:Personal:BrokerageOne:Brokerage" autocomplete="off" required />
+          </label>
+          <button type="submit" class="primary-action">Mark as transfer</button>
+          <p class="muted small">
+            Need a new account? Add it at
+            <a href="/settings/accounts" target="_blank" rel="noopener">Settings → Accounts</a>
+            (kind <code>brokerage</code> for BrokerageOne / Schwab / etc.).
+          </p>
+        </form>
+      </details>
+    {% endif %}
+  {% endif %}
+</li>

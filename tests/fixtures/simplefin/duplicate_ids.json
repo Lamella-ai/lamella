@@ -1,0 +1,14 @@
+{
+  "errors": [],
+  "accounts": [
+    {
+      "id": "account-acme-card-a",
+      "name": "Acme Business Card A",
+      "currency": "USD",
+      "transactions": [
+        {"id": "sf-1001", "posted": 1744243200, "amount": "-42.17", "description": "A HOME IMPROVEMENT STORE #1234", "payee": "Hardware Store"},
+        {"id": "sf-2099", "posted": 1744329600, "amount": "-15.50", "description": "POSTAL POSTAGE", "payee": "Postal Service"}
+      ]
+    }
+  ]
+}

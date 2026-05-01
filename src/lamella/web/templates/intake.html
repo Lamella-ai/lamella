@@ -1,0 +1,159 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Paste intake — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Intake{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Paste intake',
+     subtitle='Paste rows from a bank statement, CSV dump, or copied spreadsheet cells. The app detects which columns carry the date and amount, stages the rows, and runs them through the same pipeline as SimpleFIN and CSV imports.',
+     kicker='Intake'
+) %}
+  {{ B.btn('CSV / Spreadsheet import', href='/import', icon=icon.upload()) }}
+{% endcall %}
+
+{% if error %}{% call F.banner(tone='err', title='Error') %}{{ error }}{% endcall %}{% endif %}
+
+{% if staged_count is not none %}
+{% call F.banner(tone='ok', title='Staged %d row%s' % (staged_count, '' if staged_count == 1 else 's')) %}
+  {% if skipped_count %}<br>Skipped {{ skipped_count }} (no parseable date or amount).{% endif %}
+  {% if duplicates_flagged %}<br><strong>{{ duplicates_flagged }}</strong> row(s) flagged as likely duplicates — visible in review.{% endif %}
+  {% if errors_list %}
+    <ul>{% for e in errors_list %}<li>{{ e }}</li>{% endfor %}</ul>
+  {% endif %}
+  Session: <code>{{ session_id }}</code>
+{% endcall %}
+{% endif %}
+
+{% if duplicate_report and parsed %}
+  {% if duplicate_report.severity == 'high' %}
+  {% call F.banner(tone='err', title='Looks like a duplicate import') %}
+    {{ duplicate_report.matched_rows }} of {{ duplicate_report.total_rows }} row(s)
+    ({{ (duplicate_report.overlap_ratio * 100) | round | int }}%) already exist
+    in staging history.
+    {% if duplicate_report.likely_duplicate_sessions %}
+      {% set top = duplicate_report.likely_duplicate_sessions[0] %}
+      Strongest match: <code>{{ top.source }}</code>
+      {% if top.session_id %}(session <code>{{ top.session_id }}</code>){% endif %}
+      — {{ top.matches }} row(s),
+      {% if top.earliest_date %}{{ top.earliest_date }}{% if top.earliest_date != top.latest_date %} → {{ top.latest_date }}{% endif %}{% endif %}.
+    {% endif %}
+  {% endcall %}
+  {% elif duplicate_report.severity == 'partial' %}
+  {% call F.banner(tone='warn', title='Partial overlap detected') %}
+    {{ duplicate_report.matched_rows }} of {{ duplicate_report.total_rows }} row(s)
+    ({{ (duplicate_report.overlap_ratio * 100) | round | int }}%) already exist
+    in staging history. Matching rows will be flagged for review after staging.
+  {% endcall %}
+  {% endif %}
+{% endif %}
+
+{% call C.card(title='Paste pasted cells or CSV') %}
+<form method="post" action="/intake/preview" class="form-grid" style="max-width:none">
+  <div class="field">
+    <label class="field-label" for="intake-text">Pasted text</label>
+    <textarea class="field-textarea" id="intake-text" name="text" rows="14"
+              style="font-family:var(--font-mono); min-height:240px"
+              placeholder="Date,Amount,Description&#10;2026-04-20,-12.34,EXAMPLE STORE&#10;2026-04-21,-4.50,COFFEE SHOP">{{ text }}</textarea>
+  </div>
+  <div class="field">
+    <label style="display:flex; gap:8px; align-items:center; font-size:0.92rem">
+      <input type="checkbox" name="has_header" value="1" checked>
+      First row is a header
+    </label>
+  </div>
+  <div class="form-actions">
+    <span class="spacer"></span>
+    {{ B.btn('Preview', type='submit', variant='primary') }}
+  </div>
+</form>
+{% endcall %}
+
+{% if parsed %}
+{% call L.section(
+     title='Detected format',
+     subtitle='Delimiter "%s" · %d data row%s · %d column%s' % (
+       parsed.delimiter_guess,
+       parsed.rows|length, '' if parsed.rows|length == 1 else 's',
+       parsed.columns|length, '' if parsed.columns|length == 1 else 's'
+     )
+) %}
+{% call C.card(title='Column mapping', flush=true) %}
+<table class="tbl">
+  <thead><tr><th>Source column</th><th>→</th><th>Canonical field</th></tr></thead>
+  <tbody>
+  {% for col in parsed.columns %}
+    <tr>
+      <td><code>{{ col }}</code></td>
+      <td class="muted-text">→</td>
+      <td>
+        {% if column_map[col] %}
+          <strong>{{ column_map[col] }}</strong>
+        {% else %}
+          <span class="muted-text">(dropped)</span>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+
+{% call L.section(title='Preview', subtitle='%d row%s' % (parsed.rows|length, '' if parsed.rows|length == 1 else 's')) %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>{% for col in parsed.columns %}<th>{{ col }}</th>{% endfor %}</tr>
+  </thead>
+  <tbody>
+  {% for row in parsed.rows[:15] %}
+    <tr>{% for cell in row %}<td><code>{{ cell }}</code></td>{% endfor %}</tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% if parsed.rows|length > 15 %}
+<p class="subtle" style="margin-top:0.5rem">({{ parsed.rows|length - 15 }} more row(s) not shown.)</p>
+{% endif %}
+{% endcall %}
+
+{% call C.card(title='Stage rows') %}
+<form method="post" action="/intake/stage" class="form-grid" style="max-width:none">
+  <input type="hidden" name="text" value="{{ text }}">
+  <input type="hidden" name="has_header" value="{% if parsed.header_row_index >= 0 %}1{% endif %}">
+  {% if duplicate_report and duplicate_report.severity == 'high' %}
+  <div class="field">
+    <label style="display:flex; gap:8px; align-items:center; font-size:0.92rem">
+      <input type="checkbox" name="confirm_duplicate" value="1">
+      I've reviewed the duplicate detection above and want to stage these rows anyway.
+    </label>
+  </div>
+  {% endif %}
+  <div class="form-actions">
+    <span class="spacer"></span>
+    {{ B.btn('Stage %d row%s' % (parsed.rows|length, '' if parsed.rows|length == 1 else 's'), type='submit', variant='primary') }}
+  </div>
+</form>
+<p class="subtle" style="margin-top:0.6rem">
+  Rows without a parseable date or amount will be skipped. Staged rows land
+  in the unified pipeline and surface for review until you classify or
+  dismiss them.
+</p>
+{% endcall %}
+{% endif %}
+{% endblock %}

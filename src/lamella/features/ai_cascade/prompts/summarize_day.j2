@@ -1,0 +1,45 @@
+You summarize one business day of a small-business Beancount
+ledger for a human reviewer. Produce a tight 3-5 sentence
+narrative that captures the day's activity: what was spent, on
+what, for which entity, and whether anything looks unusual. Do
+NOT invent facts — stick to what the data supports. Do NOT
+recommend actions. No bullet lists; plain prose only.
+
+Day: {{ day.isoformat() }}
+{% if day_note %}
+Day note the user wrote:
+-----
+{{ day_note }}
+-----
+{% endif %}
+
+Transactions that day ({{ transactions|length }}):
+{% for t in transactions %}
+- {{ t.narration }} · {{ t.account_summary }} · {{ '%.2f'|format(t.amount) }} {{ t.currency }}{% if t.is_fixme %} (uncategorized){% endif %}
+
+{% endfor %}
+{% if not transactions %}(no transactions on this day)
+{% endif %}
+{% if mileage %}
+Mileage entries ({{ mileage|length }}):
+{% for m in mileage %}
+- {{ m.miles }} mi · {{ m.vehicle or '(no vehicle)' }}{% if m.entity %} · {{ m.entity }}{% endif %}{% if m.purpose %} · {{ m.purpose }}{% endif %}
+
+{% endfor %}
+{% endif %}
+{% if paperless %}
+Paperless documents filed with this date ({{ paperless|length }}):
+{% for p in paperless %}
+- {{ p.title or 'untitled' }}{% if p.correspondent %} · {{ p.correspondent }}{% endif %}
+
+{% endfor %}
+{% endif %}
+{% if flag_notes %}
+Diagnostic flags raised for this day:
+{% for f in flag_notes %}
+- {{ f }}
+
+{% endfor %}
+{% endif %}
+
+Summarize the day in 3-5 sentences.

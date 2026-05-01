@@ -1,0 +1,75 @@
+{# ═══════════════════════════════════════════════════════════════════
+   Generic centered modal shell.
+
+   Use:
+     {% import "_components/_modal.html" as M %}
+     {% call M.modal(title='Confirm action', id='my-modal') %}
+       <p>Body content goes here.</p>
+       <div class="modal__actions">
+         <button class="btn btn-ghost" onclick="M.close('my-modal')">Cancel</button>
+         <button class="btn btn-primary">Confirm</button>
+       </div>
+     {% endcall %}
+
+   For modals that drop into the page on demand (e.g. HTMX response
+   that returns the modal HTML to swap into <body>), pass open=true
+   so the backdrop is visible immediately.
+
+   Click-outside, Esc-to-close, focus trap — all wired by base.html
+   site-wide modal handler. The macro just renders the markup.
+
+   Inputs:
+     id          str       — element id (default: 'modal-' ~ random)
+     title       str       — header text (optional)
+     subtitle    str       — sub-header text (optional)
+     open        bool      — render with [data-open] for immediate display
+     size        str       — 'sm' | 'md' (default) | 'lg'
+     dismiss     bool      — show the X close button in header (default true)
+
+   Helpers (rendered separately, not a macro on this module):
+     <div class="modal__actions">  — flex-end button row at the bottom
+     <button onclick="...M.close(id)">  — close from inside the body
+   ═══════════════════════════════════════════════════════════════════ #}
+
+{%- macro modal(id='', title='', subtitle='', open=false, size='md', dismiss=true) -%}
+{%- set _id = id or ('modal-' ~ range(1000, 9999) | random) -%}
+<div class="modal-backdrop {% if open %}is-open{% endif %}"
+     data-modal-id="{{ _id }}"
+     onclick="if(event.target===event.currentTarget){this.classList.remove('is-open');}">
+  <div id="{{ _id }}"
+       class="modal modal--{{ size }} {% if open %}is-open{% endif %}"
+       role="dialog"
+       aria-modal="true"
+       {%- if title %} aria-label="{{ title }}"{%- endif %}>
+    {% if title or dismiss %}
+    <header class="modal__head">
+      <div class="modal__head-text">
+        {% if title %}<h2 class="modal__title">{{ title }}</h2>{% endif %}
+        {% if subtitle %}<p class="modal__subtitle">{{ subtitle }}</p>{% endif %}
+      </div>
+      {% if dismiss %}
+      <button type="button" class="modal__dismiss"
+              aria-label="Close"
+              onclick="this.closest('.modal-backdrop').classList.remove('is-open')">
+        <svg class="icon" width="16" height="16" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+      {% endif %}
+    </header>
+    {% endif %}
+    <div class="modal__body">
+      {{ caller() }}
+    </div>
+  </div>
+</div>
+{%- endmacro -%}
+
+
+{# ─── M.actions — flex-end button row for modal footers ──────── #}
+{%- macro actions() -%}
+<div class="modal__actions">{{ caller() }}</div>
+{%- endmacro -%}

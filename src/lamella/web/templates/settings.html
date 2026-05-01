@@ -1,0 +1,204 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Settings — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Settings{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Settings',
+     subtitle='Registry, integrations, and tuning. Hub tiles below jump to specific sections.',
+     kicker='Configuration'
+) %}
+{% endcall %}
+
+{% if saved %}{% call F.banner(tone='ok', title='Saved') %}{% endcall %}{% endif %}
+
+{# ─── Registry hub ─── #}
+{% call L.section(title='Registry — the who, what, and where') %}
+<p class="subtle" style="margin-top:0">
+  Configure your businesses, accounts, vehicles, properties, and loans so the
+  card UX and reports can render readable names instead of raw Beancount paths.
+</p>
+<div class="settings-hub-grid">
+  <a class="settings-tile" href="/entities">
+    <div class="settings-tile-title">Entities</div>
+    <div class="settings-tile-desc">Businesses, farms, personal self. Label slugs discovered in the ledger.</div>
+  </a>
+  <a class="settings-tile" href="/settings/accounts">
+    <div class="settings-tile-title">Accounts</div>
+    <div class="settings-tile-desc">Bank, credit, savings. Set kind, last-four, institution, SimpleFIN link.</div>
+  </a>
+  <a class="settings-tile" href="/vehicles">
+    <div class="settings-tile-title">Vehicles</div>
+    <div class="settings-tile-desc">Year / make / model, yearly mileage, Schedule C-derived expense tree.</div>
+  </a>
+  <a class="settings-tile" href="/properties">
+    <div class="settings-tile-title">Properties</div>
+    <div class="settings-tile-desc">Houses, land, rentals. Book value + tax / insurance / maintenance sub-accounts.</div>
+  </a>
+  <a class="settings-tile" href="/loans">
+    <div class="settings-tile-title">Loans &amp; mortgages</div>
+    <div class="settings-tile-desc">Principal, APR, amortization. Discovered Liabilities accounts.</div>
+  </a>
+  <a class="settings-tile" href="/settings/paperless-fields">
+    <div class="settings-tile-title">Paperless fields</div>
+    <div class="settings-tile-desc">Map each Paperless custom field to a canonical role for receipt matching.</div>
+  </a>
+  <a class="settings-tile" href="/projects">
+    <div class="settings-tile-title">Projects</div>
+    <div class="settings-tile-desc">Date + merchant scopes that reassign entity at classify time.</div>
+  </a>
+  <a class="settings-tile" href="/rules">
+    <div class="settings-tile-title">Classification rules</div>
+    <div class="settings-tile-desc">Directional priors the AI consumes. User-scoped rules at 1.0 auto-apply.</div>
+  </a>
+</div>
+{% endcall %}
+
+{# ─── Integrations hub ─── #}
+{% call L.section(title='Integrations & tuning') %}
+<p class="subtle" style="margin-top:0">External services and model tuning. Each tile opens a focused page (ADR-0047).</p>
+<div class="settings-hub-grid">
+  <a class="settings-tile" href="/settings/paperless">
+    <div class="settings-tile-title">Paperless</div>
+    <div class="settings-tile-desc">URL + API token for receipt archive sync.</div>
+  </a>
+  <a class="settings-tile" href="/settings/ai">
+    <div class="settings-tile-title">AI / OpenRouter</div>
+    <div class="settings-tile-desc">Models per decision type, spend cap, fallback, pricing.</div>
+  </a>
+  <a class="settings-tile" href="/settings/notifications">
+    <div class="settings-tile-title">Notifications</div>
+    <div class="settings-tile-desc">ntfy + Pushover channels, uncategorized push threshold, digest day.</div>
+  </a>
+  <a class="settings-tile" href="/simplefin">
+    <div class="settings-tile-title">SimpleFIN</div>
+    <div class="settings-tile-desc">Bank sync status, last fetch, preview &amp; confirm.</div>
+  </a>
+  <a class="settings-tile" href="/settings/reports">
+    <div class="settings-tile-title">Reports &amp; imports</div>
+    <div class="settings-tile-desc">Estimated-tax rate, audit bytes, recurring window, import tuning.</div>
+  </a>
+  <a class="settings-tile" href="/settings/mileage-rates">
+    <div class="settings-tile-title">Mileage rates</div>
+    <div class="settings-tile-desc">IRS rates per effective-from date, CSV import, trip templates.</div>
+  </a>
+  <a class="settings-tile" href="/settings/general">
+    <div class="settings-tile-title">Display & locale</div>
+    <div class="settings-tile-desc">Number formatting (1,234.56 vs 1.234,56) and other display preferences.</div>
+  </a>
+</div>
+{% endcall %}
+
+{# ─── Diagnostics hub ─── #}
+{% call L.section(title='Diagnostics & activity') %}
+<p class="subtle" style="margin-top:0">Health checks, audit trails, and read-only activity logs.</p>
+<div class="settings-hub-grid">
+  <a class="settings-tile" href="/status"><div class="settings-tile-title">Status</div><div class="settings-tile-desc">Paperless sync, vector index, reconciliation, storage.</div></a>
+  <a class="settings-tile" href="/setup/check"><div class="settings-tile-title">Setup check</div><div class="settings-tile-desc">Entity-first guard, connector file presence, plugin allowlist.</div></a>
+  <a class="settings-tile" href="/settings/data-integrity"><div class="settings-tile-title">Data integrity</div><div class="settings-tile-desc">Scan for drift between SQLite cache and ledger source of truth.</div></a>
+  <a class="settings-tile" href="/audit"><div class="settings-tile-title">Audit portfolio</div><div class="settings-tile-desc">Per-year deductible-expense packet with embedded receipt evidence.</div></a>
+  <a class="settings-tile" href="/ai/logs"><div class="settings-tile-title">AI logs</div><div class="settings-tile-desc">Every OpenRouter call, model, tokens, and outcome. Retry from here.</div></a>
+  <a class="settings-tile" href="/ai/cost"><div class="settings-tile-title">AI cost</div><div class="settings-tile-desc">Month-to-date spend by decision type against the monthly cap.</div></a>
+  <a class="settings-tile" href="/paperless/writebacks"><div class="settings-tile-title">Paperless writebacks</div><div class="settings-tile-desc">Every field correction and enrichment we've pushed back. Before/after diff.</div></a>
+  <a class="settings-tile" href="/reports/intercompany"><div class="settings-tile-title">Intercompany</div><div class="settings-tile-desc">Cross-entity transactions and wrong-card detection.</div></a>
+  <a class="settings-tile" href="/notifications"><div class="settings-tile-title">Notifications log</div><div class="settings-tile-desc">Every ntfy / Pushover push, delivery status, payload.</div></a>
+  <a class="settings-tile" href="/receipts"><div class="settings-tile-title">All documents</div><div class="settings-tile-desc">Browse the Paperless doc index with link status.</div></a>
+  <a class="settings-tile" href="/review"><div class="settings-tile-title">Staged review</div><div class="settings-tile-desc">Items held back by the staging pipeline pending a decision.</div></a>
+</div>
+{% endcall %}
+
+{# ─── Danger zone ─── #}
+{% call L.section(title='Danger zone') %}
+<p class="subtle" style="margin-top:0">
+  Ledger-altering operations. Both take a backup first and refuse to run with a dirty ledger.
+</p>
+<div class="settings-hub-grid">
+  <a class="settings-tile settings-tile--warn" href="/settings/backups">
+    <div class="settings-tile-title">Backups</div>
+    <div class="settings-tile-desc">Tarball all <code>.bean</code> files. Required before any cross-file rewrite.</div>
+  </a>
+  <a class="settings-tile settings-tile--warn" href="/settings/rewrite">
+    <div class="settings-tile-title">Rewrite ledger</div>
+    <div class="settings-tile-desc">Rename a segment across every .bean file. Dry-run preview, auto-backup, rollback on failure.</div>
+  </a>
+</div>
+{% endcall %}
+
+{# Paperless / AI / Notifications / Reports are extracted to focused
+   sub-pages per ADR-0047 — landing is tiles only. Tiles above link
+   to /settings/paperless, /settings/ai, /settings/notifications,
+   /settings/reports. #}
+
+{# ─── System info ─── #}
+{% call L.section(title='System') %}
+{% call C.card() %}
+<dl class="system-dl">
+  <dt>Version</dt><dd>{{ version }}</dd>
+  <dt>Ledger path</dt><dd><code>{{ settings.ledger_dir }}</code></dd>
+  <dt>Main file</dt><dd><code>{{ settings.ledger_main }}</code></dd>
+  <dt>Connector-owned links</dt><dd><code>{{ settings.connector_links_path }}</code></dd>
+  <dt>Connector overrides</dt><dd><code>{{ settings.connector_overrides_path }}</code></dd>
+  <dt>Schedule C lines</dt><dd><code>{{ settings.schedule_c_lines_path }}</code> <span class="subtle">(edit on disk)</span></dd>
+  <dt>Schedule F lines</dt><dd><code>{{ settings.schedule_f_lines_path }}</code> <span class="subtle">(edit on disk)</span></dd>
+  <dt>Mileage rate</dt><dd>{{ "%.3f"|format(settings.mileage_rate) }} <span class="subtle">(fallback)</span></dd>
+  <dt>SQLite path</dt><dd><code>{{ settings.db_path }}</code></dd>
+  <dt>Backups dir</dt><dd><code>{{ settings.backups_dir }}</code></dd>
+  <dt>Port</dt><dd>{{ settings.port }}</dd>
+</dl>
+{% endcall %}
+{% endcall %}
+
+<style>
+  .settings-hub-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  .settings-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.12s, background 0.12s;
+  }
+  .settings-tile:hover {
+    border-color: var(--accent);
+    background: var(--bg-elev);
+    text-decoration: none;
+    color: inherit;
+  }
+  .settings-tile-title { font-weight: 600; color: var(--fg); }
+  .settings-tile-desc { font-size: 0.85rem; color: var(--muted); line-height: 1.45; }
+  .settings-tile--warn { border-left: 3px solid var(--warn); }
+
+  .system-dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 8px 20px;
+    margin: 0;
+    font-size: 0.92rem;
+  }
+  .system-dl dt { color: var(--muted); }
+  .system-dl dd { margin: 0; min-width: 0; word-break: break-all; }
+</style>
+{% endblock %}

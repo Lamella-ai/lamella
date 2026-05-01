@@ -1,0 +1,37 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}{{ status_code }} · {{ short_message }} — Lamella{% endblock %}
+{% block layout %}emergency{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+
+{% block content %}
+<div style="padding:6vh 0; display:flex; flex-direction:column; align-items:center; text-align:center; gap:1.25rem">
+  <div style="font-family:var(--font-mono); font-size:6rem; font-weight:300; color:var(--muted-soft); line-height:1; letter-spacing:-0.04em">
+    {{ status_code }}
+  </div>
+  <h1 style="font-size:1.6rem; font-weight:600; margin:0; max-width:520px">{{ short_message }}</h1>
+  {% if detail %}
+  <p style="color:var(--muted); margin:0; max-width:560px; line-height:1.55">{{ detail }}</p>
+  {% endif %}
+  <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:0.5rem">
+    {{ B.btn('Go to dashboard', href='/', variant='primary') }}
+    {{ B.btn('Go back', href='javascript:history.back()', variant='ghost') }}
+  </div>
+  {% if traceback %}
+  <details style="margin-top:2rem; max-width:780px; width:100%; text-align:left">
+    <summary style="cursor:pointer; font-size:0.9rem; color:var(--muted)">Traceback (developer view)</summary>
+    <pre style="margin-top:0.75rem; padding:1rem; background:var(--bg-elev); border:1px solid var(--border); border-radius:6px; overflow-x:auto; font-size:0.78rem; color:var(--fg-soft); line-height:1.45">{{ traceback }}</pre>
+  </details>
+  {% endif %}
+</div>
+{% endblock %}

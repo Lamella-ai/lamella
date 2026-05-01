@@ -1,0 +1,12 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<div class="budget-bar budget-bar--{{ p.band() }}">
+  <div class="budget-bar-fill" style="width: {{ ((p.ratio if p.ratio < 1.2 else 1.2) * 100)|round(0, 'floor')|int }}%"></div>
+  <span class="budget-bar-label">{{ "%.0f"|format(p.ratio * 100) }}%</span>
+</div>

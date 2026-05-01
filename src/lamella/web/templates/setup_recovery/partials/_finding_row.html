@@ -1,0 +1,184 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# One row in the bulk-review table.
+
+   Receives ``row``: a dict with ``finding``, ``action`` (apply /
+   dismiss / edit / individual), ``edit_payload``, ``bulk_applicable``,
+   ``individual_url``, and optional ``edit_error`` + ``edit_input``
+   (the latter two set when an /edit POST returned a validation
+   failure and we re-render the row with the user's input preserved
+   inline).
+
+   HTMX-driven (Phase 6.1.4b):
+     - Dismiss/Restore button toggles the row's action via
+       POST /setup/recovery/draft/{id}/dismiss
+     - Edit form (legacy_path only) posts to
+       POST /setup/recovery/draft/{id}/edit with the canonical
+     - Both endpoints return this same partial swapped into
+       hx-target=closest .recovery-finding plus an hx-swap-oob
+       Apply button so its enabled state stays in sync. #}
+{% set f = row.finding %}
+{% set proposed = f.proposed_fix_dict %}
+{% set is_dismissed = (row.action == 'dismiss') %}
+{% set is_edited = (row.action == 'edit') %}
+{% set is_individual = (not row.bulk_applicable) %}
+{% set current_canonical = (
+  row.edit_input
+  if (row.edit_input is defined and row.edit_input is not none)
+  else (
+    row.edit_payload.get('canonical')
+    if row.edit_payload.get('canonical')
+    else proposed.get('canonical', '')
+  )
+) %}
+
+<section class="recovery-finding"
+         data-finding-id="{{ f.id }}"
+         data-action="{{ row.action }}"
+         style="border:1px solid var(--border); border-radius:6px;
+                padding:1em 1.2em; margin-bottom:0.8em;
+                background:var(--bg-elev);
+                {% if is_dismissed %}opacity:0.55;{% endif %}">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1em; flex-wrap:wrap;">
+
+    <div style="flex:1; min-width:0;">
+      <strong style="font-family:var(--font-mono); word-break:break-all;
+                     font-size:0.95em;
+                     {% if is_dismissed %}text-decoration:line-through;{% endif %}">
+        {{ f.target }}
+      </strong>
+      <div class="small muted" style="margin-top:0.3em;">
+        {{ f.summary }}
+      </div>
+      {% if is_edited and row.edit_payload.get('canonical') %}
+        <div class="small" style="margin-top:0.4em; color:var(--accent);">
+          edit: <code style="font-size:0.85em;">{{ row.edit_payload.get('canonical') }}</code>
+        </div>
+      {% endif %}
+      {% if f.detail %}
+        <details style="margin-top:0.5em;">
+          <summary class="small muted" style="cursor:pointer;">Why is this flagged?</summary>
+          <div class="small" style="margin:0.4em 0 0; line-height:1.5; color:var(--muted-strong);">
+            {{ f.detail }}
+          </div>
+        </details>
+      {% endif %}
+
+      {# Inline edit form for legacy_path. Always rendered in the
+         DOM but visually collapsed unless `is_edited` already, OR
+         the user just clicked Edit (a tiny vanilla-JS toggle below).
+         Validation failure sets row.edit_error and re-opens the form
+         with the user's input preserved. #}
+      {% if f.category == 'legacy_path' and not is_individual and not is_dismissed %}
+        <div class="recovery-edit-form"
+             data-edit-form="{{ f.id }}"
+             style="margin-top:0.7em;
+                    {% if not is_edited and not row.edit_error %}display:none;{% endif %}">
+          <form hx-post="/setup/recovery/draft/{{ f.id }}/edit"
+                hx-target="closest .recovery-finding"
+                hx-swap="outerHTML"
+                style="display:flex; gap:0.4em; flex-wrap:wrap; align-items:flex-start;">
+            <input type="text"
+                   name="canonical"
+                   value="{{ current_canonical }}"
+                   placeholder="Assets:Entity:..."
+                   style="flex:1; min-width:18em; padding:0.4em 0.6em;
+                          border:1px solid var(--border); border-radius:4px;
+                          font-family:var(--font-mono); font-size:0.88em;" />
+            <button type="submit" class="wiz-btn wiz-btn-secondary" style="padding:0.4em 0.9em;">
+              Save edit
+            </button>
+          </form>
+          {% if row.edit_error %}
+            <div class="small" style="margin-top:0.3em; color:var(--warn);">
+              {{ row.edit_error }}
+            </div>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:0.4em;
+                align-items:stretch; min-width:14em;">
+      {% if is_individual %}
+        {# Non-bulk-applicable: present only the individual-action
+           link. The Apply Repairs button skips this row. #}
+        <span class="small muted" style="text-align:center;">
+          Requires individual confirmation
+        </span>
+        {% if row.individual_url %}
+          <a href="{{ row.individual_url }}" class="wiz-btn wiz-btn-secondary"
+             style="width:100%; text-align:center;">
+            Apply individually →
+          </a>
+        {% endif %}
+      {% else %}
+        <div class="small" style="text-align:center;">
+          {% if is_dismissed %}
+            <strong style="color:var(--muted);">Dismissed</strong>
+          {% elif is_edited %}
+            <strong style="color:var(--accent);">Edited — will apply</strong>
+          {% else %}
+            <strong style="color:var(--ok);">Will apply</strong>
+          {% endif %}
+        </div>
+        <div class="small muted" style="text-align:center;">
+          {% if is_edited and row.edit_payload.get('canonical') %}
+            move → <code style="font-size:0.82em;">{{ row.edit_payload.get('canonical') }}</code>
+          {% elif proposed.get('action') == 'move' %}
+            move → <code style="font-size:0.82em;">{{ proposed.canonical }}</code>
+          {% elif proposed.get('action') == 'close' %}
+            close
+          {% else %}
+            {{ proposed.get('action') }}
+          {% endif %}
+        </div>
+
+        {# Dismiss / Restore — single endpoint, button label switches
+           with current state. #}
+        <button type="button"
+                hx-post="/setup/recovery/draft/{{ f.id }}/dismiss"
+                hx-target="closest .recovery-finding"
+                hx-swap="outerHTML"
+                class="wiz-btn wiz-btn-secondary"
+                style="width:100%;">
+          {% if is_dismissed %}Restore{% else %}Dismiss{% endif %}
+        </button>
+
+        {# Edit toggle (legacy_path only). Vanilla JS expand below. #}
+        {% if f.category == 'legacy_path' %}
+          <button type="button"
+                  data-edit-toggle="{{ f.id }}"
+                  class="wiz-btn wiz-btn-link"
+                  style="width:100%; padding:0.3em 0.6em; font-size:0.85em;">
+            {% if is_edited %}Change canonical…{% else %}Edit canonical…{% endif %}
+          </button>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+{# Inline JS toggle for the edit form. Scoped per-row so multiple
+   rows on one page don't share state. Re-runs whenever the row
+   partial swaps (because the script tag is part of the response). #}
+{% if f.category == 'legacy_path' and not is_individual and not is_dismissed %}
+<script>
+(function () {
+  var btn = document.querySelector('[data-edit-toggle="{{ f.id }}"]');
+  var form = document.querySelector('[data-edit-form="{{ f.id }}"]');
+  if (!btn || !form || btn.__lamella_wired) return;
+  btn.__lamella_wired = true;
+  btn.addEventListener("click", function () {
+    var open = form.style.display !== "none";
+    form.style.display = open ? "none" : "block";
+  });
+})();
+</script>
+{% endif %}

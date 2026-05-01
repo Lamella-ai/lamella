@@ -1,0 +1,370 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+{% import "_components/data.html" as D %}
+{% import "_components/_txn.html" as Txn %}
+{% import "_components/_txn_actions.html" as T %}
+
+{% block title %}AI suggestions — review{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}AI suggestions{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='AI suggestion review',
+     subtitle="Every AI-proposed classification that hasn't been confirmed, rejected, or corrected yet. The AI can run freely; nothing lands in the ledger until you click through here. Default auto-apply threshold is 0.90 — anything below queues here.",
+     kicker='Insights · AI'
+) %}
+  {{ B.btn('AI logs', href='/ai/logs', icon=icon.activity()) }}
+  {{ B.btn('AI cost', href='/ai/cost') }}
+{% endcall %}
+
+{% if request.query_params.get('applied') %}
+{% call F.banner(tone='ok', title='Approved') %}Override written.{% endcall %}
+{% endif %}
+{% if request.query_params.get('rejected') %}
+{% call F.banner(tone='ok', title='Rejected') %}
+  Decision marked. The transaction stays uncategorized for re-classification. The rejection
+  reason is recorded so the next AI pass can use it as a negative example.
+{% endcall %}
+{% endif %}
+{% if request.query_params.get('corrected') %}
+{% call F.banner(tone='ok', title='Corrected') %}
+  Your target was used instead of the AI's; override written.
+{% endcall %}
+{% endif %}
+{% if request.query_params.get('error') %}
+{% call F.banner(tone='err', title=request.query_params.get('error') ~ '.') %}
+  {% if request.query_params.get('detail') %}<pre>{{ request.query_params.get('detail') }}</pre>{% endif %}
+{% endcall %}
+{% endif %}
+
+{% if not rows %}
+{{ F.empty_state(
+    'No pending AI suggestions. Every classification has been confirmed or rejected.',
+    'Back to data integrity',
+    '/settings/data-integrity',
+    icon=icon.checkcircle(28)
+) }}
+{% else %}
+<p><strong>{{ total }}</strong> pending suggestion{{ '' if total == 1 else 's' }}.</p>
+
+<style>
+  .sugg-card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.9em 1.1em;
+    margin: 1em 0;
+    background: var(--panel);
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .sugg-card-intercompany {
+    border-left: 4px solid var(--warn);
+    background: var(--warn-soft);
+  }
+  .sugg-card-resolved {
+    min-height: 9em;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.3em;
+    opacity: 0.82;
+    transition: opacity 0.2s ease;
+  }
+  .sugg-card-resolved:hover { opacity: 1; }
+  .sugg-card-approved  { border-left: 4px solid var(--ok);     background: var(--ok-soft); }
+  .sugg-card-rejected  { border-left: 4px solid var(--err);    background: var(--err-soft); }
+  .sugg-card-corrected { border-left: 4px solid var(--accent); background: var(--accent-soft); }
+  .sugg-resolved-status { font-size: 1.1em; }
+  .sugg-resolved-summary { color: var(--fg-soft); font-size: 0.93em; }
+  .sugg-resolved-meta { margin-top: 0.2em; }
+  .sugg-txn-summary {
+    padding: 0.55em 0.7em;
+    background: var(--panel-2);
+    border-left: 3px solid var(--accent);
+    border-radius: 3px;
+    margin-bottom: 0.7em;
+  }
+  /* Header line + narration are rendered by Txn.summary now. The
+     "charged to" sub-line stays page-specific. */
+  .sugg-txn-source { margin-top: 0.3em; font-size: 0.86em; }
+  .sugg-intercompany-warn {
+    background: var(--warn-soft);
+    border: 1px solid var(--warn);
+    border-radius: 4px;
+    padding: 0.55em 0.7em;
+    margin: 0.6em 0;
+    font-size: 0.92em;
+    color: var(--warn);
+    line-height: 1.4;
+  }
+  .sugg-hdr {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.8em;
+    flex-wrap: wrap;
+    margin-bottom: 0.4em;
+  }
+  .sugg-target {
+    font-family: var(--font-mono);
+    background: var(--accent-soft);
+    color: var(--accent);
+    padding: 0.15em 0.5em;
+    border-radius: 3px;
+    word-break: break-all;
+  }
+  .sugg-confidence { font-variant-numeric: tabular-nums; }
+  .sugg-conf-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: help;
+  }
+  .sugg-conf-badge--high   { background: var(--ok-soft);     color: var(--ok); }
+  .sugg-conf-badge--medium { background: var(--warn-soft);   color: var(--warn); }
+  .sugg-conf-badge--low    { background: var(--err-soft);    color: var(--err); }
+  .sugg-conf-badge--none   { background: var(--border);      color: var(--muted); }
+  .sugg-conf-pct {
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    text-transform: none;
+    letter-spacing: 0;
+    opacity: 0.8;
+  }
+  .sugg-reasoning { margin: 0.6em 0; font-size: 0.92em; color: var(--fg-soft); line-height: 1.45; }
+  .sugg-meta { font-size: 0.82em; color: var(--muted); }
+  .sugg-actions { margin-top: 0.8em; display: flex; flex-direction: column; gap: 0.5em; align-items: flex-start; }
+  /* Don't let the txnact span stretch full-width inside the column
+     flex — the popover anchors right:0 to .txnact, and a stretched
+     .txnact would put the popover at the right edge of the card,
+     22rem away from the buttons on the left. align-items:flex-start
+     above keeps the txnact span shrink-wrapped to its buttons. */
+  .sugg-actions .txnact { align-self: flex-start; }
+  .sugg-actions form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4em;
+    align-items: stretch;
+    margin: 0;
+    padding: 0.45em 0.55em;
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    background: var(--panel-2);
+  }
+  .sugg-actions form > label {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 16em;
+    min-width: 12em;
+    gap: 0.15em;
+    margin: 0;
+  }
+  .sugg-actions form > label > input[type="text"] {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .sugg-actions form > button {
+    flex: 0 0 auto;
+    align-self: flex-end;
+    white-space: nowrap;
+  }
+  .sugg-actions .approve { background: var(--ok);  color: var(--panel); }
+  .sugg-actions .reject  { background: var(--err); color: var(--panel); }
+  .sugg-actions .form-approve { background: var(--ok-soft);    border-color: var(--ok); }
+  .sugg-actions .form-replace { background: var(--accent-soft); border-color: var(--accent); }
+  .sugg-actions .form-reject  { background: var(--err-soft);   border-color: var(--err); }
+  @media (max-width: 700px) {
+    .sugg-actions form > button { flex: 1 1 100%; align-self: stretch; }
+  }
+</style>
+
+{% for d in rows %}
+  {% set res = d.result_parsed %}
+  {% set conf = res.get('confidence') %}
+  {% set summary = d.txn_summary %}
+  {% set is_intercompany = res.get('intercompany_flag') %}
+  {# Detect cross-entity even if the AI didn't flag it: source-entity
+     vs target-entity from the suggested target's account path. #}
+  {% set target_entity = res.get('target_account', '').split(':')[1] if res.get('target_account') and res.get('target_account').count(':') >= 1 else '' %}
+  {% set cross_entity = summary and summary.source_entity and target_entity and summary.source_entity != target_entity %}
+  {%- if d.staged_id_for_link -%}
+    {%- set _card_ref = 'staged:' ~ d.staged_id_for_link -%}
+  {%- else -%}
+    {%- set _card_ref = 'ledger:' ~ (d.txn_hash_for_link or d.input_ref) -%}
+  {%- endif -%}
+<div class="sugg-card{% if is_intercompany or cross_entity %} sugg-card-intercompany{% endif %}" id="sugg-{{ d.id }}" data-ref="{{ _card_ref }}">
+  {# Migrated to Txn.summary — the same date · amount · payee ·
+     narration line that /search, /transactions, /review, /card,
+     /txn detail render. The "charged to" line + entity attribution
+     stays bespoke since they're page-specific context the molecule
+     doesn't carry. #}
+  {% if summary %}
+  <div class="sugg-txn-summary">
+    <div style="display:flex; align-items:baseline; gap:0.7rem">
+      <a href="/txn/{{ d.lamella_txn_id or d.txn_hash_for_link or d.input_ref }}" class="txn-row-link" style="flex:1">
+        {{ Txn.summary(summary) }}
+      </a>
+      <a href="/txn/{{ d.lamella_txn_id or d.txn_hash_for_link or d.input_ref }}" class="muted small">open txn →</a>
+    </div>
+    {% if summary.source_account %}
+    <div class="sugg-txn-source" style="margin-top:0.4rem">
+      <span class="muted small">charged to:</span>
+      <code title="{{ summary.source_account }}">{{ summary.source_account | alias }}</code>
+      {% if summary.source_entity %}
+        · entity <strong>{{ summary.source_entity }}</strong>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="sugg-txn-summary muted">
+    txn {{ d.input_ref[:16] }}… (could not load — may have been deleted, or hasn't been promoted to the ledger yet)
+    {% set _open_target = d.lamella_txn_id or d.txn_hash_for_link %}
+    {% if _open_target and _open_target != d.input_ref %}
+      · <a href="/txn/{{ _open_target }}" class="small">open →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {# Intercompany warning — needs to be unmissable. #}
+  {% if is_intercompany or cross_entity %}
+  <div class="sugg-intercompany-warn">
+    ⚠ <strong>Cross-entity classification.</strong>
+    {% if summary and summary.source_entity %}
+      This was charged to <strong>{{ summary.source_entity }}</strong>'s
+      card, but the AI{% if cross_entity %} suggests routing it to
+      <strong>{{ target_entity }}</strong>{% endif %}{% if res.get('owning_entity') %}
+      and flagged it as belonging to <strong>{{ res.get('owning_entity') }}</strong>{% endif %}.
+    {% elif res.get('owning_entity') %}
+      AI flagged this as belonging to <strong>{{ res.get('owning_entity') }}</strong>.
+    {% endif %}
+    Approving will write a <strong>four-leg intercompany correction</strong>
+    (card stays on the charging entity, receivable lands on the
+    paying entity, expense lands on the owning entity, payable lands
+    on the owning entity) — not a simple 2-leg override.
+  </div>
+  {% endif %}
+
+  <div class="sugg-hdr">
+    <div>
+      {%- set _bucket = 'none' -%}
+      {%- if conf is not none -%}
+        {%- if conf >= 0.85 -%}{%- set _bucket = 'high' -%}
+        {%- elif conf >= 0.60 -%}{%- set _bucket = 'medium' -%}
+        {%- elif conf > 0 -%}{%- set _bucket = 'low' -%}
+        {%- endif -%}
+      {%- endif -%}
+      <span class="sugg-conf-badge sugg-conf-badge--{{ _bucket }}"
+            title="{% if conf is not none %}AI confidence {{ '%.2f'|format(conf) }}{% else %}No confidence reported{% endif %}">
+        {{ {'high':'High','medium':'Medium','low':'Low','none':'None'}[_bucket] }}
+        {% if conf is not none %}<span class="sugg-conf-pct">{{ "%.0f"|format(conf * 100) }}%</span>{% endif %}
+      </span>
+    </div>
+    <div class="sugg-meta">
+      {{ d.decided_at }} · {{ d.model }} · {{ d.prompt_tokens }}/{{ d.completion_tokens }} tok ·
+      <a href="/ai/decisions/{{ d.id }}" class="muted small">full prompt →</a>
+    </div>
+  </div>
+  <div>
+    AI's suggested target:
+    {% if res.get('target_account') %}
+      <span class="sugg-target">{{ res.get('target_account') }}</span>
+    {% else %}
+      <span class="muted">(none — AI declined)</span>
+    {% endif %}
+  </div>
+  {% if res.get('reasoning') %}
+  <div class="sugg-reasoning"><strong>AI reasoning:</strong> {{ res.get('reasoning') }}</div>
+  {% endif %}
+
+  {# Unified action buttons. Replaces the previous Approve / Replace
+     / Reject 3-form stack. The macro renders Accept (when a real
+     target is proposed), Classify (popover), Ask AI (modal), and
+     Dismiss (staged-only — won't show here since these are ledger
+     refs). All four post to the unified /api/txn/{ref}/* endpoints.
+     The ref uses the resolved txn_hash, not the raw input_ref —
+     SimpleFIN-source decisions need the ledger entry's hash, not
+     the bank's transaction id. #}
+  {# Prefer the staged-row form when the AI was called at ingest
+     time and the txn hasn't been promoted to the ledger yet —
+     otherwise Accept / Classify lands on a "could not load" error
+     because the bridge id (TRN-…) doesn't resolve as a ledger
+     hash. Fall back to ledger:<hash> when the txn has landed. #}
+  {%- if d.staged_id_for_link -%}
+    {%- set _ref = 'staged:' ~ d.staged_id_for_link -%}
+  {%- else -%}
+    {%- set _ref = 'ledger:' ~ (d.txn_hash_for_link or d.input_ref) -%}
+  {%- endif -%}
+  {%- set _proposal = {'target_account': res.get('target_account')} if res.get('target_account') else None -%}
+  <div class="sugg-actions">
+    {{ T.actions(ref=_ref, return_url='/ai/suggestions', proposal=_proposal) }}
+  </div>
+</div>
+{% endfor %}
+
+<datalist id="accounts-datalist"></datalist>
+<script>
+  fetch('/api/accounts', {credentials:'same-origin'})
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      if (!d || !Array.isArray(d.all)) return;
+      const dl = document.getElementById('accounts-datalist');
+      for (const name of d.all) {
+        const o = document.createElement('option');
+        o.value = name;
+        dl.appendChild(o);
+      }
+    }).catch(() => undefined);
+
+  /* In-place card removal on classify success.
+     Listens for the site-wide ``lamella:txn-classified`` event
+     (dispatched by base.html's __lamellaAfterClassify after any
+     successful POST to /api/txn/{ref}/classify). Finds the
+     .sugg-card with matching data-ref and animates it out — no
+     full page reload, no scroll-to-top. preventDefault stops
+     base.html's reload fallback. */
+  window.addEventListener('lamella:txn-classified', function (ev) {
+    var ref = ev.detail && ev.detail.ref;
+    if (!ref) return;
+    var card = document.querySelector('.sugg-card[data-ref="' + CSS.escape(ref) + '"]');
+    if (!card) return;
+    ev.preventDefault();
+    /* Lock current height so neighbors stay still during the
+       collapse, then transition height + opacity to 0 and remove. */
+    var h = card.offsetHeight;
+    card.style.overflow = 'hidden';
+    card.style.height = h + 'px';
+    card.style.transition = 'height 240ms ease-out, opacity 200ms ease-out, margin 200ms ease-out, padding 200ms ease-out';
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        card.style.height = '0px';
+        card.style.opacity = '0';
+        card.style.marginTop = '0';
+        card.style.marginBottom = '0';
+        card.style.paddingTop = '0';
+        card.style.paddingBottom = '0';
+      });
+    });
+    setTimeout(function () { card.remove(); }, 280);
+  });
+</script>
+{% endif %}
+{% endblock %}

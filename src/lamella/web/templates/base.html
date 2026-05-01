@@ -1,0 +1,1311 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#4f46e5" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0b0f17" media="(prefers-color-scheme: dark)" />
+  <title>{% block title %}Lamella{% endblock %}</title>
+
+  {# No-flash theme init — runs synchronously before CSS so the
+     html element has data-theme=dark/light by the time the browser
+     starts painting. Without this, dark-mode users would see a
+     light-mode flash on every hard reload. #}
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("lamella-theme");
+        if (t !== "light" && t !== "dark") {
+          t = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        }
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {
+        document.documentElement.setAttribute("data-theme", "light");
+      }
+    })();
+  </script>
+
+  <link rel="stylesheet" href="{{ request.url_for('static', path='app.css') }}?v={{ static_version }}" />
+  <link rel="stylesheet" href="{{ request.url_for('static', path='mobile.css') }}?v={{ static_version }}" />
+  <link rel="stylesheet" href="{{ request.url_for('static', path='shell.css') }}?v={{ static_version }}" />
+  <link rel="stylesheet" href="{{ request.url_for('static', path='components.css') }}?v={{ static_version }}" />
+  <link rel="icon" type="image/svg+xml" href="{{ request.url_for('static', path='img/favicon.svg') }}" />
+  <link rel="apple-touch-icon" href="{{ request.url_for('static', path='img/favicon.svg') }}" />
+  <link rel="manifest" href="{{ request.url_for('static', path='manifest.webmanifest') }}" />
+  <script src="{{ request.url_for('static', path='htmx.min.js') }}?v={{ static_version }}" defer></script>
+  {# Account-picker controller — B6 Step 0. Vanilla, event-delegated,
+     survives HTMX swaps. Loaded sitewide so any page that emits the
+     account_picker macro from `_components/account_picker.html` gets
+     the popup behavior without per-page wiring. #}
+  <script src="{{ request.url_for('static', path='account_picker.js') }}?v={{ static_version }}" defer></script>
+  {# Slug-input helper for add-modals: auto-populate from display_name,
+     PascalCase + format-fix on blur, availability check via
+     /api/slugs/check. Modal templates call LamellaSlug.attach({...})
+     in their tail script. #}
+  <script src="{{ request.url_for('static', path='slug_helper.js') }}?v={{ static_version }}" defer></script>
+  {# Classify / dismiss popover positioner. Uses position:fixed +
+     getBoundingClientRect so the popover escapes overflow-hidden
+     table cells / group cards that would otherwise clip it. #}
+  <script src="{{ request.url_for('static', path='txnact_popover.js') }}?v={{ static_version }}" defer></script>
+  {% block head_extra %}{% endblock %}
+</head>
+<body data-layout="{% block layout %}app{% endblock %}">
+
+{# Mobile drawer backdrop (only visible when body.drawer-open) #}
+<div class="drawer-backdrop" onclick="document.body.classList.remove('drawer-open')"></div>
+
+<div class="shell" id="shell">
+
+  {# ============================================================
+     Sidebar — grouped nav with optional Businesses quick-jump
+     group (only rendered when 2+ entities exist). Pages can
+     override this whole block via {% block sidebar %} but
+     usually shouldn't.
+     ============================================================ #}
+  {% block sidebar %}
+  <aside class="sidebar" aria-label="Primary navigation">
+    <div class="sidebar-head">
+      <a class="sidebar-brand" href="/" aria-label="Lamella home">
+        <img class="brand-mark" src="{{ request.url_for('static', path='img/lamella-icon.svg') }}" alt="" />
+        <span class="brand-wordmark">Lame<span class="brand-wordmark-accent">ll</span>a</span>
+      </a>
+      {# Close button — only visible in drawer/overlay modes (< 960px).
+         Same drawer-open class the hamburger and overlay-toggle flip,
+         so closing here is symmetric with how it was opened. #}
+      <button type="button" class="sidebar-close"
+              onclick="document.body.classList.remove('drawer-open')"
+              aria-label="Close menu">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <nav class="sidebar-nav">
+      {%- set p = request.url.path -%}
+      {%- macro nav_active(prefix, exact=false) -%}
+        {%- if exact -%}
+          {%- if p == prefix %}is-active{% endif -%}
+        {%- else -%}
+          {%- if p == prefix or (prefix != '/' and p.startswith(prefix + '/')) %}is-active{% endif -%}
+        {%- endif -%}
+      {%- endmacro -%}
+
+      <div class="nav-group">
+        <a class="nav-item {{ nav_active('/', exact=true) }}" href="/" title="Dashboard">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7"/><path d="M9 22V12h6v10"/><path d="M5 9v13h14V9"/></svg>
+          <span class="label">Dashboard</span>
+        </a>
+        <a class="nav-item {{ nav_active('/calendar') }}" href="/calendar" title="Calendar">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          <span class="label">Calendar</span>
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-group-label">Daily</div>
+        <a class="nav-item {{ nav_active('/notes') }}" href="/notes" title="Notes">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h4"/></svg>
+          <span class="label">Note</span>
+        </a>
+        <a class="nav-item {{ nav_active('/mileage') }}" href="/mileage" title="Log trip">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 16H9m10 0h1.4a2 2 0 0 0 2-1.7l.4-3.6a2 2 0 0 0-1-2L19 7l-1.6-3.2A2 2 0 0 0 15.6 3H6.4a2 2 0 0 0-1.8 1.1L3 8H1.6c-.9 0-1.6.7-1.6 1.6v2.8c0 .9.7 1.6 1.6 1.6H4"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+          <span class="label">Log trip</span>
+        </a>
+        <a class="nav-item {{ nav_active('/inbox') }}" href="/inbox" title="Inbox — pending staged transactions">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+          <span class="label">Inbox</span>
+        </a>
+        <a class="nav-item {{ nav_active('/card') }}" href="/card" title="Categorize one at a time">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+          <span class="label">Categorize</span>
+        </a>
+        <a class="nav-item nav-item--quiet {{ nav_active('/review/ignored') }}" href="/review/ignored" title="Ignored — staged rows you hid">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          <span class="label">Ignored</span>
+        </a>
+        {%- set _dup_count = likely_duplicates_count() if likely_duplicates_count is defined else 0 -%}
+        {% if _dup_count %}
+        <a class="nav-item nav-item--quiet {{ nav_active('/review/duplicates') }}" href="/review/duplicates" title="Likely duplicates — content matched an existing staged row or ledger entry at intake">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span class="label">Duplicates <span class="badge badge--warn" style="margin-left:0.35rem">{{ _dup_count }}</span></span>
+        </a>
+        {% endif %}
+      </div>
+
+      {# Entity quick-jump — split by entity_type. Personal section
+         renders above Businesses. Each side is hidden when its
+         filtered list is empty so a business-only or personal-only
+         install doesn't show empty section headers. The whole rail
+         still hides when total entity count < 2 (single-entity mode).
+
+         The sidebar_entities() global threads entity_type/kind from
+         main.py — categorization is by entity_type, NOT by slug,
+         since the personal slug is whatever the user picked
+         (could be "AJ", "Smith", "Household"). #}
+      {%- set _ents = sidebar_entities() if sidebar_entities is defined else [] -%}
+      {%- set _personal = _ents | selectattr('kind', 'equalto', 'personal') | list -%}
+      {%- set _business = _ents | selectattr('kind', 'equalto', 'business') | list -%}
+      {% if _ents|length > 1 %}
+        {% if _personal %}
+        <div class="nav-group">
+          <a class="nav-group-label nav-group-label--linked" href="/personal" title="View personal entities">Personal</a>
+          {% for e in _personal[:6] %}
+          <a class="nav-item nav-item--entity {% if p == '/personal/' + e.slug or p.startswith('/personal/' + e.slug + '/') %}is-active{% endif %}" href="/personal/{{ e.slug }}">
+            <span class="entity-dot" style="background:{{ e.color }}">{{ e.letter }}</span>
+            <span class="label">{{ e.name }}</span>
+          </a>
+          {% endfor %}
+          {% if _personal|length > 6 %}
+          <a class="nav-item nav-item--entity nav-item--quiet" href="/personal">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            <span class="label">View all ({{ _personal|length }})</span>
+          </a>
+          {% endif %}
+        </div>
+        {% endif %}
+        {% if _business %}
+        <div class="nav-group">
+          <a class="nav-group-label nav-group-label--linked" href="/businesses" title="View all businesses">Businesses</a>
+          {% for e in _business[:6] %}
+          <a class="nav-item nav-item--entity {% if p == '/businesses/' + e.slug or p.startswith('/businesses/' + e.slug + '/') %}is-active{% endif %}" href="/businesses/{{ e.slug }}">
+            <span class="entity-dot" style="background:{{ e.color }}">{{ e.letter }}</span>
+            <span class="label">{{ e.name }}</span>
+          </a>
+          {% endfor %}
+          {% if _business|length > 6 %}
+          <a class="nav-item nav-item--entity nav-item--quiet" href="/businesses">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            <span class="label">View all ({{ _business|length }})</span>
+          </a>
+          {% endif %}
+        </div>
+        {% endif %}
+      {% endif %}
+
+      <div class="nav-group">
+        <div class="nav-group-label">Records</div>
+        <a class="nav-item {{ nav_active('/transactions') }}" href="/transactions" title="All transactions">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          <span class="label">Transactions</span>
+        </a>
+        <a class="nav-item {{ nav_active('/accounts') }}" href="/accounts" title="Ledger accounts">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>
+          <span class="label">Accounts</span>
+        </a>
+        <a class="nav-item {{ nav_active('/vehicles') }}" href="/vehicles" title="Vehicles">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+          <span class="label">Vehicles</span>
+        </a>
+        <a class="nav-item {{ nav_active('/assets') }}" href="/assets" title="Properties &amp; assets">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span class="label">Assets</span>
+        </a>
+        <a class="nav-item {{ nav_active('/loans') }}" href="/loans" title="Loans">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/><line x1="2" y1="11" x2="22" y2="11"/></svg>
+          <span class="label">Loans</span>
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-group-label">Library</div>
+        <a class="nav-item {{ nav_active('/receipts') }}" href="/receipts" title="Receipts">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 3 2V2l-3 2-3-2-3 2-3-2-3 2Z"/><path d="M14 8H8M16 12H8M13 16H8"/></svg>
+          <span class="label">Receipts</span>
+        </a>
+        <a class="nav-item {{ nav_active('/recurring') }}" href="/recurring" title="Recurring">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          <span class="label">Recurring</span>
+        </a>
+        <a class="nav-item {{ nav_active('/budgets') }}" href="/budgets" title="Budgets">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+          <span class="label">Budgets</span>
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-group-label">Insights</div>
+        <a class="nav-item {{ nav_active('/reports') }}" href="/reports" title="Reports">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          <span class="label">Reports</span>
+        </a>
+        <a class="nav-item {{ nav_active('/ai/suggestions') }}" href="/ai/suggestions" title="AI suggestions">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8L4 10l5.8 1.9L12 18l1.9-6L20 10l-5.8-1.9z"/><path d="M5 3v4M19 17v4M3 5h4M17 19h4"/></svg>
+          <span class="label">AI suggestions</span>
+        </a>
+        <a class="nav-item {{ nav_active('/ai/logs') }}" href="/ai/logs" title="AI logs">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 2"/></svg>
+          <span class="label">AI logs</span>
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-group-label">Intake</div>
+        <a class="nav-item {{ nav_active('/intake') }}" href="/intake" title="Intake">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+          <span class="label">Intake</span>
+        </a>
+        <a class="nav-item {{ nav_active('/import') }}" href="/import" title="Import">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span class="label">Import</span>
+        </a>
+      </div>
+    </nav>
+    <div class="sidebar-foot">
+      <button class="sidebar-collapse-btn" id="collapseBtn" type="button" title="Collapse sidebar">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+        <span class="label-collapse">Collapse</span>
+        <span class="label-collapsed">›</span>
+      </button>
+    </div>
+  </aside>
+  {% endblock sidebar %}
+
+  <div class="main-region">
+
+    {# ============================================================
+       Top bar — hamburger (mobile), page title, search palette
+       trigger, +New CTA, theme toggle, notifications, settings.
+       ============================================================ #}
+    {% block topbar %}
+    <header class="topbar">
+      <button class="topbar-hamburger" type="button" onclick="document.body.classList.toggle('drawer-open')" aria-label="Open menu">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+
+      {# Setup-mode brand. Hidden by default; revealed via CSS only
+         when body[data-layout="setup"] (the sidebar with the regular
+         brand is hidden in that mode). This gives /setup, /setup/import,
+         /setup/recovery, etc. parity with the wizard's standalone
+         layout — logo on the left, theme toggle on the right. #}
+      <a class="topbar-setup-brand" href="/" aria-label="Lamella home">
+        <img class="topbar-setup-brand-mark" src="{{ request.url_for('static', path='img/lamella-icon.svg') }}" alt="" />
+        <span class="topbar-setup-brand-name">Lame<span class="brand-wordmark-accent">ll</span>a</span>
+      </a>
+
+      <div class="topbar-page-title">{% block page_title %}{% endblock %}</div>
+
+      <button class="topbar-search" id="searchBtn" type="button" aria-label="Search">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span class="placeholder">Search transactions, accounts, receipts…</span>
+        <span class="kbd">⌘ K</span>
+      </button>
+
+      <div class="topbar-actions">
+        <a class="new-btn" href="/notes" title="New note">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span class="new-btn-label">New</span>
+        </a>
+        <button class="icon-btn install-btn" id="installBtn" type="button"
+                aria-label="Install Lamella as an app" title="Install Lamella"
+                hidden>
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+        <button class="icon-btn theme-btn" id="themeBtn" type="button" aria-label="Toggle theme">
+          <svg class="icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+          <svg class="icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <a class="icon-btn" href="/notifications" aria-label="Notifications">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </a>
+        <a class="icon-btn" href="/settings" aria-label="Settings">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </a>
+      </div>
+    </header>
+    {% endblock topbar %}
+
+    <main class="{% block page_class %}page page--fluid{% endblock %}">
+      {% block content %}{% endblock %}
+    </main>
+
+    {# ============================================================
+       Footer — multi-column on desktop with health badge meta
+       row. In setup mode, the grid + meta are hidden and the
+       single-line .footer-simple shows instead (CSS handled).
+       ============================================================ #}
+    {% block footer %}
+    <footer class="footer">
+      <div class="footer-simple">
+        <span>v{{ app_version }}</span>
+        <span class="dot">·</span>
+        <a href="/settings">Settings</a>
+        <span class="dot">·</span>
+        <a href="/status">Status</a>
+        <span class="dot">·</span>
+        <a class="footer-kofi" href="https://ko-fi.com/ajquick"
+           target="_blank" rel="noopener" title="Support Lamella on Ko-fi">Support</a>
+      </div>
+      <div class="footer-grid">
+        <div>
+          <div class="footer-brand">
+            <img class="brand-mark" src="{{ request.url_for('static', path='img/lamella-icon.svg') }}" alt="" />
+            <span>Lame<span class="brand-wordmark-accent">ll</span>a</span>
+          </div>
+          <p class="tag">Self-hosted financial intelligence for Beancount.</p>
+        </div>
+        <div>
+          <h4>Workspace</h4>
+          <ul class="list-clean">
+            <li><a href="/">Dashboard</a></li>
+            <li><a href="/calendar">Calendar</a></li>
+            <li><a href="/reports">Reports</a></li>
+            <li><a href="/search">Search</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Tools</h4>
+          <ul class="list-clean">
+            <li><a href="/import">Import</a></li>
+            <li><a href="/recurring">Recurring</a></li>
+            <li><a href="/budgets">Budgets</a></li>
+            <li><a href="/ai/logs">AI logs</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>System</h4>
+          <ul class="list-clean">
+            <li><a href="/status">Status</a></li>
+            <li><a href="/settings/backups">Backups</a></li>
+            <li><a href="/settings">Settings</a></li>
+            <li><a href="/ai/cost">AI cost</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-meta">
+        {# ledger_status / last_sync_label / receipts_indexed are
+           wired as Jinja globals in main.py — they read the live
+           app.state cheaply at render time. #}
+        {%- set _status = (ledger_status() if ledger_status is callable else (ledger_status|default('clean'))) -%}
+        <span class="health-pill {% if _status == 'err' %}is-err{% elif _status == 'warn' %}is-warn{% endif %}">
+          <span class="pulse"></span>Ledger {{ {'clean':'clean','warn':'check needed','err':'errors'}[_status] }}
+        </span>
+        <span>v{{ app_version }}</span>
+        {%- set _sync = (last_sync_label() if last_sync_label is callable else last_sync_label|default('')) -%}
+        {% if _sync %}<span class="dot">·</span><span>{{ _sync }}</span>{% endif %}
+        {%- set _ri = (receipts_indexed() if receipts_indexed is callable else receipts_indexed|default(none)) -%}
+        {% if _ri %}<span class="dot">·</span><span>{{ _ri }} receipts indexed</span>{% endif %}
+        <span class="dot">·</span>
+        <a class="footer-kofi" href="https://ko-fi.com/ajquick"
+           target="_blank" rel="noopener" title="Support Lamella on Ko-fi">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+               width="13" height="13" aria-hidden="true">
+            <path d="M17 8h1a3 3 0 0 1 0 6h-1"/>
+            <path d="M3 8h14v7a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z"/>
+            <path d="M6 2v3M10 2v3M14 2v3"/>
+          </svg>
+          <span>Buy me a coffee</span>
+        </a>
+        <div class="footer-credit">
+          <a href="https://lamella.ai" target="_blank" rel="noopener">Powered by Lamella</a>
+          <a class="footer-gh" href="https://github.com/lamella-ai/lamella"
+             target="_blank" rel="noopener" aria-label="Lamella on GitHub" title="GitHub">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"
+                 aria-hidden="true">
+              <path d="M12 .5C5.6.5.5 5.7.5 12c0 5.1 3.3 9.4 7.8 10.9.6.1.8-.2.8-.6v-2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 1.7 2.7 1.2 3.4.9.1-.7.4-1.2.7-1.5-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.4-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.2 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.2-1.5 3.2-1.2 3.2-1.2.6 1.7.2 2.9.1 3.2.7.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6C20.2 21.4 23.5 17.1 23.5 12 23.5 5.7 18.4.5 12 .5z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </footer>
+    {% endblock footer %}
+
+  </div>
+</div>
+
+{# ============================================================
+   Search palette stub. Opens via cmd+K or the topbar search
+   button. Currently shows static page shortcuts; full backend
+   wiring (instant transaction / account / receipt results) is
+   a follow-up.
+   ============================================================ #}
+{% block palette %}
+<div class="palette-backdrop" onclick="if(event.target===event.currentTarget) document.body.classList.remove('palette-open')">
+  <div class="palette" role="dialog" aria-label="Search">
+    <input class="palette-input" id="paletteInput" placeholder="Search transactions, accounts, receipts, pages…" autocomplete="off" />
+    <div class="palette-results" id="paletteResults">
+      <div class="palette-empty" style="padding:1.4rem; text-align:center; color:var(--muted); font-size:0.9rem">Loading…</div>
+    </div>
+    <div class="palette-foot">
+      <span><kbd>↑</kbd><kbd>↓</kbd> navigate · <kbd>⏎</kbd> open · <kbd>esc</kbd> close</span>
+      <span><a href="/search">Open full search →</a></span>
+    </div>
+  </div>
+</div>
+<script>
+  /* Palette backend wiring. Debounced fetch against /search/palette.json
+     repaints the results list as the user types. Arrow keys move the
+     cursor through .palette-item rows; ⏎ navigates to the active item;
+     esc closes the modal. */
+  (function () {
+    const input = document.getElementById("paletteInput");
+    const results = document.getElementById("paletteResults");
+    if (!input || !results) return;
+
+    function escapeHtml(s) {
+      return String(s || "").replace(/[&<>"']/g, (c) => (
+        { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+      ));
+    }
+
+    function iconFor(kind) {
+      if (kind === "account") return '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h2"/></svg>';
+      if (kind === "entity") return '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21V12h6v9"/></svg>';
+      if (kind === "search") return '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+      return '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
+    }
+
+    function render(items) {
+      if (!items || items.length === 0) {
+        results.innerHTML = '<div class="palette-empty" style="padding:1.4rem; text-align:center; color:var(--muted); font-size:0.9rem">No matches.</div>';
+        return;
+      }
+      const grouped = { page: [], account: [], entity: [], search: [] };
+      for (const it of items) (grouped[it.kind] || (grouped[it.kind] = [])).push(it);
+      const order = ["page", "account", "entity", "search"];
+      const titles = { page: "Pages", account: "Accounts", entity: "Entities", search: "Search" };
+      let html = "";
+      for (const k of order) {
+        const group = grouped[k];
+        if (!group || !group.length) continue;
+        html += `<div class="palette-section">${titles[k] || k}</div>`;
+        for (const it of group) {
+          const sub = it.sublabel
+            ? `<span class="palette-sub" style="margin-left:6px; color:var(--muted); font-size:0.82rem">${escapeHtml(it.sublabel)}</span>`
+            : "";
+          html += `<a class="palette-item" href="${escapeHtml(it.href)}">${iconFor(it.kind)} <span>${escapeHtml(it.label)}</span>${sub} <span class="arrow">⏎</span></a>`;
+        }
+      }
+      results.innerHTML = html;
+      const first = results.querySelector(".palette-item");
+      if (first) first.classList.add("is-focus");
+    }
+
+    let debounce;
+    function fetchResults() {
+      const q = input.value.trim();
+      clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        fetch("/search/palette.json?q=" + encodeURIComponent(q), { credentials: "same-origin" })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => render((data && data.results) || []))
+          .catch(() => render([]));
+      }, 90);
+    }
+
+    input.addEventListener("input", fetchResults);
+
+    function active() { return results.querySelector(".palette-item.is-focus"); }
+    function move(dir) {
+      const items = Array.from(results.querySelectorAll(".palette-item"));
+      if (!items.length) return;
+      const cur = active();
+      let idx = cur ? items.indexOf(cur) : -1;
+      idx = (idx + dir + items.length) % items.length;
+      items.forEach((el) => el.classList.remove("is-focus"));
+      items[idx].classList.add("is-focus");
+      items[idx].scrollIntoView({ block: "nearest" });
+    }
+
+    input.addEventListener("keydown", (ev) => {
+      if (ev.key === "ArrowDown") { ev.preventDefault(); move(1); }
+      else if (ev.key === "ArrowUp") { ev.preventDefault(); move(-1); }
+      else if (ev.key === "Enter") {
+        const a = active();
+        if (a) { ev.preventDefault(); window.location = a.href; }
+      } else if (ev.key === "Escape") {
+        document.body.classList.remove("palette-open");
+      }
+    });
+
+    // Re-fetch on every open so the page list is fresh + cursor sits in the input.
+    const obs = new MutationObserver(() => {
+      if (document.body.classList.contains("palette-open")) {
+        input.value = "";
+        fetchResults();
+        setTimeout(() => input.focus(), 30);
+      }
+    });
+    obs.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  })();
+</script>
+{% endblock palette %}
+
+{# ============================================================
+   Toast region — populated by HTMX out-of-band swaps or raw
+   fetches. The script below auto-dismisses each .toast after
+   ~3 seconds.
+   ============================================================ #}
+<div id="toast-area" aria-live="polite">
+{# Server-side toast injection from ?message= / ?error= query params.
+   Lets a redirect-after-action surface a confirmation without an OOB
+   swap chain. The post-render JS at the bottom of base.html strips
+   the param from the URL so a refresh doesn't re-toast. #}
+{%- set _msg = request.query_params.get('message') if request else None -%}
+{%- set _err = request.query_params.get('error') if request else None -%}
+{%- if _msg and _msg.startswith('classified_') -%}
+  {%- set _parts = _msg.split('_to_', 1) -%}
+  {%- set _target = _parts[1] if _parts|length > 1 else _msg -%}
+  <div class="toast toast--ok" role="status" aria-live="polite">
+    Classified to <code>{{ _target }}</code>
+  </div>
+{%- elif _msg and _msg.startswith('classify_group_') -%}
+  {%- set _parts = _msg.split('_to_', 1) -%}
+  {%- set _target = _parts[1] if _parts|length > 1 else _msg -%}
+  <div class="toast toast--ok" role="status" aria-live="polite">
+    Group classified to <code>{{ _target }}</code>
+  </div>
+{%- elif _msg -%}
+  <div class="toast toast--info" role="status" aria-live="polite">
+    {{ _msg.replace('_', ' ') | e }}
+  </div>
+{%- endif -%}
+{%- if _err -%}
+  <div class="toast toast--err" role="status" aria-live="polite">
+    {{ _err | e }}
+  </div>
+{%- endif -%}
+</div>
+<script>
+  /* Strip ?message= / ?error= from the URL after the toast is
+     visible so a manual refresh doesn't re-trigger it. Uses
+     replaceState so back-button history isn't polluted. */
+  (function () {
+    if (!window.history || !window.history.replaceState) return;
+    var url = new URL(window.location.href);
+    var changed = false;
+    if (url.searchParams.has('message')) { url.searchParams.delete('message'); changed = true; }
+    if (url.searchParams.has('error')) { url.searchParams.delete('error'); changed = true; }
+    if (changed) {
+      var qs = url.searchParams.toString();
+      var clean = url.pathname + (qs ? '?' + qs : '') + url.hash;
+      window.history.replaceState(null, '', clean);
+    }
+  })();
+</script>
+
+{# Minimized-jobs dock — pure client-side. Each pill represents a
+   modal the user explicitly minimized via its "—" button. Clicking
+   the pill removes the entry from sessionStorage and fetches the
+   modal partial for that job, restoring the same overlay on the
+   current page. Survives navigation within the tab (sessionStorage)
+   but not across tabs or tab close — by design. The previous
+   server-polled /jobs/active/dock dock was retired because it
+   showed every active job (not just minimized ones) and clicking
+   it sent the user to a full-page detail view that looked nothing
+   like the original hovering modal. #}
+<div id="job-minimized-dock" aria-live="polite"></div>
+<script>
+  (function () {
+    var KEY = "lamella.minimized_jobs.v1";
+    function load() {
+      try {
+        var raw = sessionStorage.getItem(KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) { return []; }
+    }
+    function save(list) {
+      try { sessionStorage.setItem(KEY, JSON.stringify(list)); }
+      catch (e) { /* storage full / disabled — pills won't persist */ }
+    }
+    function render() {
+      var dock = document.getElementById("job-minimized-dock");
+      if (!dock) return;
+      var list = load();
+      if (!list.length) { dock.innerHTML = ""; return; }
+      var html = '<div class="job-min-dock"><div class="job-min-dock__head">Minimized (' + list.length + ')</div>';
+      list.forEach(function (job) {
+        var safeTitle = String(job.title || job.id || "Job")
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        html += '<button type="button" class="job-min-dock__pill" '
+              + 'data-job-id="' + job.id + '" title="Click to restore">'
+              + '<span class="job-min-dock__title">' + safeTitle + '</span>'
+              + '<span class="job-min-dock__close" data-action="dismiss" '
+              + 'title="Dismiss without restoring">×</span>'
+              + '</button>';
+      });
+      html += '</div>';
+      dock.innerHTML = html;
+    }
+    /* Wire minimize handler on the modal. The modal calls this from
+       its onclick="window.lamellaJobMinimize && window.lamellaJobMinimize()". */
+    window.lamellaJobMinimize = function () {
+      var root = document.getElementById("job-modal-root");
+      if (!root) return;
+      var jobId = root.getAttribute("data-job-id");
+      var titleEl = root.querySelector(".job-modal__title");
+      var title = titleEl ? titleEl.textContent.trim() : "Running job";
+      var list = load();
+      if (!list.some(function (j) { return j.id === jobId; })) {
+        list.push({ id: jobId, title: title, ts: Date.now() });
+        save(list);
+      }
+      root.parentNode && root.parentNode.removeChild(root);
+      render();
+    };
+    /* Restore handler — pill click. Strips the entry from storage,
+       then HTMX-fetches the modal partial and appends to body. */
+    document.addEventListener("click", function (ev) {
+      var pill = ev.target.closest && ev.target.closest(".job-min-dock__pill");
+      if (!pill) return;
+      var jobId = pill.getAttribute("data-job-id");
+      if (!jobId) return;
+      var dismiss = ev.target.matches('[data-action="dismiss"]');
+      var list = load().filter(function (j) { return j.id !== jobId; });
+      save(list);
+      render();
+      if (dismiss) return;
+      /* Fetch the modal partial and append to body. The partial
+         carries an inline <script> with the IIFE that wires up
+         minimize / scroll preservation / beforeunload / terminal
+         detection. ``innerHTML`` parsing does NOT execute embedded
+         scripts, so we re-create them with document.createElement
+         and append in order. ``htmx.process`` afterward binds the
+         hx-* attributes (polling, etc.) on the new DOM. Without
+         this script-eval step the restored modal looked correct but
+         the minimize button did nothing, terminal status didn't
+         halt polling, and scroll position never restored. */
+      fetch("/jobs/" + encodeURIComponent(jobId) + "/modal-fragment", {
+        credentials: "same-origin",
+        headers: { "HX-Request": "true" }
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.text();
+        })
+        .then(function (html) {
+          var holder = document.createElement("div");
+          holder.innerHTML = html;
+          var inserted = [];
+          while (holder.firstChild) {
+            inserted.push(document.body.appendChild(holder.firstChild));
+          }
+          /* Re-create + re-append <script> tags so the browser
+             actually executes them (innerHTML-parsed scripts are
+             inert). Walks the inserted subtree, swaps each script
+             for a fresh element with copied attributes + body. */
+          inserted.forEach(function (node) {
+            if (node.nodeType !== 1) return;
+            var scripts = (node.tagName === "SCRIPT")
+              ? [node]
+              : node.querySelectorAll("script");
+            for (var i = 0; i < scripts.length; i++) {
+              var orig = scripts[i];
+              var fresh = document.createElement("script");
+              for (var j = 0; j < orig.attributes.length; j++) {
+                fresh.setAttribute(orig.attributes[j].name, orig.attributes[j].value);
+              }
+              fresh.text = orig.text;
+              orig.parentNode.replaceChild(fresh, orig);
+            }
+          });
+          if (window.htmx && window.htmx.process) {
+            window.htmx.process(document.body);
+          }
+        })
+        .catch(function (err) {
+          console.warn("Restore minimized job failed:", err);
+        });
+    });
+    /* Expose the renderer so the modal IIFE can ping it after a
+       per-instance minimize without going through a stale handle. */
+    window.lamellaRenderJobDock = render;
+    /* Initial paint on every page load. */
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", render);
+    } else {
+      render();
+    }
+  })();
+</script>
+
+<script>
+  /* CSRF — auto-attach the lamella_csrf cookie value as the
+     X-CSRF-Token header on every HTMX request. The auth middleware
+     (ADR-0050) sets the cookie with httponly=false so JS can read it,
+     and refreshes it on every authenticated response. With this hook
+     in place, every existing hx-post / hx-put / hx-delete form on the
+     site is CSRF-protected without per-template changes. Safe methods
+     (GET/HEAD/OPTIONS) bypass the middleware check anyway. */
+  (function () {
+    var SECURE = "__Host-lamella_csrf";
+    var INSECURE = "lamella_csrf";
+    function csrfFromCookie() {
+      var prefer = location.protocol === "https:" ? SECURE : INSECURE;
+      var parts = (document.cookie || "").split(";");
+      var fallback = "";
+      for (var i = 0; i < parts.length; i++) {
+        var c = parts[i].trim();
+        if (c.indexOf(prefer + "=") === 0) {
+          return decodeURIComponent(c.substring(prefer.length + 1));
+        }
+        if (c.indexOf(INSECURE + "=") === 0) {
+          fallback = decodeURIComponent(c.substring(INSECURE.length + 1));
+        }
+      }
+      return fallback;
+    }
+    document.body.addEventListener("htmx:configRequest", function (ev) {
+      var token = csrfFromCookie();
+      if (!token) return;
+      var hdrs = ev.detail.headers || (ev.detail.headers = {});
+      if (!hdrs["X-CSRF-Token"]) hdrs["X-CSRF-Token"] = token;
+    });
+    /* Fallback: vanilla form submits (no HTMX, or htmx unavailable).
+       Inject a hidden _csrf input on submit if none exists. */
+    document.addEventListener("submit", function (ev) {
+      var form = ev.target;
+      if (!form || form.tagName !== "FORM") return;
+      var method = (form.method || "get").toLowerCase();
+      if (method === "get") return;
+      if (form.querySelector('input[name="_csrf"]')) return;
+      var token = csrfFromCookie();
+      if (!token) return;
+      var inp = document.createElement("input");
+      inp.type = "hidden";
+      inp.name = "_csrf";
+      inp.value = token;
+      form.appendChild(inp);
+    }, true);
+  })();
+</script>
+<script>
+  /* Site-wide post-classify dispatcher.
+     Every txn-action surface (Accept / Classify popover / Dismiss /
+     AI Ask modal) shares this helper. After a successful POST to
+     /api/txn/{ref}/(classify|dismiss), the form's hx-on::after-request
+     calls window.__lamellaAfterClassify(ref). The helper:
+       1. Removes the AI-Ask job modal if it's open.
+       2. Dispatches a cancelable ``lamella:txn-classified`` event.
+          Pages that want in-place updates (/review, /ai/suggestions,
+          /search, /transactions) listen for it and call
+          preventDefault(); the fallback reload is then skipped.
+       3. Falls back to window.location.reload() if no listener
+          prevented the default — safe behavior on pages without
+          a custom handler.
+     Keeping this in base.html means every page gets it, and per-
+     surface listeners stay small and targeted. */
+  window.__lamellaAfterClassify = function (ref) {
+    var modal = document.getElementById('job-modal-root');
+    if (modal) modal.remove();
+    var ev = new CustomEvent('lamella:txn-classified', {
+      detail: { ref: ref }, cancelable: true, bubbles: true,
+    });
+    var listenerHandled = !window.dispatchEvent(ev);
+    if (!listenerHandled) window.location.reload();
+  };
+</script>
+<script>
+  /* Auto-dismiss toasts after 3s. Observes #toast-area for children
+     added by htmx out-of-band swaps or raw fetches; each .toast
+     fades and removes itself. Idempotent per element. */
+  (function () {
+    const area = document.getElementById("toast-area");
+    if (!area) return;
+    function armToast(el) {
+      if (!el || el.__armed) return;
+      el.__armed = true;
+      setTimeout(() => { el.style.transition = "opacity 300ms"; el.style.opacity = "0"; }, 2700);
+      setTimeout(() => { el.remove(); }, 3000);
+    }
+    new MutationObserver((muts) => {
+      for (const m of muts) {
+        for (const n of m.addedNodes) {
+          if (n.nodeType !== 1) continue;
+          if (n.classList && n.classList.contains("toast")) armToast(n);
+          n.querySelectorAll && n.querySelectorAll(".toast").forEach(armToast);
+        }
+      }
+    }).observe(area, { childList: true, subtree: true });
+    area.querySelectorAll(".toast").forEach(armToast);
+  })();
+</script>
+<script>
+  /* ADR-0039 — Global HTMX error handlers.
+     Appends a .toast to #toast-area for network / server / target / timeout
+     errors so every HTMX surface gets feedback without per-form wiring.
+     The armToast MutationObserver above auto-dismisses each injected toast.
+     Does NOT disturb the CSRF hook or the armToast handler. */
+  (function () {
+    var area = document.getElementById("toast-area");
+    if (!area) return;
+
+    function addToast(message, kind) {
+      var el = document.createElement("div");
+      el.className = "toast toast--" + kind;
+      el.setAttribute("role", "status");
+      el.setAttribute("aria-live", "polite");
+      el.textContent = message;
+      area.appendChild(el);
+    }
+
+    document.addEventListener("htmx:sendError", function () {
+      addToast("Network error — check your connection.", "err");
+    });
+
+    document.addEventListener("htmx:responseError", function (ev) {
+      var xhr = ev.detail && ev.detail.xhr;
+      var status = xhr ? xhr.status : "";
+      var text   = xhr ? xhr.statusText : "";
+      addToast(
+        "Server error " + status + (text ? ": " + text : "") + " — try again.",
+        "err"
+      );
+    });
+
+    document.addEventListener("htmx:targetError", function (ev) {
+      var target = ev.detail && ev.detail.target;
+      console.warn("[lamella] htmx:targetError — target not found:", target);
+      addToast("Page state changed — please reload.", "warn");
+    });
+
+    document.addEventListener("htmx:timeout", function () {
+      addToast("Request timed out — try again.", "warn");
+    });
+  })();
+</script>
+<style>
+  /* Save button "just saved" flash. Applied by the save-row JS
+     helper below on non-swap save forms: the form stays intact,
+     user sees a green ✓ confirmation for ~1.6s. */
+  .save-ok {
+    background: var(--ok) !important;
+    color: var(--panel) !important;
+    border-color: var(--ok) !important;
+    transition: background 0.2s ease;
+  }
+  .save-ok::before { content: "✓ "; }
+</style>
+<script>
+  /* Shared post-save handler for /setup/entities + /setup/accounts.
+     Forms mark themselves with class="save-row-form" and hx-swap="none".
+     On a successful request we:
+       - flash the submit button green for 1.6s
+       - re-derive the row's complete-ness from current form values
+         and update the .row-status-icon inside the same row
+     Server handles the banner-count update separately via hx-swap-oob. */
+  document.addEventListener("htmx:afterRequest", function (ev) {
+    const form = ev.target;
+    if (!form || !form.classList.contains("save-row-form")) return;
+    if (!ev.detail.successful) return;
+    const btn = form.querySelector(".save-btn");
+    if (btn) {
+      btn.classList.add("save-ok");
+      setTimeout(() => btn.classList.remove("save-ok"), 1600);
+    }
+    const tr = form.closest("tr");
+    if (!tr) return;
+    const icon = tr.querySelector(".row-status-icon");
+    if (!icon) return;
+    // "Complete" = the fields the row's setup-gate looks at are
+    // all non-empty. Each save form declares its own check via
+    // data-complete-fields="name1,name2".
+    const fieldsAttr = form.dataset.completeFields || "";
+    const fields = fieldsAttr.split(",").map(s => s.trim()).filter(Boolean);
+    if (!fields.length) return;
+    const allSet = fields.every(name => {
+      const el = form.elements.namedItem(name);
+      if (!el) return false;
+      const v = (el.value || "").trim();
+      return v !== "";
+    });
+    if (allSet) {
+      icon.textContent = "✓";
+      tr.classList.add("setup-entity-complete", "setup-account-complete");
+    }
+  });
+</script>
+{# Site-wide delete-confirmation modal. Any form/button with
+   `data-confirm="…"` opens this modal before submit. When
+   `data-confirm-strong="<token>"` is present, the user must type
+   the exact token before the confirm button enables — used for
+   destructive ops like permanent entity delete.
+
+   Migrated to the M.modal shell so the shape matches every other
+   modal in the app. The JS handler below toggles is-open on
+   .modal-backdrop instead of inline display style — Esc / click-
+   outside / dismiss-X behavior comes from base.html's global
+   modal handler. #}
+<div id="confirm-modal-backdrop" class="modal-backdrop" data-modal-id="confirm-modal">
+  <div id="confirm-modal" class="modal modal--sm" role="dialog" aria-modal="true">
+    <header class="modal__head">
+      <div class="modal__head-text">
+        <h2 id="confirm-modal-title" class="modal__title">Are you sure?</h2>
+        <p id="confirm-modal-message" class="modal__subtitle">
+          This action cannot be undone.
+        </p>
+      </div>
+    </header>
+    <div class="modal__body">
+      <div id="confirm-modal-strong-wrap" style="display:none">
+        <label style="display:block; font-size:0.88rem; color:var(--muted)">
+          Type <code id="confirm-modal-token"></code> to enable the action:
+          <input id="confirm-modal-strong-input" type="text"
+                 autocomplete="off" autocorrect="off" autocapitalize="off"
+                 class="field-input"
+                 style="margin-top:0.3rem; font-family:monospace" />
+        </label>
+      </div>
+      <div class="modal__actions">
+        <button type="button" id="confirm-modal-cancel" class="btn">Cancel</button>
+        <button type="button" id="confirm-modal-confirm" class="btn btn-danger">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  /* Site-wide confirm-on-destructive-action helper.
+     Triggers on any element (or its ancestor form) carrying:
+       data-confirm="message"           — required, message text
+       data-confirm-button="label"      — optional, custom confirm button label
+       data-confirm-strong="token"      — optional, type-to-confirm token
+     Intercepts both vanilla form submit + HTMX htmx:confirm events. */
+  (function () {
+    const backdrop = document.getElementById("confirm-modal-backdrop");
+    const modal = document.getElementById("confirm-modal");
+    if (!backdrop || !modal) return;
+    const titleEl = document.getElementById("confirm-modal-title");
+    const messageEl = document.getElementById("confirm-modal-message");
+    const cancelBtn = document.getElementById("confirm-modal-cancel");
+    const confirmBtn = document.getElementById("confirm-modal-confirm");
+    const strongWrap = document.getElementById("confirm-modal-strong-wrap");
+    const strongInput = document.getElementById("confirm-modal-strong-input");
+    const strongTokenEl = document.getElementById("confirm-modal-token");
+    let pendingResolve = null;
+    let isOpen = false;
+
+    function openModal({ message, buttonLabel, strongToken, title }) {
+      return new Promise((resolve) => {
+        titleEl.textContent = title || "Are you sure?";
+        messageEl.textContent = message || "This action cannot be undone.";
+        confirmBtn.textContent = buttonLabel || "Confirm";
+        if (strongToken) {
+          strongTokenEl.textContent = strongToken;
+          strongWrap.style.display = "";
+          strongInput.value = "";
+          confirmBtn.disabled = true;
+          strongInput.oninput = () => {
+            const ok = strongInput.value === strongToken;
+            confirmBtn.disabled = !ok;
+          };
+          setTimeout(() => strongInput.focus(), 30);
+        } else {
+          strongWrap.style.display = "none";
+          confirmBtn.disabled = false;
+          setTimeout(() => confirmBtn.focus(), 30);
+        }
+        backdrop.classList.add("is-open");
+        isOpen = true;
+        pendingResolve = resolve;
+      });
+    }
+    function closeModal(answer) {
+      backdrop.classList.remove("is-open");
+      isOpen = false;
+      const r = pendingResolve;
+      pendingResolve = null;
+      if (r) r(answer);
+    }
+    cancelBtn.addEventListener("click", () => closeModal(false));
+    confirmBtn.addEventListener("click", () => {
+      if (confirmBtn.disabled) return;
+      closeModal(true);
+    });
+    /* Click on the backdrop (outside the .modal box) closes — same
+       as M.modal's generic behavior. The Esc handling lives in the
+       site-wide modal handler at the bottom of base.html. */
+    backdrop.addEventListener("click", (e) => {
+      if (e.target === backdrop) closeModal(false);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (!isOpen) return;
+      if (e.key === "Escape") { e.preventDefault(); closeModal(false); }
+    });
+
+    function readConfirmAttrs(el) {
+      // Walk up: look on the element, then any ancestor form.
+      let node = el;
+      while (node && node !== document.body) {
+        if (node.dataset && node.dataset.confirm) {
+          return {
+            message: node.dataset.confirm,
+            buttonLabel: node.dataset.confirmButton || "",
+            strongToken: node.dataset.confirmStrong || "",
+            title: node.dataset.confirmTitle || "",
+          };
+        }
+        if (node.tagName === "FORM") break;
+        node = node.parentElement;
+      }
+      return null;
+    }
+
+    // Vanilla form submit guard.
+    document.addEventListener("submit", function (ev) {
+      const form = ev.target;
+      if (!form || !form.dataset || !form.dataset.confirm) return;
+      if (form.__confirmed) { form.__confirmed = false; return; }
+      ev.preventDefault();
+      openModal({
+        message: form.dataset.confirm,
+        buttonLabel: form.dataset.confirmButton || "",
+        strongToken: form.dataset.confirmStrong || "",
+        title: form.dataset.confirmTitle || "",
+      }).then((ok) => {
+        if (!ok) return;
+        form.__confirmed = true;
+        form.submit();
+      });
+    }, true);
+
+    // HTMX confirm hook.
+    document.addEventListener("htmx:confirm", function (ev) {
+      const el = ev.detail.elt;
+      const cfg = readConfirmAttrs(el);
+      if (!cfg) return;
+      ev.preventDefault();
+      openModal(cfg).then((ok) => {
+        if (ok) ev.detail.issueRequest(true);
+      });
+    });
+  })();
+</script>
+<script>
+  /* Register the service worker site-wide so the install prompt
+     ("Add to Home Screen") fires from any page on a phone. The SW
+     itself is network-first for everything outside its precache list
+     ({/notes, /mileage, mobile static assets}); dashboards and live
+     state pass straight through to the network — see service-worker.js. */
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register(
+      "{{ request.url_for('static', path='service-worker.js') }}",
+      { scope: "/" },
+    ).catch(() => undefined);
+  }
+
+  /* Install-as-app prompt. Chrome / Edge fire `beforeinstallprompt`
+     when the page is install-eligible (HTTPS + manifest + registered
+     SW with a fetch handler). We capture the event, expose a topbar
+     button, and call its prompt() on user gesture. After successful
+     install (`appinstalled`) or running standalone we hide the button.
+     Safari / iOS use the share-sheet "Add to Home Screen" flow which
+     this never sees — that's expected. */
+  (function () {
+    var btn = document.getElementById("installBtn");
+    if (!btn) return;
+    var deferred = null;
+
+    function alreadyInstalled() {
+      try {
+        if (window.matchMedia &&
+            window.matchMedia("(display-mode: standalone)").matches) return true;
+        if (window.navigator.standalone === true) return true;
+      } catch (e) { /* noop */ }
+      return false;
+    }
+    if (alreadyInstalled()) return;
+
+    window.addEventListener("beforeinstallprompt", function (ev) {
+      ev.preventDefault();
+      deferred = ev;
+      btn.hidden = false;
+    });
+
+    btn.addEventListener("click", function () {
+      if (!deferred) return;
+      deferred.prompt();
+      deferred.userChoice.finally(function () {
+        deferred = null;
+        btn.hidden = true;
+      });
+    });
+
+    window.addEventListener("appinstalled", function () {
+      deferred = null;
+      btn.hidden = true;
+    });
+  })();
+</script>
+
+{# ============================================================
+   Shell controls — theme toggle, sidebar collapse with tablet
+   auto-collapse, search palette open/close.
+   ============================================================ #}
+<script>
+  (function () {
+    /* Theme toggle. Reads/writes localStorage; the no-flash init in
+       <head> picks up the stored value on next page load. The icon
+       swap (sun ⇄ moon) is pure-CSS via [data-theme="dark"] selectors
+       in shell.css — this handler only flips the attribute. */
+    var themeBtn = document.getElementById("themeBtn");
+    if (themeBtn) {
+      themeBtn.addEventListener("click", function () {
+        var next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        try { localStorage.setItem("lamella-theme", next); } catch (e) {}
+      });
+    }
+
+    /* Sidebar responsive cascade. Four modes by viewport width:
+         < 640px:   drawer (hamburger triggers it; CSS handles layout)
+         640–960:   icon-only in layout. Toggle button opens an
+                    OVERLAY version of the sidebar (full labels, dims
+                    content, auto-closes on nav-item click or backdrop
+                    click). Layout doesn't shift.
+         960–1280:  user-controlled in-layout, defaults collapsed
+         >= 1280px: user-controlled in-layout, defaults expanded
+       Pref (in localStorage) overrides defaults in the two user-
+       controlled ranges; ignored in the icon-only range. */
+    var shell = document.getElementById("shell");
+    var collapseBtn = document.getElementById("collapseBtn");
+    function userPref() {
+      try {
+        var v = localStorage.getItem("lamella-sidebar-collapsed");
+        if (v === "1") return "collapsed";
+        if (v === "0") return "expanded";
+        return null;
+      } catch (e) { return null; }
+    }
+    function viewportMode() {
+      var w = window.innerWidth;
+      if (w < 640) return "drawer";
+      if (w <= 960) return "overlay";   // icon-only, toggle opens overlay
+      if (w <= 1280) return "default-collapsed";
+      return "default-expanded";
+    }
+    function syncSidebar() {
+      if (!shell) return;
+      var mode = viewportMode();
+      // Drawer mode: don't change is-collapsed; CSS overrides at < 640.
+      if (mode === "drawer") return;
+      // Icon-only overlay range: in-layout sidebar is always collapsed.
+      if (mode === "overlay") {
+        shell.classList.add("is-collapsed");
+        return;
+      }
+      // User-controlled ranges.
+      var pref = userPref();
+      var collapsed = (pref === null)
+        ? (mode === "default-collapsed")
+        : (pref === "collapsed");
+      shell.classList.toggle("is-collapsed", collapsed);
+    }
+    syncSidebar();
+    window.addEventListener("resize", function () {
+      // Close any open overlay on resize so we don't leave it open
+      // when crossing into a range where it doesn't apply.
+      document.body.classList.remove("drawer-open");
+      syncSidebar();
+    });
+    if (collapseBtn) {
+      collapseBtn.addEventListener("click", function () {
+        var mode = viewportMode();
+        if (mode === "overlay") {
+          // Toggle the overlay — no layout shift, no pref change.
+          document.body.classList.toggle("drawer-open");
+          return;
+        }
+        // User-controlled ranges: toggle in-layout collapse + persist pref.
+        var next = !shell.classList.contains("is-collapsed");
+        shell.classList.toggle("is-collapsed", next);
+        try { localStorage.setItem("lamella-sidebar-collapsed", next ? "1" : "0"); } catch (e) {}
+      });
+    }
+    // Auto-close drawer/overlay when the user picks a nav item or
+    // the brand link. Applies in both drawer (< 640) and overlay
+    // (640-960) modes — anywhere body.drawer-open is the trigger.
+    document.addEventListener("click", function (e) {
+      if (!document.body.classList.contains("drawer-open")) return;
+      if (window.innerWidth > 960) return;
+      var link = e.target.closest(".sidebar a");
+      if (link) document.body.classList.remove("drawer-open");
+    });
+
+    /* Paired form-and-help layout: the help blocks live INLINE next
+       to their form sections at >= 1280px viewport. At narrow widths
+       they're hidden inline and the right-edge help drawer takes over.
+       Clone the inline help into the drawer once at page load so the
+       drawer always has the latest content. */
+    (function () {
+      var inlineHelps = document.querySelectorAll(".form-split-form--paired .form-paired-help");
+      var drawer = document.querySelector(".form-split-help");
+      if (!inlineHelps.length || !drawer) return;
+      // Clear any existing drawer content (pages using the paired
+      // layout pass an empty help_col by convention).
+      drawer.replaceChildren();
+      inlineHelps.forEach(function (el) {
+        // Clone the children, not the .form-paired-help wrapper itself,
+        // so the drawer styles apply directly to the .help-block elements.
+        Array.from(el.children).forEach(function (child) {
+          drawer.appendChild(child.cloneNode(true));
+        });
+      });
+    })();
+
+    /* Search palette — cmd/ctrl+K opens, esc closes. The trigger
+       button in the topbar also opens it. Currently a static stub;
+       full backend wiring (instant results) is a follow-up. */
+    var searchBtn = document.getElementById("searchBtn");
+    var paletteInput = document.getElementById("paletteInput");
+    function openPalette() {
+      document.body.classList.add("palette-open");
+      if (paletteInput) setTimeout(function () { paletteInput.focus(); }, 50);
+    }
+    function closePalette() { document.body.classList.remove("palette-open"); }
+    if (searchBtn) searchBtn.addEventListener("click", openPalette);
+    document.addEventListener("keydown", function (e) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        openPalette();
+      }
+      if (e.key === "Escape" && document.body.classList.contains("palette-open")) {
+        closePalette();
+      }
+    });
+  })();
+</script>
+<script>
+  /* Transaction-action popover dismiss-on-outside-click.
+     Buttons rendered by `_components/_txn_actions.html` toggle a
+     `data-open` attribute on their adjacent `.txnact__popover`. We
+     don't get :focus-within for free here because typing in one
+     row's input moves focus away from the trigger. So this
+     document-level listener closes any open popovers when a click
+     lands outside the .txnact group that owns them. */
+  (function () {
+    document.addEventListener("click", function (ev) {
+      var inside = ev.target && ev.target.closest && ev.target.closest(".txnact");
+      var popovers = document.querySelectorAll(".txnact__popover[data-open]");
+      for (var i = 0; i < popovers.length; i++) {
+        if (inside && inside.contains(popovers[i])) continue;
+        popovers[i].removeAttribute("data-open");
+      }
+    });
+    /* Esc closes all open popovers — same expectation as menus elsewhere. */
+    document.addEventListener("keydown", function (ev) {
+      if (ev.key !== "Escape") return;
+      document.querySelectorAll(".txnact__popover[data-open]").forEach(function (p) {
+        p.removeAttribute("data-open");
+      });
+      /* Generic modals from M.modal — Esc closes the most recent
+         open backdrop. Multiple opens stack visually; closing the
+         topmost is the intuitive thing. */
+      var openModals = document.querySelectorAll(".modal-backdrop.is-open");
+      if (openModals.length) {
+        openModals[openModals.length - 1].classList.remove("is-open");
+      }
+    });
+  })();
+</script>
+</body>
+</html>

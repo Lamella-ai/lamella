@@ -1,0 +1,105 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Quick log — Lamella{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block page_title %}Quick log{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Quick log',
+     subtitle='Just finished a drive? Four fields.',
+     kicker='Daily'
+) %}
+  {{ B.btn('Full form →', href='/mileage') }}
+{% endcall %}
+
+{% if request.query_params.get('saved') %}
+{% call F.banner(tone='ok', title='Saved') %}{% endcall %}
+{% endif %}
+{% if request.query_params.get('error') %}
+{% call F.banner(tone='err', title='Error') %}{{ request.query_params.get('error') }}{% endcall %}
+{% endif %}
+
+{% if vehicles %}
+{% call C.card() %}
+<form method="post" action="/mileage/quick" class="form-grid" style="max-width:none">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Date</label>
+      <input class="field-input" type="date" name="entry_date" value="{{ today }}" required />
+    </div>
+    <div class="field">
+      <label class="field-label">Vehicle</label>
+      <div class="field-clearable">
+        <input class="field-input" id="quick-vehicle-input" type="text" name="vehicle_slug"
+               list="quick-vehicle-datalist" required autocomplete="off"
+               value="{{ last_name or '' }}"
+               placeholder="pick a vehicle"
+               onfocus="this.select()" />
+        <button type="button" class="field-clear" aria-label="Clear vehicle"
+                onclick="var i=document.getElementById('quick-vehicle-input'); i.value=''; i.focus();">×</button>
+      </div>
+      <datalist id="quick-vehicle-datalist">
+        {% for v in vehicles %}
+        <option value="{{ v.name }}"{% if v.entity_slug %} label="{{ v.name }} · {{ v.entity_slug | entity }}"{% endif %}>
+        {% endfor %}
+      </datalist>
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="field-label">Odometer now</label>
+    <input class="field-input" type="number" name="odometer_end" min="0" step="1"
+           inputmode="numeric" required placeholder="e.g. 84320" />
+  </div>
+
+  <div class="field">
+    <label class="field-label">What did you do?</label>
+    <textarea class="field-textarea" name="what" rows="2"
+              autocapitalize="sentences"
+              placeholder="e.g. Site visit at customer location"></textarea>
+  </div>
+
+  <fieldset class="field" style="border:0; padding:0; margin:0">
+    <legend class="field-label">Purpose</legend>
+    <div style="display:flex; gap:14px; flex-wrap:wrap; padding-top:4px">
+      <label style="display:inline-flex; gap:6px; align-items:center"><input type="radio" name="category" value="business" checked /> Business</label>
+      <label style="display:inline-flex; gap:6px; align-items:center"><input type="radio" name="category" value="commuting" /> Commuting</label>
+      <label style="display:inline-flex; gap:6px; align-items:center"><input type="radio" name="category" value="personal" /> Personal</label>
+    </div>
+  </fieldset>
+
+  <div class="form-actions">
+    <span class="spacer"></span>
+    {{ B.btn('Save trip', type='submit', variant='primary', icon=icon.car()) }}
+  </div>
+</form>
+{% endcall %}
+{% else %}
+{{ F.empty_state(
+    'No vehicles yet.',
+    'Add your first vehicle',
+    '/vehicles/new',
+    icon=icon.car(28)
+) }}
+{% endif %}
+
+<p class="subtle" style="margin-top:1rem">
+  Odometer start is auto-derived from your last recorded trip. Entity comes
+  from the vehicle's owner. Both can be edited on the
+  <a href="/mileage">full form</a>.
+</p>
+{% endblock %}

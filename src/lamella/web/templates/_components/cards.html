@@ -1,0 +1,173 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# ===========================================================
+   Card / tile macros.
+
+   Use:
+     {% import "_components/cards.html" as C %}
+     {% import "_components/_icons.html" as icon %}
+
+     {% call C.kpi_grid() %}
+       {{ C.kpi_tile(label='Net worth', value='$84,217.42', delta='+2.4%', delta_dir='up') }}
+       {{ C.kpi_tile(label='Open review', value='14', meta='3 high priority', href='/review') }}
+     {% endcall %}
+
+     {% call C.card(title='Recent activity', subtitle='Last 7 days') %}
+       <ul class="list-clean">…</ul>
+     {% endcall %}
+
+   Macros:
+     kpi_grid()                           — flex/grid wrapper for kpi_tile, use with {% call %}
+     kpi_tile(label, value, ...)          — single tile; pass href to make it a link
+     card(title=, subtitle=, ...)         — generic card with head / body / foot via {% call %}
+     stat_row(label, value, sublabel=)    — compact key/value row for stacking inside cards
+   =========================================================== #}
+
+{%- macro kpi_grid() -%}
+<div class="kpi-grid">{{ caller() }}</div>
+{%- endmacro -%}
+
+{%- macro kpi_tile(label, value, value_unit='', delta='', delta_dir='', meta='', href='', tone='') -%}
+{# tone: '' (default), 'ok', 'warn', 'err' — controls accent stripe + value color. #}
+{%- set tag = 'a' if href else 'div' -%}
+<{{ tag }} class="kpi {% if tone %}kpi--{{ tone }}{% endif %} {% if href %}kpi--link{% endif %}"{% if href %} href="{{ href }}"{% endif %}>
+  <div class="kpi-label">{{ label }}</div>
+  <div class="kpi-value num">{{ value }}{% if value_unit %}<span class="kpi-value-unit">{{ value_unit }}</span>{% endif %}</div>
+  {% if delta or meta %}
+  <div class="kpi-meta">
+    {% if delta %}<span class="kpi-delta kpi-delta--{{ delta_dir or 'flat' }}">{{ delta }}</span>{% endif %}
+    {% if meta %}<span class="kpi-meta-text">{{ meta }}</span>{% endif %}
+  </div>
+  {% endif %}
+</{{ tag }}>
+{%- endmacro -%}
+
+{%- macro card(title=none, subtitle='', actions=none, flush=false, tone='') -%}
+{# tone: '' (default), 'ok', 'warn', 'err' — applies a left border accent. #}
+<div class="card {% if tone %}card--{{ tone }}{% endif %}">
+  {% if title or subtitle or actions %}
+  <header class="card-head">
+    <div class="card-head-text">
+      {% if title %}<h3 class="card-title">{{ title }}</h3>{% endif %}
+      {% if subtitle %}<span class="card-subtitle">{{ subtitle }}</span>{% endif %}
+    </div>
+    {% if actions %}<div class="card-head-actions">{{ actions }}</div>{% endif %}
+  </header>
+  {% endif %}
+  <div class="card-body{% if flush %} card-body--flush{% endif %}">{{ caller() }}</div>
+</div>
+{%- endmacro -%}
+
+{%- macro card_foot() -%}<div class="card-foot">{{ caller() }}</div>{%- endmacro -%}
+
+{%- macro stat_row(label, value, sublabel='', tone='') -%}
+<div class="stat-row {% if tone %}stat-row--{{ tone }}{% endif %}">
+  <div class="stat-row-label">
+    <span>{{ label }}</span>
+    {% if sublabel %}<span class="stat-row-sublabel">{{ sublabel }}</span>{% endif %}
+  </div>
+  <div class="stat-row-value num">{{ value }}</div>
+</div>
+{%- endmacro -%}
+
+{# Suggestion card — observed-state nudge with a primary CTA and an
+   optional secondary (dismiss / not-now). Renders a SuggestionCard
+   (lamella.suggestions.cards). Hosts (dashboard / /review / /card)
+   should filter the upstream list by the surface's context before
+   passing them in.
+
+   Uses the shared `card`/`card--{tone}` styling so a strip of these
+   visually matches the rest of the page's cards. The CTA always
+   posts (or links) to the action carried on the card itself; the
+   macro never invents URLs or fields.
+#}
+{%- macro suggestion_card(card) -%}
+{%- import "_components/_icons.html" as icon -%}
+<article class="card card--suggestion card--{{ card.tone or 'info' }}"
+         data-suggestion-id="{{ card.id }}"
+         data-suggestion-kind="{{ card.kind }}">
+  <header class="card-head suggestion-card-head">
+    <div class="card-head-text">
+      {% if card.icon %}
+      <span class="suggestion-card-icon">
+        {%- if card.icon == 'repeat' -%}{{ icon.repeat(size=14) }}
+        {%- elif card.icon == 'sparkles' -%}{{ icon.sparkles(size=14) }}
+        {%- elif card.icon == 'creditcard' -%}{{ icon.creditcard(size=14) }}
+        {%- elif card.icon == 'briefcase' -%}{{ icon.briefcase(size=14) }}
+        {%- else -%}{{ icon.sparkles(size=14) }}
+        {%- endif -%}
+      </span>
+      {% endif %}
+      {% if card.title %}<h3 class="card-title">{{ card.title }}</h3>{% endif %}
+    </div>
+  </header>
+  <div class="card-body">
+    {% if card.body %}<p class="suggestion-card-body">{{ card.body }}</p>{% endif %}
+    {%- set d = card.details or {} -%}
+    {%- if card.kind == 'payout_source' and d.hits and d.sample_dates -%}
+    <p class="suggestion-card-meta">
+      {{ d.hits }} deposit{{ '' if d.hits == 1 else 's' }} ·
+      latest {{ d.sample_dates[0] }}
+      {% if d.sample_dates|length > 1 %}<span class="muted-text">· also {{ d.sample_dates[1:]|join(', ') }}</span>{% endif %}
+    </p>
+    {%- endif -%}
+    {% if card.cta_label and card.cta_action %}
+    <div class="suggestion-card-actions">
+      {%- if card.cta_method == 'GET' -%}
+      <a class="btn btn-primary btn-sm" href="{{ card.cta_action }}">{{ card.cta_label }}</a>
+      {%- else -%}
+      {# In-place HTMX swap: the card's host route returns a small
+         "done" partial that replaces THIS article — surface-agnostic
+         (works on dashboard, /review, /card identically). The plain
+         POST + redirect remains as a non-HTMX fallback. #}
+      <form method="POST" action="{{ card.cta_action }}" class="suggestion-card-form"
+            hx-post="{{ card.cta_action }}"
+            hx-target="closest article"
+            hx-swap="outerHTML">
+        {% for k, v in (card.cta_form_data or {}).items() %}
+        <input type="hidden" name="{{ k }}" value="{{ v }}" />
+        {% endfor %}
+        <button type="submit" class="btn btn-primary btn-sm">{{ card.cta_label }}</button>
+      </form>
+      {%- endif -%}
+      {% if card.secondary_label and card.secondary_action %}
+      {%- if card.secondary_method == 'GET' -%}
+      <a class="btn btn-ghost btn-sm" href="{{ card.secondary_action }}">{{ card.secondary_label }}</a>
+      {%- else -%}
+      <form method="POST" action="{{ card.secondary_action }}" class="suggestion-card-form"
+            hx-post="{{ card.secondary_action }}"
+            hx-target="closest article"
+            hx-swap="outerHTML">
+        {% for k, v in (card.secondary_form_data or {}).items() %}
+        <input type="hidden" name="{{ k }}" value="{{ v }}" />
+        {% endfor %}
+        <button type="submit" class="btn btn-ghost btn-sm">{{ card.secondary_label }}</button>
+      </form>
+      {%- endif -%}
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</article>
+{%- endmacro -%}
+
+{# Suggestion strip — wraps a list of suggestion cards in a flex/grid
+   container. Hosts call this with the filtered card list for their
+   surface. Renders nothing when the list is empty so the host
+   doesn't need to guard around it.
+#}
+{%- macro suggestion_strip(cards) -%}
+{%- if cards -%}
+<div class="suggestion-strip" role="region" aria-label="Suggestions">
+  {%- for card in cards -%}
+    {{ suggestion_card(card) }}
+  {%- endfor -%}
+</div>
+{%- endif -%}
+{%- endmacro -%}

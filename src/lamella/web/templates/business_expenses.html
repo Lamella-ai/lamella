@@ -1,0 +1,157 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}{{ entity.display_name or entity.slug }} expenses — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Expenses{% endblock %}
+
+{% block content %}
+{% set _has_filters = q or category_filter or only_fixme %}
+{% set _showing_to = (offset + rows|length) %}
+{% set _has_prev = offset > 0 %}
+{% set _has_next = (offset + limit) < total_rows %}
+
+{% call L.page_head(
+     title=(entity.display_name or entity.slug) ~ ' · expenses',
+     subtitle=period.current_start|string ~ ' → ' ~ period.current_end|string,
+     kicker='Business'
+) %}
+  {{ B.btn('Back to ' ~ (entity.display_name or entity.slug),
+           href='/businesses/' ~ entity.slug) }}
+  {{ B.btn('All transactions',
+           href='/businesses/' ~ entity.slug ~ '/transactions?period=' ~ period.label) }}
+  {{ B.btn('Accounts',
+           href=entity_url(entity, '/accounts')) }}
+  {{ B.btn('Search', href='/search?q=' ~ entity.slug ~ '&lookback_days=365') }}
+{% endcall %}
+
+{# ─── Filter bar ─── #}
+<form method="get" action="{{ entity_url(entity, '/expenses') }}"
+      style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:flex-end; margin-bottom:1.25rem">
+  <div style="flex:1; min-width:240px">
+    <label for="q" class="subtle" style="display:block; font-size:0.78rem">Search payee / narration</label>
+    <input type="search" id="q" name="q" value="{{ q }}" autocomplete="off"
+           style="width:100%; padding:6px 10px"
+           placeholder="e.g. Acme, fuel, rent…">
+  </div>
+
+  <div>
+    <label for="category" class="subtle" style="display:block; font-size:0.78rem">Category</label>
+    <select id="category" name="category" style="padding:6px 10px">
+      <option value="">All ({{ categories|length }})</option>
+      {% for c in categories %}
+      <option value="{{ c.account }}" {% if c.account == category_filter %}selected{% endif %}>
+        {{ c.account | alias }} · {{ c.amount | money }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label for="period" class="subtle" style="display:block; font-size:0.78rem">Period</label>
+    <select id="period" name="period" style="padding:6px 10px">
+      {% for p in period_options %}
+      <option value="{{ p }}" {% if p == period.label %}selected{% endif %}>{{ p }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <label style="display:flex; align-items:center; gap:6px; padding-bottom:6px">
+    <input type="checkbox" name="fixme" value="1" {% if only_fixme %}checked{% endif %}>
+    <span class="subtle">Only uncategorized</span>
+  </label>
+
+  {{ B.btn('Apply', type='submit', variant='primary', size='sm') }}
+  {% if _has_filters %}
+  {{ B.btn('Clear', href='/businesses/' ~ entity.slug ~ '/expenses?period=' ~ period.label,
+           variant='ghost', size='sm') }}
+  {% endif %}
+</form>
+
+{# ─── Result table ─── #}
+{% if rows %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th class="num">Amount</th>
+      <th>Category</th>
+      <th>Payee / Narration</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr class="row-clickable {% if r.has_fixme %}row-warn{% endif %}"
+        onclick="window.location='/txn/{{ r.lamella_txn_id }}'">
+      <td class="num muted-text">{{ r.date }}</td>
+      <td class="num">{{ r.amount | money(r.currency) }}</td>
+      <td title="{{ r.account }}">
+        {{ r.account | alias }}
+        {% if r.has_fixme %}{{ D.badge('Uncategorized', tone='warn') }}{% endif %}
+      </td>
+      <td>
+        {% if r.payee %}<strong>{{ r.payee }}</strong>{% if r.narration %} · {% endif %}{% endif %}
+        <span class="subtle">{{ r.narration }}</span>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+
+<div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.75rem">
+  <p class="subtle" style="margin:0">
+    Showing {{ offset + 1 }}–{{ _showing_to }} of {{ total_rows }} matching legs.
+    {% if rows|length != total_rows and not _has_filters %}
+      Use a category or search filter to drill down.
+    {% endif %}
+  </p>
+  <div style="display:flex; gap:6px">
+    {% set _qs_base -%}
+      ?period={{ period.label }}
+      {%- if q %}&q={{ q | urlencode }}{% endif -%}
+      {%- if category_filter %}&category={{ category_filter | urlencode }}{% endif -%}
+      {%- if only_fixme %}&fixme=1{% endif -%}
+      &limit={{ limit }}
+    {%- endset %}
+    {% if _has_prev %}
+    {{ B.btn('← Prev', href='/businesses/' ~ entity.slug ~ '/expenses' ~ _qs_base ~ '&offset=' ~ ([offset - limit, 0] | max),
+             variant='ghost', size='sm') }}
+    {% endif %}
+    {% if _has_next %}
+    {{ B.btn('Next →', href='/businesses/' ~ entity.slug ~ '/expenses' ~ _qs_base ~ '&offset=' ~ (offset + limit),
+             variant='ghost', size='sm') }}
+    {% endif %}
+  </div>
+</div>
+
+{% else %}
+{% if _has_filters %}
+{{ F.empty_state(
+  'No matching expense transactions for ' ~ entity.slug ~ ' in this period.',
+  cta_text='Clear filters',
+  cta_href='/businesses/' ~ entity.slug ~ '/expenses?period=' ~ period.label,
+) }}
+{% else %}
+{{ F.empty_state(
+  'No expense transactions for ' ~ entity.slug ~ ' in this period.',
+  cta_text='Try “all time”',
+  cta_href='/businesses/' ~ entity.slug ~ '/expenses?period=all',
+) }}
+{% endif %}
+{% endif %}
+
+{% endblock %}

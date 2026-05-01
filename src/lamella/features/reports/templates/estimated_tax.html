@@ -1,0 +1,41 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Estimated tax worksheet — {{ year }} Q{{ quarter }}</title>
+  <style>{% include "_print_base.css" %}</style>
+</head>
+<body>
+  <h1>Estimated tax worksheet</h1>
+  <p class="muted">Year {{ year }}, Quarter {{ quarter }} — generated {{ generated_at }}.</p>
+  <p class="muted">
+    <strong>This is a planning worksheet, not a filing.</strong> Numbers are
+    YTD net income per entity multiplied by a flat user-configured rate.
+    Federal brackets, self-employment tax, and state taxes are not modeled.
+  </p>
+
+  <table class="lines">
+    <thead><tr><th>Entity</th><th class="amt">Income</th><th class="amt">Expenses</th><th class="amt">Net</th><th class="amt">Estimated tax @ {{ "%.1f"|format(rate*100) }}%</th></tr></thead>
+    <tbody>
+      {% for row in entity_rows %}
+        <tr>
+          <td>{{ row.entity }}</td>
+          <td class="amt">{{ row.income | money }}</td>
+          <td class="amt">{{ row.expenses | money }}</td>
+          <td class="amt">{{ row.net | money_signed }}</td>
+          <td class="amt">{{ row.estimated_tax | money }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="totals">YTD estimated tax across entities: {{ total | money }}</p>
+</body>
+</html>

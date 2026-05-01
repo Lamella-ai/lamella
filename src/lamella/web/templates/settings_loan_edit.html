@@ -1,0 +1,245 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Edit {{ loan.display_name or loan.slug }} — Loan{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Edit loan{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Edit ' ~ (loan.display_name or loan.slug),
+     subtitle='Identity, terms, escrow, linked ledger accounts, and close-out status.',
+     kicker='Settings · Loans'
+) %}
+  {{ B.btn('Back to loan detail', href='/settings/loans/' ~ loan.slug, variant='ghost') }}
+{% endcall %}
+
+{% if saved %}{% call F.banner(tone='ok', title='Saved') %}Loan updated.{% endcall %}{% endif %}
+
+<datalist id="accounts-datalist"></datalist>
+<datalist id="loan-types-datalist">
+  {% for t in loan_types %}<option value="{{ t }}">{% endfor %}
+</datalist>
+<datalist id="loan-entities-datalist">
+  {% for e in entities %}<option value="{{ e.slug }}" label="{{ e.display_name or e.slug }}">{% endfor %}
+</datalist>
+<datalist id="loan-properties-datalist">
+  {% for p in properties %}<option value="{{ p.slug }}" label="{{ p.display_name or p.slug }}">{% endfor %}
+</datalist>
+<datalist id="loan-active-datalist">
+  <option value="1" label="Active">
+  <option value="0" label="Closed / paid off">
+</datalist>
+
+{% call L.form_split() %}
+
+{% call L.form_col() %}
+<form method="post" action="/settings/loans" autocomplete="off"
+      class="form-split-form--paired">
+  <input type="hidden" name="slug" value="{{ loan.slug }}" />
+  <input type="hidden" name="redirect_to" value="/settings/loans/{{ loan.slug }}" />
+
+  {% call C.card(title='Identity') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field"><label class="field-label">Display name</label><input class="field-input" type="text" name="display_name" value="{{ loan.display_name or '' }}" /></div>
+      <div class="field">
+        <label class="field-label">Loan type</label>
+        <input class="field-input" type="text" name="loan_type" list="loan-types-datalist" value="{{ loan.loan_type or '' }}" />
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label">Entity</label>
+        <input class="field-input" type="text" name="entity_slug" list="loan-entities-datalist" value="{{ loan.entity_slug or '' }}" />
+      </div>
+      <div class="field"><label class="field-label">Institution</label><input class="field-input" type="text" name="institution" value="{{ loan.institution or '' }}" /></div>
+    </div>
+    <div class="field">
+      <label class="field-label">Property secured (optional)</label>
+      <input class="field-input" type="text" name="property_slug" list="loan-properties-datalist" value="{{ loan.property_slug or '' }}" placeholder="leave blank for none" />
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Identity</h3>
+    <p><strong>Entity</strong> determines whose Schedule C / E this loan’s interest expense rolls up under. A loan owned by <code>Personal</code> deducts on Schedule A (mortgage interest); a loan owned by your business entity deducts on Schedule C / E.</p>
+    <p><strong>Property secured</strong> — leave blank for unsecured debt (personal line, business term loan). Setting it ties the loan to a property, so the property detail page shows combined balance + headroom for HELOCs and second mortgages.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Terms') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field"><label class="field-label">Original principal</label><input class="field-input" type="text" name="original_principal" value="{{ loan.original_principal or '' }}" required /></div>
+      <div class="field"><label class="field-label">Funded date</label><input class="field-input" type="date" name="funded_date" value="{{ loan.funded_date or '' }}" required /></div>
+    </div>
+    <div class="form-row-2">
+      <div class="field"><label class="field-label">First payment date</label><input class="field-input" type="date" name="first_payment_date" value="{{ loan.first_payment_date or '' }}" /></div>
+      <div class="field"><label class="field-label">Payment due day (1–31)</label><input class="field-input" type="number" name="payment_due_day" min="1" max="31" value="{{ loan.payment_due_day or '' }}" /></div>
+    </div>
+    <div class="form-row-2">
+      <div class="field"><label class="field-label">Term (months)</label><input class="field-input" type="number" name="term_months" value="{{ loan.term_months or '' }}" /></div>
+      <div class="field"><label class="field-label">Interest rate APR (%)</label><input class="field-input" type="text" name="interest_rate_apr" value="{{ loan.interest_rate_apr or '' }}" /></div>
+    </div>
+    <div class="field"><label class="field-label">Monthly payment (est.)</label><input class="field-input" type="text" name="monthly_payment_estimate" value="{{ loan.monthly_payment_estimate or '' }}" /></div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Terms</h3>
+    <p><strong>Original principal</strong> + <strong>funded date</strong> are the only required fields here — they’re what the amortization model needs to compute principal/interest splits on every payment.</p>
+    <p><strong>Term + APR</strong> are needed if you want the modeled monthly payment to match. Skip them and the system uses your <em>monthly payment (est.)</em> verbatim instead of computing it.</p>
+    <p><strong>Payment due day</strong> drives the “next payment due” signal on the dashboard and in the calendar.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Revolving / line of credit') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="field">
+      <label style="display:flex; gap:8px; align-items:center; font-size:0.92rem">
+        <input type="checkbox" name="is_revolving" value="1" {% if loan.is_revolving %}checked{% endif %} />
+        Revolving (HELOC / line of credit)
+      </label>
+    </div>
+    <div class="field">
+      <label class="field-label">Credit limit (informational)</label>
+      <input class="field-input" type="text" name="credit_limit" value="{{ loan.credit_limit or '' }}" placeholder="100000.00" />
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block tone-warn">
+    <h3>Revolving (HELOC / LOC)</h3>
+    <p>Check this for any debt that doesn’t follow a fixed amortization schedule. Once revolving, the auto-classifier won’t try to split payments into principal/interest — you categorize each one by hand via record-payment.</p>
+    <p><strong>Credit limit</strong> surfaces available headroom on the property panel. Informational only — no enforcement.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Escrow / tax / insurance (monthly)') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field"><label class="field-label">Escrow / month</label><input class="field-input" type="text" name="escrow_monthly" value="{{ loan.escrow_monthly or '' }}" /></div>
+      <div class="field"><label class="field-label">Property tax / month</label><input class="field-input" type="text" name="property_tax_monthly" value="{{ loan.property_tax_monthly or '' }}" /></div>
+    </div>
+    <div class="field"><label class="field-label">Insurance / month</label><input class="field-input" type="text" name="insurance_monthly" value="{{ loan.insurance_monthly or '' }}" /></div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Escrow vs. tax vs. insurance</h3>
+    <p>Only fill these in if your servicer collects them. Leave blank when you pay property tax + insurance directly.</p>
+    <p>The three fields are independent: <strong>escrow</strong> is the total amount the servicer pulls into the holding account; <strong>tax</strong> + <strong>insurance</strong> are the line-item monthly accruals the servicer pays out from that escrow. They typically don’t add up exactly — escrow includes a buffer.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Linked ledger accounts') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="field">
+      <label class="field-label">Liability account path</label>
+      <input class="field-input" type="text" name="liability_account_path" list="accounts-datalist"
+             value="{{ loan.liability_account_path or '' }}"
+             placeholder="Liabilities:Personal:Bank:SlugName" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label class="field-label">Interest expense account</label>
+      <input class="field-input" type="text" name="interest_account_path" list="accounts-datalist"
+             value="{{ loan.interest_account_path or '' }}"
+             placeholder="Expenses:Personal:SlugName:Interest" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label class="field-label">Escrow account (Asset)</label>
+      <input class="field-input" type="text" name="escrow_account_path" list="accounts-datalist"
+             value="{{ loan.escrow_account_path or '' }}"
+             placeholder="Assets:Personal:Bank:SlugName:Escrow" autocomplete="off" />
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Linked ledger accounts</h3>
+    <p><strong>Liability account</strong> is the negative-balance Beancount account that tracks principal owed. The model decrements this on every payment’s principal split.</p>
+    <p><strong>Interest expense</strong> is where the interest portion of each payment lands (deductible on whatever schedule the entity rolls up to).</p>
+    <p><strong>Escrow account</strong> sits on the <strong>Assets</strong> side — it’s your money the servicer is holding to pay tax + insurance on your behalf. Leave blank with a monthly escrow amount set, and we’ll auto-suggest a path like <code>Assets:{{ loan.entity_slug or 'Personal' }}:{{ loan.institution or 'Bank' }}:{{ loan.slug }}:Escrow</code>.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Status / close-out') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field"><label class="field-label">Payoff date</label><input class="field-input" type="date" name="payoff_date" value="{{ loan.payoff_date or '' }}" /></div>
+      <div class="field"><label class="field-label">Payoff amount</label><input class="field-input" type="text" name="payoff_amount" value="{{ loan.payoff_amount or '' }}" /></div>
+    </div>
+    <div class="field">
+      <label class="field-label">Active</label>
+      <input class="field-input" type="text" name="is_active" list="loan-active-datalist" value="{{ '1' if loan.is_active else '0' }}" />
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block tone-err">
+    <h3>Close-out</h3>
+    <p>Setting a <strong>payoff date</strong> without toggling Active automatically closes the loan. The amortization model stops projecting forward; the loan still appears in historical reports.</p>
+    <p>If the payoff is in the future, set it as a planned date — the dashboard will surface it at the right time.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Other') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="field"><label class="field-label">SimpleFIN account id</label><input class="field-input" type="text" name="simplefin_account_id" value="{{ loan.simplefin_account_id or '' }}" /></div>
+    <div class="field"><label class="field-label">Notes</label><textarea class="field-textarea" name="notes" rows="3">{{ loan.notes or '' }}</textarea></div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>SimpleFIN ID</h3>
+    <p>If your bank exposes the loan via SimpleFIN, paste the SimpleFIN account id here. The classifier uses it to auto-route incoming statement balances to this loan’s liability account.</p>
+  </div>
+  {% endcall %}
+
+  <div class="form-actions" style="margin-top:1.5rem">
+    {{ B.btn('Cancel', href='/settings/loans/' ~ loan.slug, variant='ghost') }}
+    <span class="spacer"></span>
+    {{ B.btn('Save loan', type='submit', variant='primary') }}
+  </div>
+</form>
+{% endcall %}
+
+{# help_col is kept (empty) so the .form-split-help drawer scaffold
+   exists for narrow viewports. JS in base.html clones each
+   .form-paired-help block into it on page load. #}
+{% call L.help_col() %}{% endcall %}
+
+{% endcall %}
+
+<script>
+  fetch('/api/accounts', {credentials:'same-origin'})
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      if (!d || !Array.isArray(d.all)) return;
+      const dl = document.getElementById('accounts-datalist');
+      const labels = (d.labels && typeof d.labels === 'object') ? d.labels : {};
+      window.__acctLabels = labels;
+      for (const n of d.all) {
+        const o = document.createElement('option');
+        o.value = n;
+        if (labels[n] && labels[n] !== n) o.label = labels[n];
+        dl.appendChild(o);
+      }
+    })
+    .catch(() => undefined);
+</script>
+{% endblock %}

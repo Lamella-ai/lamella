@@ -1,0 +1,1193 @@
+/*
+ * Copyright 2026 Lamella LLC
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+ * https://lamella.ai
+ */
+
+/* ============================================================
+   shell.css — global app chrome (sidebar, top bar, footer,
+   theme tokens, layout modes). Loads AFTER app.css so its
+   tokens win and its .topbar/.footer rules override anything
+   the legacy stylesheet still ships.
+
+   Scope discipline: this file owns ONLY the shell. Page-level
+   components (.kpi, .card, .btn, .badge, .tbl, etc.) stay in
+   app.css to avoid colliding with hundreds of pages that
+   already use the existing class system. Pages keep their
+   current internal styling; they just sit inside the new
+   chrome.
+   ============================================================ */
+
+/* ───── Self-hosted IBM Plex (OFL 1.1, see fonts/LICENSE.txt) ─────
+   font-display: block — brief invisible-text wait on hard
+   reload, then renders with the real font. No FOUT swap.
+*/
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 400;
+  font-display: block;
+  src: url("fonts/IBMPlexSans-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 500;
+  font-display: block;
+  src: url("fonts/IBMPlexSans-Medium.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 600;
+  font-display: block;
+  src: url("fonts/IBMPlexSans-SemiBold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 700;
+  font-display: block;
+  src: url("fonts/IBMPlexSans-Bold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Mono"; font-style: normal; font-weight: 400;
+  font-display: block;
+  src: url("fonts/IBMPlexMono-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Mono"; font-style: normal; font-weight: 500;
+  font-display: block;
+  src: url("fonts/IBMPlexMono-Medium.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Mono"; font-style: normal; font-weight: 600;
+  font-display: block;
+  src: url("fonts/IBMPlexMono-SemiBold.woff2") format("woff2");
+}
+
+/* Brand wordmark — Poppins SemiBold (OFL 1.1, see fonts/LICENSE.txt).
+   Used ONLY by the .brand-wordmark class so the rest of the UI stays
+   on IBM Plex. font-display: swap because the wordmark is decorative;
+   IBM Plex 600 is a perfectly serviceable fallback for the few hundred
+   ms before Poppins lands. */
+@font-face {
+  font-family: "Poppins"; font-style: normal; font-weight: 600;
+  font-display: swap;
+  src: url("fonts/Poppins-SemiBold.woff2") format("woff2");
+}
+
+/* ───── 1. Theme tokens ─────
+   The same token names app.css already uses (--bg, --panel,
+   --border, --fg, --muted, --accent, --ok, --warn, --err) get
+   re-declared here so dark mode is just a matter of swapping
+   the values via [data-theme="dark"]. Existing pages that use
+   these tokens get dark mode for free.
+*/
+:root, [data-theme="light"] {
+  --bg:           #f7f8fa;
+  --bg-elev:      #ffffff;
+  --panel:        #ffffff;
+  --panel-2:      #f3f5f8;
+  --border:       #e4e7ec;
+  --border-soft:  #eef0f3;
+  --fg:           #0f172a;
+  --fg-soft:      #1f2937;
+  --muted:        #64748b;
+  --muted-soft:   #94a3b8;
+  --placeholder:  #b4b7bd;
+  --accent:       #2563eb;
+  --accent-fg:    #ffffff;
+  --accent-soft:  #eef4ff;
+  --accent-deep:  #1d4ed8;
+  --ok:           #15803d;
+  --ok-soft:      #dcfce7;
+  --warn:         #b45309;
+  --warn-soft:    #fef3c7;
+  --err:          #b91c1c;
+  --err-soft:     #fee2e2;
+  --info-soft:    #dbeafe;
+  --shadow-sm:    0 1px 2px rgba(15,23,42,0.04), 0 0 0 1px rgba(15,23,42,0.04);
+  --shadow-md:    0 4px 12px rgba(15,23,42,0.06), 0 0 0 1px rgba(15,23,42,0.04);
+  --shadow-lg:    0 16px 48px rgba(15,23,42,0.16);
+  --ring:         0 0 0 3px rgba(37,99,235,0.18);
+  /* Brand tokens — Lamella identity. Match the indigo ramp + teal
+     accent shipped in the brand SVG (static/img/lamella-icon.svg).
+     Wordmark base color tracks --fg so the mark reads in both themes.
+     --brand-accent is the teal "ll" highlight in the wordmark. */
+  --brand-wordmark:      #1f2937;
+  --brand-accent:        #14b8a6;
+  --brand-indigo-deep:   #312e81;
+  --brand-indigo:        #4f46e5;
+  --brand-indigo-soft:   #a5b4fc;
+}
+
+[data-theme="dark"] {
+  --bg:           #0b0f17;
+  --bg-elev:      #131823;
+  --panel:        #131823;
+  --panel-2:      #1a2030;
+  --border:       #232b3c;
+  --border-soft:  #1c2333;
+  --fg:           #e7ecf2;
+  --fg-soft:      #cdd5e1;
+  --muted:        #8b95a7;
+  --muted-soft:   #5e6878;
+  --placeholder:  #4f5868;
+  --accent:       #4a90ff;
+  --accent-fg:    #0b0f17;
+  --accent-soft:  rgba(74,144,255,0.14);
+  --accent-deep:  #6aa6ff;
+  --ok:           #34d399;
+  --ok-soft:      rgba(52,211,153,0.12);
+  --warn:         #fbbf24;
+  --warn-soft:    rgba(251,191,36,0.12);
+  --err:          #f87171;
+  --err-soft:     rgba(248,113,113,0.12);
+  --info-soft:    rgba(74,144,255,0.12);
+  --shadow-sm:    0 1px 2px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+  --shadow-md:    0 4px 12px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04);
+  --shadow-lg:    0 24px 48px rgba(0,0,0,0.55);
+  --ring:         0 0 0 3px rgba(74,144,255,0.32);
+  /* Brand tokens — dark theme. Wordmark goes near-white so it reads on
+     dark panels; the teal accent stays vivid (the lighter teal sits
+     better on the dark panel than the saturated #14b8a6 used on light). */
+  --brand-wordmark:      #f1f5f9;
+  --brand-accent:        #5eead4;
+  --brand-indigo-deep:   #312e81;
+  --brand-indigo:        #6366f1;
+  --brand-indigo-soft:   #a5b4fc;
+}
+
+/* Geometry tokens — used by container variants + sidebar */
+:root {
+  --container-narrow:    720px;
+  --container-default:   1100px;
+  --container-wide:      1440px;
+  --sidebar-w:           256px;
+  --sidebar-w-collapsed: 72px;
+  --topbar-h:            56px;
+  --radius-sm:           6px;
+  --radius:              10px;
+  --radius-lg:           14px;
+  --font-sans:           "IBM Plex Sans", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --font-mono:           "IBM Plex Mono", ui-monospace, "SF Mono", Consolas, monospace;
+}
+
+/* ───── 2. Body / typography baseline ─────
+   Override the sans-serif body that app.css declared with a
+   system stack — we now have Plex available locally.
+*/
+html, body {
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
+  background: var(--bg);
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.num, .tabular { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 4px; }
+
+/* ───── 3. Shell layout grid ───── */
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  min-height: 100vh;
+  transition: grid-template-columns 0.18s ease;
+}
+.shell.is-collapsed { grid-template-columns: var(--sidebar-w-collapsed) 1fr; }
+
+.main-region {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;  /* prevents grid item overflow on tables */
+}
+/* Explicit grid placement so .main-region stays in column 2 even
+   when the sidebar gets pulled out of grid flow (position:fixed
+   during the 641-960 overlay open). Without this, CSS grid auto-
+   flow would re-place .main-region into the now-empty 72px column
+   1, squashing all page content into a thin strip — that was the
+   "content disappears" bug. Only applied when the shell actually
+   has 2 columns (>= 641px and not in setup/emergency layouts). */
+@media (min-width: 641px) {
+  [data-layout="app"] .shell > .sidebar { grid-column: 1; }
+  [data-layout="app"] .shell > .main-region { grid-column: 2; }
+}
+
+/* Setup + emergency layouts hide the sidebar entirely */
+[data-layout="setup"] .sidebar,
+[data-layout="emergency"] .sidebar { display: none; }
+[data-layout="setup"] .shell,
+[data-layout="emergency"] .shell { grid-template-columns: 1fr; }
+
+[data-layout="emergency"] .topbar { display: none; }
+[data-layout="emergency"] .footer-grid,
+[data-layout="emergency"] .footer-meta { display: none; }
+[data-layout="emergency"] .footer { padding: 1rem; }
+
+/* ───── 4. Sidebar ───── */
+
+.sidebar {
+  background: var(--bg-elev);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Header row that holds the brand + close button. The close button
+   only shows in drawer/overlay modes (< 960px). At wider viewports
+   the brand is the only visible child, so the row collapses to just
+   the link. The bottom border + topbar-height live here so they
+   span the full row consistently regardless of whether the close
+   button is rendered. */
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--topbar-h);
+  padding-right: 8px;
+  border-bottom: 1px solid var(--border-soft);
+  flex-shrink: 0;
+}
+.sidebar-close {
+  display: none;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.sidebar-close:hover { background: var(--panel-2); color: var(--fg); }
+.sidebar-close .icon { width: 18px; height: 18px; }
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  height: 100%;
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: var(--fg);
+}
+.sidebar-brand:hover { text-decoration: none; color: var(--fg); }
+.sidebar-brand .brand-mark {
+  /* Aspect-driven sizing — the SVG's intrinsic ratio is ~0.65 (276 x 426).
+     Fixing the height + width:auto keeps the icon at a consistent visual
+     weight regardless of viewport. */
+  height: 32px;
+  width: auto;
+  flex-shrink: 0;
+  display: block;
+}
+.sidebar-brand .brand-wordmark {
+  font-family: "Poppins", "IBM Plex Sans", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
+  color: var(--brand-wordmark);
+  white-space: nowrap;
+  overflow: hidden;
+  line-height: 1;
+}
+.sidebar-brand .brand-wordmark-accent { color: var(--brand-accent); }
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 8px 16px;
+  scrollbar-width: thin;
+}
+.sidebar-nav::-webkit-scrollbar { width: 6px; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+
+.nav-group { margin-top: 14px; }
+.nav-group:first-child { margin-top: 0; }
+.nav-group-label {
+  padding: 0 10px 6px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted-soft);
+  white-space: nowrap;
+  overflow: hidden;
+}
+a.nav-group-label--linked {
+  display: block;
+  text-decoration: none;
+  cursor: pointer;
+}
+a.nav-group-label--linked:hover { color: var(--accent); text-decoration: none; }
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  color: var(--fg-soft);
+  text-decoration: none;
+  border-radius: 7px;
+  font-size: 0.92rem;
+  font-weight: 500;
+  position: relative;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.nav-item:hover { background: var(--panel-2); color: var(--fg); text-decoration: none; }
+.nav-item.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.nav-item.is-active::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 0 3px 3px 0;
+}
+.nav-item .icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  stroke-width: 1.75;
+}
+.nav-item .label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nav-item .pill {
+  background: var(--border);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+}
+.nav-item.is-active .pill { background: var(--accent); color: var(--accent-fg); }
+
+/* Entity quick-jump items */
+.nav-item--entity .entity-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  margin-left: 5px;
+  margin-right: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-size: 0;
+  color: transparent;
+  text-transform: uppercase;
+  font-weight: 700;
+  transition:
+    width  0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
+    height 0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
+    margin 0.28s ease,
+    font-size 0.18s ease 0.08s,
+    color     0.18s ease 0.08s;
+}
+.nav-item--quiet { color: var(--muted); font-weight: 500; font-size: 0.86rem; }
+.nav-item--quiet:hover { color: var(--fg); }
+.nav-item--quiet .icon { width: 16px; height: 16px; opacity: 0.7; }
+
+/* Collapsed sidebar — icons only */
+.shell.is-collapsed .sidebar-brand .brand-wordmark,
+.shell.is-collapsed .nav-group-label,
+.shell.is-collapsed .nav-item .label,
+.shell.is-collapsed .nav-item .pill { display: none; }
+.shell.is-collapsed .nav-item { justify-content: center; padding: 9px 0; }
+.shell.is-collapsed .nav-group-label {
+  display: block;
+  padding: 0;
+  height: 1px;
+  background: var(--border-soft);
+  margin: 8px 12px;
+  color: transparent;
+  font-size: 0;
+}
+.shell.is-collapsed .sidebar-brand { justify-content: center; padding: 0; }
+.shell.is-collapsed .sidebar-collapse-btn .label-collapse,
+.shell.is-collapsed .sidebar-collapse-btn .label-expand { display: none; }
+.shell.is-collapsed .sidebar-collapse-btn .label-collapsed { display: inline; }
+/* Entity dots grow into labeled circles when collapsed */
+.shell.is-collapsed .nav-item--entity .entity-dot {
+  width: 22px;
+  height: 22px;
+  font-size: 0.74rem;
+  color: #fff;
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.sidebar-foot {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-soft);
+  flex-shrink: 0;
+}
+.sidebar-collapse-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.sidebar-collapse-btn:hover { background: var(--panel-2); color: var(--fg); }
+.sidebar-collapse-btn .label-collapsed { display: none; }
+
+/* Mobile drawer + 641-960 overlay backdrop. Same look in both modes
+   so the user sees consistent dimming across breakpoints. The
+   backdrop-filter blur softens the underlying content so the text
+   stays legible at the lower opacity. */
+.drawer-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15,23,42,0.32);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 90;
+  animation: shell-fade-in 0.18s;
+}
+@keyframes shell-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Sidebar responsive cascade — JS in base.html does the
+   .is-collapsed class management; CSS just handles the < 640px
+   drawer mode + hides the manual toggle in the locked range.
+
+   Breakpoints (aligned with Tailwind sm / md / xl):
+     >= 1280px: full sidebar by default; user can collapse (pref
+                persists in localStorage).
+     960–1280px: collapsed by default; user can expand (pref persists).
+     640–960px:  locked icon-only — no toggle button. The user can
+                hover for tooltips but can't keep it expanded.
+     < 640px:    drawer mode (slides in from left via hamburger).
+*/
+
+@media (max-width: 640px) {
+  .shell,
+  .shell.is-collapsed { grid-template-columns: 1fr; }
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100vh;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+  }
+  body.drawer-open .sidebar {
+    transform: translateX(0);
+    box-shadow: var(--shadow-lg);
+  }
+  body.drawer-open .drawer-backdrop { display: block; }
+  .sidebar-foot { display: none; }
+
+  /* Force the drawer to ALWAYS show full labels, regardless of any
+     persisted .shell.is-collapsed class. The narrow-rail icon-only
+     mode is meaningful for the persistent in-layout sidebar; when
+     the sidebar is a drawer the user opened on demand, labels are
+     what they need. */
+  .shell.is-collapsed .sidebar { width: 280px; }
+  .shell.is-collapsed .sidebar-brand,
+  .shell.is-collapsed .sidebar-brand .brand-wordmark { display: flex; padding: revert; }
+  .shell.is-collapsed .sidebar-brand { justify-content: flex-start; padding: 0 18px; }
+  .shell.is-collapsed .sidebar-brand .brand-wordmark { display: inline; }
+  .shell.is-collapsed .nav-group-label,
+  .shell.is-collapsed .nav-item .label,
+  .shell.is-collapsed .nav-item .pill { display: revert; }
+  .shell.is-collapsed .nav-group-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 8px 18px 4px;
+    color: var(--muted);
+    background: none;
+  }
+  .shell.is-collapsed .nav-item {
+    justify-content: flex-start;
+    padding: 7px 10px;
+  }
+  .shell.is-collapsed .nav-item--entity .entity-dot { margin-right: 0; }
+}
+
+/* ───── 5. Top bar ───── */
+
+.topbar {
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 18px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.topbar-hamburger {
+  display: none;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--fg);
+  cursor: pointer;
+}
+.topbar-hamburger:hover { background: var(--panel-2); }
+.topbar-hamburger .icon { width: 22px; height: 22px; }
+@media (max-width: 640px) {
+  /* Hamburger appears only when the sidebar is in drawer mode. */
+  .topbar-hamburger { display: flex; }
+  .topbar { padding: 0 12px; }
+}
+
+/* Close X appears in BOTH drawer (< 640) and overlay (641-960)
+   modes when the sidebar is open. Symmetric with the way the user
+   opened it. Keeps the affordance discoverable for mobile users. */
+@media (max-width: 960px) {
+  body.drawer-open .sidebar-close { display: flex; }
+}
+
+/* In the 641-960px range the in-layout sidebar is icon-only, but
+   the toggle button OPENS AN OVERLAY version of the sidebar (full
+   labels, floats over the content with a dimmed backdrop). Same
+   visual behavior as the hamburger drawer at < 640px, just triggered
+   by the existing collapse-toggle button instead of a hamburger.
+   Layout doesn't shift — the icon rail stays exactly where it was. */
+@media (min-width: 641px) and (max-width: 960px) {
+  /* When overlay is open (body.drawer-open), the sidebar expands
+     and lifts above the content. Layout grid is unchanged so the
+     content underneath doesn't reflow. */
+  body.drawer-open .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100vh;
+    z-index: 110;
+    /* Lighter shadow than the mobile drawer — the dark-mode --shadow-lg
+       has a 24px y-offset and 0.55 alpha that bleeds visibly across
+       the right-side content area in this range and reads as "content
+       gone". A flat 1px right border is enough separation. */
+    box-shadow: 0 0 0 1px var(--border);
+  }
+  /* Re-declare backdrop styling explicitly so it stays identical to
+     the < 640 mobile drawer regardless of cascade order. */
+  body.drawer-open .drawer-backdrop {
+    display: block;
+    background: rgba(15, 23, 42, 0.32);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+
+  /* Show full labels in overlay mode regardless of .is-collapsed. */
+  body.drawer-open .shell.is-collapsed .sidebar-brand,
+  body.drawer-open .shell.is-collapsed .sidebar-brand .brand-wordmark { display: flex; padding: revert; }
+  body.drawer-open .shell.is-collapsed .sidebar-brand { justify-content: flex-start; padding: 0 18px; }
+  body.drawer-open .shell.is-collapsed .sidebar-brand .brand-wordmark { display: inline; }
+  body.drawer-open .shell.is-collapsed .nav-group-label,
+  body.drawer-open .shell.is-collapsed .nav-item .label,
+  body.drawer-open .shell.is-collapsed .nav-item .pill { display: revert; }
+  body.drawer-open .shell.is-collapsed .nav-group-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 8px 18px 4px;
+    color: var(--muted);
+    background: none;
+  }
+  body.drawer-open .shell.is-collapsed .nav-item {
+    justify-content: flex-start;
+    padding: 7px 10px;
+  }
+  body.drawer-open .shell.is-collapsed .nav-item--entity .entity-dot { margin-right: 0; }
+}
+
+.topbar-page-title {
+  font-weight: 600;
+  font-size: 0.98rem;
+  letter-spacing: -0.005em;
+  color: var(--fg);
+  /* Allow shrinking + truncation so the search box and topbar
+     actions never get crowded out when the sidebar is expanded
+     at narrow viewport widths. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 1;
+}
+.topbar-page-title .crumb { color: var(--muted); font-weight: 500; }
+.topbar-page-title .crumb::after { content: "/"; margin: 0 8px; color: var(--muted-soft); }
+
+.topbar-search {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 380px;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px;
+  background: var(--panel-2);
+  /* Always-visible soft border. Without this the search box
+     blends into the topbar in dark mode (panel-2 and bg-elev
+     are very close in the dark palette). */
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--fg-soft);
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+.topbar-search:hover {
+  background: var(--bg-elev);
+  border-color: var(--accent);
+  color: var(--fg);
+}
+.topbar-search .icon { width: 16px; height: 16px; color: var(--muted); }
+.topbar-search .placeholder { flex: 1; text-align: left; color: var(--muted); }
+.topbar-search:hover .placeholder,
+.topbar-search:hover .icon { color: var(--fg-soft); }
+.topbar-search .kbd {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 1px 6px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.topbar-actions .icon-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--fg-soft);
+  position: relative;
+  cursor: pointer;
+}
+.topbar-actions .icon-btn:hover { background: var(--panel-2); color: var(--fg); }
+.topbar-actions .icon-btn .icon { width: 19px; height: 19px; }
+
+/* CSS-only theme icon swap. The button always renders both SVGs
+   in the markup; here we hide whichever doesn't match the current
+   data-theme. Selectors are scoped to .topbar-actions so the
+   specificity wins against any sibling .icon rules. */
+.topbar-actions .theme-btn .icon-moon { display: none; }
+[data-theme="dark"] .topbar-actions .theme-btn .icon-sun  { display: none; }
+[data-theme="dark"] .topbar-actions .theme-btn .icon-moon { display: inline-block; }
+.topbar-actions .icon-btn .dot {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  width: 7px;
+  height: 7px;
+  background: var(--err);
+  border-radius: 999px;
+  border: 2px solid var(--bg-elev);
+}
+.topbar-actions .new-btn {
+  height: 34px;
+  padding: 0 12px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: 0;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.88rem;
+  margin-right: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+}
+.topbar-actions .new-btn:hover { background: var(--accent-deep); text-decoration: none; }
+.topbar-actions .new-btn .icon { width: 16px; height: 16px; }
+
+/* The topbar collapses in stages as the viewport narrows.
+   Search + page title compete for space — the page title can be
+   long ("Edit loan" → "Backfill historical payments — …"), so the
+   search box collapses to an icon-only button at 900px to stop the
+   collision. The new-button label and page title hide later, at
+   600px, where the topbar truly runs out of room. */
+@media (max-width: 900px) {
+  .topbar-search .placeholder, .topbar-search .kbd { display: none; }
+  .topbar-search {
+    flex: 0 0 36px; max-width: 36px; width: 36px; height: 36px;
+    padding: 0; justify-content: center; border-radius: 8px;
+  }
+}
+@media (max-width: 600px) {
+  .topbar-actions .new-btn .new-btn-label { display: none; }
+  .topbar-actions .new-btn { padding: 0 10px; }
+  .topbar-page-title { display: none; }
+}
+
+/* ───── 6. Page (content region) ─────
+   Container variants. The legacy `.container` rule still exists
+   in app.css for any inline use, but base.html now uses .page.
+*/
+.page {
+  flex: 1;
+  padding: 32px clamp(16px, 3vw, 40px) 48px;
+  width: 100%;
+  margin: 0 auto;
+}
+.page--narrow   { max-width: var(--container-narrow); }
+.page--default  { max-width: var(--container-default); }
+.page--wide     { max-width: var(--container-wide); }
+.page--fluid    { max-width: 100%; }
+
+/* ───── 7. Footer ───── */
+
+.footer {
+  padding: 28px clamp(16px, 3vw, 40px);
+  background: var(--bg-elev);
+  border-top: 1px solid var(--border);
+  font-size: 0.86rem;
+  margin-top: auto;
+}
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1.2fr;
+  gap: 32px;
+  max-width: var(--container-wide);
+  margin: 0 auto;
+}
+@media (max-width: 800px) { .footer-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px) { .footer-grid { grid-template-columns: 1fr; } }
+
+.footer h4 {
+  margin: 0 0 10px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.footer ul.list-clean { list-style: none; padding: 0; margin: 0; }
+.footer ul.list-clean li { margin: 5px 0; }
+.footer .footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: "Poppins", "IBM Plex Sans", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--brand-wordmark);
+  letter-spacing: -0.01em;
+}
+.footer .footer-brand .brand-mark {
+  height: 28px;
+  width: auto;
+  display: block;
+  flex: none;
+}
+.footer .footer-brand .brand-wordmark-accent { color: var(--brand-accent); }
+.footer .tag {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  max-width: 28ch;
+  line-height: 1.5;
+}
+.footer-meta {
+  max-width: var(--container-wide);
+  margin: 22px auto 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.footer-meta .dot { color: var(--muted-soft); }
+.footer-kofi {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  text-decoration: none;
+  opacity: 0.75;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+.footer-kofi:hover {
+  opacity: 1;
+  color: var(--accent);
+}
+.footer-kofi .icon { flex: none; }
+.footer-simple .footer-kofi { font-size: inherit; }
+
+/* Right-aligned attribution + GitHub link. Uses margin-left:auto to
+   push to the far right of the .footer-meta flex row. */
+.footer-credit {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  color: var(--muted);
+}
+.footer-credit a {
+  color: var(--muted);
+  text-decoration: none;
+  opacity: 0.85;
+  transition: opacity 0.15s, color 0.15s;
+}
+.footer-credit a:hover { opacity: 1; color: var(--accent); }
+.footer-credit .footer-gh {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;        /* defeats inline-block baseline drift */
+}
+.footer-credit .footer-gh svg {
+  display: block;        /* removes baseline-driven vertical offset */
+  vertical-align: middle;
+}
+.footer-meta .health-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  background: var(--ok-soft);
+  color: var(--ok);
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+.footer-meta .health-pill.is-warn { background: var(--warn-soft); color: var(--warn); }
+.footer-meta .health-pill.is-err  { background: var(--err-soft);  color: var(--err); }
+.footer-meta .health-pill .pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 0 0 currentColor;
+  animation: shell-pulse 2.4s infinite;
+}
+@keyframes shell-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(21,128,61,0.4); }
+  70%  { box-shadow: 0 0 0 6px rgba(21,128,61,0); }
+  100% { box-shadow: 0 0 0 0 rgba(21,128,61,0); }
+}
+
+/* Setup mode footer = single muted line */
+[data-layout="setup"] .footer {
+  background: transparent;
+  border-top: 0;
+  padding: 8px 16px 28px;
+  text-align: center;
+  color: var(--muted);
+}
+[data-layout="setup"] .footer-grid,
+[data-layout="setup"] .footer-meta { display: none; }
+[data-layout="setup"] .footer-simple { display: flex; }
+
+.footer-simple {
+  display: none;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+.footer-simple .dot { color: var(--muted-soft); }
+
+/* ───── 8. Setup-mode chrome (steps strip + setup card) ───── */
+
+[data-layout="setup"] .topbar { background: var(--bg); border-bottom-color: transparent; }
+[data-layout="setup"] .topbar-actions .icon-btn:not(.theme-btn) { display: none; }
+[data-layout="setup"] .topbar-actions .new-btn { display: none; }
+[data-layout="setup"] .topbar-search { display: none; }
+[data-layout="setup"] .topbar-page-title { display: none; }
+[data-layout="setup"] .topbar-hamburger { display: none; }
+
+/* Setup-mode brand: hidden in app mode, surfaced on the left side
+   of the topbar in setup mode so /setup, /setup/import,
+   /setup/recovery, etc. all carry the same logo + theme toggle the
+   wizard standalone layout has. The `body[data-layout="app"]` rule
+   keeps it out of the regular topbar where the sidebar already
+   renders the brand. */
+.topbar-setup-brand { display: none; }
+[data-layout="setup"] .topbar-setup-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--text);
+  font-weight: 600;
+  margin-right: auto;
+  padding: 4px 6px;
+  border-radius: 8px;
+  transition: background 160ms ease;
+}
+[data-layout="setup"] .topbar-setup-brand:hover {
+  background: var(--panel-2, color-mix(in srgb, var(--text) 5%, var(--bg)));
+}
+.topbar-setup-brand-mark {
+  height: 36px;
+  width: auto;
+  flex: none;
+  display: block;
+}
+.topbar-setup-brand-name {
+  font-family: "Poppins", "IBM Plex Sans", system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--brand-wordmark);
+}
+.topbar-setup-brand-name .brand-wordmark-accent { color: var(--brand-accent); }
+@media (max-width: 600px) {
+  .topbar-setup-brand-name { display: none; }
+}
+
+.setup-shell { max-width: var(--container-narrow); margin: 0 auto; padding: 0 20px 48px; }
+.setup-brand { text-align: center; padding: 24px 0 8px; }
+.setup-brand .brand-mark {
+  height: 56px;
+  width: auto;
+  display: inline-block;
+}
+.setup-brand .brand-wordmark {
+  display: block;
+  margin-top: 12px;
+  font-family: "Poppins", "IBM Plex Sans", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 1.2rem;
+  letter-spacing: -0.01em;
+  color: var(--brand-wordmark);
+}
+.setup-brand .brand-wordmark-accent { color: var(--brand-accent); }
+
+.steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 26px 0 32px;
+  flex-wrap: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 8px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 500;
+  flex-shrink: 1;
+  min-width: 0;
+}
+.step .label-step {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 11ch;
+}
+.step .num {
+  width: 22px;
+  height: 22px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.step.is-done { background: var(--ok-soft); color: var(--ok); }
+.step.is-done .num { background: var(--ok); color: white; border-color: var(--ok); }
+.step.is-active { background: var(--accent-soft); color: var(--accent); }
+.step.is-active .num { background: var(--accent); color: white; border-color: var(--accent); }
+.step-rail { flex: 0 0 22px; height: 1px; background: var(--border); }
+@media (max-width: 600px) {
+  .steps { gap: 4px; }
+  .step .label-step { display: none; }
+  .step { padding: 6px; }
+}
+
+.setup-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px 32px 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ───── 9. Emergency mode ───── */
+
+.emergency-shell {
+  max-width: 540px;
+  margin: 0 auto;
+  padding: 12vh 20px 48px;
+  text-align: center;
+}
+.emergency-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 18px;
+  border-radius: 14px;
+  background: var(--err-soft);
+  color: var(--err);
+  display: grid;
+  place-items: center;
+}
+.emergency-icon .icon { width: 30px; height: 30px; }
+.emergency-shell h1 {
+  margin: 0 0 8px;
+  font-size: 1.7rem;
+  letter-spacing: -0.02em;
+}
+.emergency-shell .lead {
+  margin: 0 0 24px;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+.emergency-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  text-align: left;
+  margin-bottom: 22px;
+  font-size: 0.88rem;
+}
+.emergency-card .label { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.emergency-card code { font-family: var(--font-mono); font-size: 0.85rem; color: var(--err); word-break: break-word; }
+.emergency-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.emergency-foot {
+  margin-top: 28px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* ───── 10. Search palette (cmd+K) ───── */
+
+.palette-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15,23,42,0.5);
+  z-index: 200;
+  backdrop-filter: blur(2px);
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+}
+[data-theme="dark"] .palette-backdrop { background: rgba(0,0,0,0.65); }
+body.palette-open .palette-backdrop { display: flex; animation: shell-fade-in 0.15s; }
+.palette {
+  width: 100%;
+  max-width: 580px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: shell-pop-in 0.16s ease;
+}
+@keyframes shell-pop-in { from { transform: translateY(-8px) scale(0.98); opacity: 0; } to { transform: none; opacity: 1; } }
+.palette-input {
+  width: 100%;
+  border: 0;
+  padding: 16px 20px;
+  font-size: 1rem;
+  background: transparent;
+  color: var(--fg);
+  border-bottom: 1px solid var(--border-soft);
+  font-family: inherit;
+}
+.palette-input:focus { outline: none; }
+.palette-results { max-height: 320px; overflow: auto; padding: 6px; }
+.palette-section { padding: 8px 12px 4px; font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 7px;
+  font-size: 0.92rem;
+  color: var(--fg-soft);
+  cursor: pointer;
+  text-decoration: none;
+}
+.palette-item:hover, .palette-item.is-focus { background: var(--accent-soft); color: var(--accent); text-decoration: none; }
+.palette-item .icon { width: 16px; height: 16px; }
+.palette-item .arrow { margin-left: auto; color: var(--muted-soft); font-size: 0.85rem; }
+.palette-foot {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border-soft);
+  background: var(--panel-2);
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.palette-foot kbd {
+  font-family: var(--font-mono);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 0.74rem;
+  margin: 0 2px;
+}
+
+/* ───── 11. Reduced motion ───── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

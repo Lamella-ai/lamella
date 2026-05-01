@@ -1,0 +1,123 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{#
+  One row of the streamlined setup accounts editor. Used on initial
+  render and as the HTMX swap response when the row's form saves.
+
+  a.posting_count + a.has_simplefin drive the dependency badges so
+  the user can tell which accounts are actively used vs stale
+  discovery results before relabeling or closing.
+
+  When posting_count == 0 the row also offers a "🔒 Close" button
+  that appends a Close directive to connector_accounts.bean (or
+  drops the accounts_meta row if no explicit Open existed).
+#}
+{% set complete = (a.kind or '').strip() != '' and (a.entity_slug or '').strip() != '' %}
+{% set posting_count = a.posting_count or 0 %}
+{% set has_simplefin = a.has_simplefin %}
+<tr id="setup-account-{{ a.account_path|urlencode }}"
+    class="setup-account-row {% if complete %}setup-account-complete{% endif %}">
+  <td style="font-family:monospace; white-space:nowrap; font-size:0.88em; vertical-align:top;">
+    <span class="row-status-icon">{% if complete %}✓{% else %}○{% endif %}</span>
+    <span title="{{ a.account_path }}">{{ a.account_path }}</span>
+    <div class="small muted" style="margin-top:0.25em; font-family:system-ui,sans-serif;">
+      {% if posting_count == 0 %}
+        <span style="color:var(--accent); font-weight:600;"
+              title="No transactions ever posted to this account">⚠ 0 postings</span>
+      {% else %}
+        <span style="color:#0f766e; font-weight:600;">{{ posting_count }} posting{{ '' if posting_count == 1 else 's' }}</span>
+      {% endif %}
+      {% if has_simplefin %}
+        · <span style="color:var(--accent-deep);" title="Linked to a SimpleFIN account — auto-imports use this binding">SimpleFIN</span>
+      {% endif %}
+    </div>
+    {% if posting_count == 0 %}
+      <form method="post" action="/setup/accounts/close"
+            hx-post="/setup/accounts/close"
+            hx-target="#setup-account-{{ a.account_path|urlencode }}"
+            hx-swap="outerHTML"
+            style="display:inline; margin-top:0.3em;"
+            data-confirm="Close {{ a.account_path }}? Writes a Close directive into connector_accounts.bean (or drops the stale accounts_meta row if no Open exists in the ledger). Reversible by deleting the Close line or re-opening."
+            data-confirm-button="Close account">
+        <input type="hidden" name="account_path" value="{{ a.account_path }}" />
+        <button type="submit" class="secondary small"
+                style="font-size:0.82em; padding:0.15em 0.55em;"
+                title="Safe — no postings reference this account">🔒 Close account</button>
+      </form>
+    {% endif %}
+  </td>
+  <td>
+    <form method="post" action="/setup/accounts/save"
+          hx-post="/setup/accounts/save"
+          hx-swap="none"
+          class="save-row-form"
+          data-complete-fields="kind,entity_slug"
+          style="display:flex; gap:0.4em; flex-wrap:wrap; align-items:flex-end;">
+      <input type="hidden" name="account_path" value="{{ a.account_path }}" />
+      <label style="flex:1; min-width:8em;">
+        <span class="small muted">
+          Kind
+          {% if a.sibling_hint %}
+            <span title="Lamella inferred this kind from neighboring accounts; saving the row counts as confirmation."
+                  style="color:var(--accent); font-weight:600;">★ suggested</span>
+          {% endif %}
+        </span>
+        {# §7 #8 shape: an empty-value option that's selectable submits
+           kind="" and silently saves NULL. ``disabled`` makes it a
+           visible placeholder for unset rows but blocks accidental
+           re-submit; the save handler's COALESCE protects existing
+           values either way.
+
+           Phase 2: if a.sibling_hint is set, the kind dropdown is
+           prefilled from the sibling-inference pass. The row reads
+           "Looks like a {kind} based on the other Bank One
+           accounts under BetaCorp" and Save acts as confirmation —
+           update_account clears kind_source on save so the hint
+           stops re-rendering. #}
+        <select name="kind" style="width:100%;{% if a.sibling_hint %} border-color:var(--accent);{% endif %}">
+          <option value="" disabled {% if not a.kind %}selected{% endif %}>— pick a kind —</option>
+          {% for k in account_kinds %}
+            <option value="{{ k }}" {% if a.kind == k %}selected{% endif %}>{{ k | humanize }}</option>
+          {% endfor %}
+        </select>
+        {% if a.sibling_hint %}
+          <span class="small" style="display:block; margin-top:0.2em; color:var(--muted-strong); font-style:italic;">
+            Looks like a <strong>{{ a.kind }}</strong> {{ a.sibling_hint }} — Save to confirm.
+          </span>
+        {% endif %}
+      </label>
+      <label style="flex:1; min-width:8em;">
+        <span class="small muted">Entity</span>
+        {# CLAUDE.md rule 5: entity slugs are long-tail user data —
+           autocomplete (text input + datalist), never <select>. The
+           datalist is shared across all rows on the page; each input
+           references it by id. The empty-value "— pick an entity —"
+           placeholder still renders via the input's placeholder
+           attribute. #}
+        <input type="text" name="entity_slug" list="setup-accounts-entities-datalist"
+               value="{{ a.entity_slug or '' }}"
+               placeholder="— pick an entity —"
+               autocomplete="off"
+               style="width:100%;" />
+      </label>
+      <label style="flex:1.5; min-width:10em;">
+        <span class="small muted">Institution</span>
+        <input type="text" name="institution" value="{{ a.institution or '' }}"
+               placeholder="Bank One, Mercury, …" style="width:100%;" />
+      </label>
+      <label style="flex:0.5; min-width:5em;">
+        <span class="small muted">Last 4</span>
+        <input type="text" name="last_four" value="{{ a.last_four or '' }}"
+               pattern="[0-9]{0,4}" maxlength="4" placeholder="####"
+               style="width:100%;" />
+      </label>
+      <button type="submit" class="primary small save-btn">Save</button>
+    </form>
+  </td>
+</tr>

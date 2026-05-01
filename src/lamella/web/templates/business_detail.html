@@ -1,0 +1,421 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}{{ entity.display_name or entity.slug }} — Business{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}{{ entity.display_name or entity.slug }}{% endblock %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title=entity.display_name or entity.slug,
+     subtitle=entity.slug
+              + (' · ' + (entity.entity_type | humanize) if entity.entity_type else ''),
+     kicker='Business'
+) %}
+  {{ B.btn('Transactions', href='/businesses/' + entity.slug + '/transactions') }}
+  {{ B.btn('Expenses', href='/businesses/' + entity.slug + '/expenses') }}
+  {{ B.btn('Accounts', href='/businesses/' + entity.slug + '/accounts') }}
+  {{ B.btn('Search', href='/search?q=' + entity.slug + '&lookback_days=365', icon=icon.search()) }}
+  {{ B.btn('Reports', href='/reports?entity=' + entity.slug, icon=icon.barchart()) }}
+  {{ B.btn('Budgets', href='/budgets', icon=icon.piechart()) }}
+  {{ B.btn('Edit', href='/entities/' + entity.slug + '/edit', icon=icon.edit()) }}
+{% endcall %}
+
+{% if entity.tax_schedule %}
+<div style="margin-top:-1rem; margin-bottom:1.5rem">
+  {{ D.badge('Schedule ' + entity.tax_schedule, tone='accent') }}
+</div>
+{% endif %}
+
+{% if needs_attention %}
+{% call F.banner(tone='warn', title='Needs attention') %}
+  Newest uncategorized transaction:
+  <strong>{{ needs_attention.date }}</strong>
+  · <strong class="num">{{ needs_attention.amount | money(needs_attention.currency) }}</strong>
+  · {% if needs_attention.payee %}<strong>{{ needs_attention.payee }}</strong>{% endif %}
+  <span class="subtle">{{ needs_attention.narration }}</span>
+  <div style="margin-top:0.6rem; display:flex; gap:8px; flex-wrap:wrap">
+    {% if needs_attention.review_item_id %}
+    {{ B.btn('Classify →', href='/card?item_id=' + needs_attention.review_item_id|string, variant='primary', size='sm') }}
+    {% endif %}
+    {{ B.btn('View txn →', href='/txn/' + (needs_attention.lamella_txn_id or needs_attention.hash), size='sm') }}
+    {% if fixme_remaining %}
+    {{ B.btn('%d more pending →' % fixme_remaining, href='/search?q=' + entity.slug + '&fixme=1', variant='ghost', size='sm') }}
+    {% endif %}
+  </div>
+{% endcall %}
+{% endif %}
+
+<div id="period-block" style="margin-bottom:2rem">
+  {% include "_business_period_block.html" %}
+</div>
+
+{# ─── Charts ─── #}
+{% call L.section(title='Rolling 12-month P&L') %}
+{% call C.card() %}
+<div class="chart-box"><canvas id="chart-pnl-monthly"></canvas></div>
+{% endcall %}
+{% endcall %}
+
+{% call L.section(title='12-month expense trend') %}
+{% call C.card() %}
+{% if expense_trend.categories %}
+<div class="chart-box chart-box--tall"><canvas id="chart-expense-trend"></canvas></div>
+{% else %}
+{{ F.empty_state('No expenses in the last 12 months.') }}
+{% endif %}
+{% endcall %}
+{% endcall %}
+
+{# ─── Inventory ─── #}
+{% if inventory %}
+{% call L.section(title='Inventory') %}
+{% call C.kpi_grid() %}
+  {{ C.kpi_tile(label='Current balance', value=inventory.balance | money) }}
+  {{ C.kpi_tile(label='YTD change', value=inventory.ytd_delta | money,
+       tone='ok' if inventory.ytd_delta and inventory.ytd_delta|float > 0 else
+            ('err' if inventory.ytd_delta and inventory.ytd_delta|float < 0 else '')) }}
+  {{ C.kpi_tile(label='YTD COGS', value=inventory.ytd_cogs | money) }}
+{% endcall %}
+<p class="subtle"><a href="/settings/accounts?entity={{ entity.slug }}">Manage inventory accounts →</a></p>
+{% endcall %}
+{% elif entity.tax_schedule == 'C' and not has_cogs_accounts %}
+{# No inventory accounts yet — offer the one-click COGS seeder for
+   businesses that actually carry inventory. The button scaffolds
+   the four Schedule C Part III COGS leaves (Purchases /
+   MaterialsAndSupplies / Labor / OtherCosts) under
+   Expenses:{slug}:COGS:* and the Assets:{slug}:Inventory anchor.
+   Idempotent — re-running adds only missing leaves. #}
+{% call L.section(title='Inventory & COGS') %}
+{% call C.card() %}
+<p>Does <strong>{{ entity.display_name or entity.slug }}</strong> carry inventory?</p>
+<p class="subtle">If yes, set up the four standard <abbr title="Cost of Goods Sold">COGS</abbr> categories from Schedule C Part III: Purchases, Materials &amp; Supplies, Labor, and Other Costs — plus an inventory balance account. Skip if this business doesn’t resell physical goods.</p>
+<form method="post" action="{{ entity_url(entity, '/seed-cogs') }}"
+      style="margin-top:0.75rem">
+  {{ B.btn('Yes — set up COGS accounts', type='submit', variant='primary') }}
+</form>
+{% endcall %}
+{% endcall %}
+{% elif entity.tax_schedule == 'C' and has_cogs_accounts %}
+{% call L.section(title='Inventory & COGS') %}
+{% call C.card() %}
+{% if cogs_accounts %}
+<table class="tbl" style="margin-top:0.5rem">
+  <thead>
+    <tr>
+      <th>COGS account</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for account in cogs_accounts %}
+    <tr>
+      <td><a href="/search?q={{ account | urlencode }}&lookback_days=365">{{ account }}</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+<p class="subtle"><a href="/settings/accounts?entity={{ entity.slug }}">Manage accounts →</a></p>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+{# ─── Recent transactions ─── #}
+{% if recent_txns %}
+{% call L.section(title='Recent transactions', subtitle='Last 120 days') %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th class="num">Amount</th>
+      <th>Payee / Narration</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for t in recent_txns %}
+    <tr class="row-clickable {% if t.has_fixme %}row-warn{% endif %}"
+        onclick="window.location='/txn/{{ t.lamella_txn_id }}'">
+      <td class="num muted-text">{{ t.date }}</td>
+      <td class="num">{{ t.amount | money(t.currency) }}</td>
+      <td>
+        {% if t.payee %}<strong>{{ t.payee }}</strong> · {% endif %}
+        <span class="subtle">{{ t.narration }}</span>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+<p class="subtle" style="margin-top:0.5rem">
+  Click a row for the full transaction. <span class="bdg bdg--warn">Uncategorized</span> rows contain an uncategorized leg.
+  &middot; <a href="{{ entity_url(entity, '/expenses') }}">See all expenses for {{ entity.display_name or entity.slug }} →</a>
+</p>
+{% endcall %}
+{% endif %}
+
+{# ─── Vehicles + Properties side by side ─── #}
+{% if vehicles_summary or properties_summary %}
+{% call L.detail_split() %}
+  {% call L.main_col() %}
+    {% if vehicles_summary %}
+    {% call C.card(title='Vehicles', subtitle='YTD totals at $%.3f/mi' % vehicles_summary[0].mileage_rate) %}
+    {% endcall %}
+    {% call C.card(flush=true) %}
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Vehicle</th>
+          <th class="num">Business mi</th>
+          <th class="num">Std deduction</th>
+          <th class="num">Actual exp.</th>
+          <th class="shrink"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in vehicles_summary %}
+        <tr>
+          <td><strong>{{ v.display_name }}</strong></td>
+          <td class="num">{{ v.business_miles }}</td>
+          <td class="num">{{ v.standard_deduction | money }}</td>
+          <td class="num">{{ v.ytd_actual_expenses | money }}</td>
+          <td class="shrink">
+            <a href="/vehicles/{{ v.slug }}" class="muted-text" style="font-size:0.82rem">manage →</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endcall %}
+    {% endif %}
+  {% endcall %}
+  {% call L.aside_col() %}
+    {% if properties_summary %}
+    {% call C.card(title='Properties', subtitle='YTD income & expenses') %}
+    {% endcall %}
+    {% call C.card(flush=true) %}
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Property</th>
+          <th class="num">Income</th>
+          <th class="num">Exp.</th>
+          <th class="num">NOI</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in properties_summary %}
+        <tr>
+          <td>
+            <strong>{{ p.display_name }}</strong>
+            {% if p.address %}<br><span class="subtle">{{ p.address }}</span>{% endif %}
+          </td>
+          <td class="num">{{ p.ytd_income | money }}</td>
+          <td class="num">{{ p.ytd_expenses | money }}</td>
+          <td class="num">{{ p.ytd_noi | money }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endcall %}
+    {% endif %}
+  {% endcall %}
+{% endcall %}
+{% endif %}
+
+{# ─── Tax summary placeholder ─── #}
+{% call L.section(title='Tax summary') %}
+{% call F.banner(tone='info', title='Coming soon') %}
+  Schedule {{ entity.tax_schedule or "C/F" }} summary and the estimated-tax
+  calculator are coming in a later phase. For now, use the existing reports:
+  <div style="margin-top:0.6rem">
+    {{ B.btn('Open reports →', href='/reports?entity=' + entity.slug, size='sm') }}
+  </div>
+{% endcall %}
+{% endcall %}
+
+{# ─── Related records ─── #}
+{% call L.section(title='Related records') %}
+<div class="related-grid">
+  {% if accounts %}
+  {% call C.card(title='Accounts (%d)' % accounts|length) %}
+    <ul class="list-clean related-list">
+      {% for a in accounts %}
+      <li>
+        <a href="/settings/accounts" title="{{ a.account_path }}">{{ a.display_name or (a.account_path | alias) }}</a>
+        {% if a.kind %}<span class="subtle"> · {{ a.kind | humanize }}</span>{% endif %}
+        {% if a.last_four %}<span class="subtle"> · ····{{ a.last_four }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  {% endcall %}
+  {% endif %}
+  {% if loans %}
+  {% call C.card(title='Loans (%d)' % loans|length) %}
+    <ul class="list-clean related-list">
+      {% for l in loans %}
+      <li>
+        <a href="/settings/loans/{{ l.slug }}">{{ l.display_name or l.slug }}</a>
+        <span class="subtle"> · {{ l.loan_type }}</span>
+        {% if l.original_principal %}<span class="subtle"> · {{ l.original_principal | money }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  {% endcall %}
+  {% endif %}
+  {% if vehicles %}
+  {% call C.card(title='Vehicles (%d)' % vehicles|length) %}
+    <ul class="list-clean related-list">
+      {% for v in vehicles %}
+      <li><a href="/vehicles/{{ v.slug }}">{{ v.display_name or v.slug }}</a></li>
+      {% endfor %}
+    </ul>
+  {% endcall %}
+  {% endif %}
+  {% if properties %}
+  {% call C.card(title='Properties (%d)' % properties|length) %}
+    <ul class="list-clean related-list">
+      {% for p in properties %}
+      <li>
+        <a href="/settings/properties/{{ p.slug }}">{{ p.display_name or p.slug }}</a>
+        {% if p.address %}<br><span class="subtle">{{ p.address }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  {% endcall %}
+  {% endif %}
+  {% if balances %}
+  {% call C.card(title='Account balances') %}
+    <ul class="list-clean related-list">
+      {% for acct, bal in balances %}
+      <li title="{{ acct }}">
+        <span>{{ acct | alias }}</span>
+        — <span class="num">{{ bal | money }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  {% endcall %}
+  {% endif %}
+</div>
+{% endcall %}
+
+<script id="pnl-monthly-data" type="application/json">{{ pnl_monthly | tojson }}</script>
+<script id="expense-trend-data" type="application/json">{{ expense_trend | tojson }}</script>
+
+<script>
+(function () {
+  // Read theme-aware colors from CSS vars so charts respect light/dark mode.
+  const cs = getComputedStyle(document.documentElement);
+  const c = name => cs.getPropertyValue(name).trim();
+  const cReplace = (val, alpha) => {
+    // For non-rgba colors, append alpha as opacity via a wrapped rgba where possible.
+    // Chart.js accepts hex too — we just supply solid colors and rely on dataset
+    // alpha settings if needed.
+    return val;
+  };
+  const palette = [c('--chart-1'), c('--chart-2'), c('--chart-3'), c('--chart-4'), c('--chart-5'), c('--chart-6')];
+  const fg   = c('--fg')     || '#0f172a';
+  const grid = c('--border') || '#e4e7ec';
+  Chart.defaults.color = fg;
+  Chart.defaults.borderColor = grid;
+
+  function renderPnlMonthly() {
+    const el = document.getElementById("chart-pnl-monthly");
+    const dataEl = document.getElementById("pnl-monthly-data");
+    if (!el || !dataEl || !window.Chart) return;
+    const data = JSON.parse(dataEl.textContent);
+    new Chart(el, {
+      type: "bar",
+      data: {
+        labels: data.months,
+        datasets: [
+          { label: "Revenue",  data: data.revenue.map(Number),  backgroundColor: c('--chart-pos') },
+          { label: "Expenses", data: data.expenses.map(Number), backgroundColor: c('--chart-neg') },
+          {
+            label: "Net", data: data.net.map(Number),
+            type: "line", borderColor: c('--chart-net'),
+            backgroundColor: c('--chart-net'),
+            tension: 0.25, pointRadius: 3, yAxisID: "y",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        scales: {
+          y: { ticks: { callback: (v) => "$" + Number(v).toLocaleString() }, grid: { color: grid } },
+          x: { grid: { color: grid } },
+        },
+      },
+    });
+  }
+
+  function renderExpenseTrend() {
+    const el = document.getElementById("chart-expense-trend");
+    const dataEl = document.getElementById("expense-trend-data");
+    if (!el || !dataEl || !window.Chart) return;
+    const data = JSON.parse(dataEl.textContent);
+    if (!data.categories || !data.categories.length) return;
+    const datasets = data.categories.map((cat, i) => {
+      const label = cat.split(":").slice(-2).join(" · ");
+      return {
+        label,
+        data: (data.series[cat] || []).map(Number),
+        backgroundColor: palette[i % palette.length],
+        borderColor: palette[i % palette.length],
+        fill: true,
+        tension: 0.25,
+      };
+    });
+    new Chart(el, {
+      type: "line",
+      data: { labels: data.months, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        scales: {
+          y: { stacked: true, ticks: { callback: (v) => "$" + Number(v).toLocaleString() }, grid: { color: grid } },
+          x: { grid: { color: grid } },
+        },
+      },
+    });
+  }
+
+  function renderAll() { renderPnlMonthly(); renderExpenseTrend(); }
+  if (window.Chart) renderAll();
+  else window.addEventListener("load", renderAll);
+})();
+</script>
+
+<style>
+  .chart-box { height: 260px; padding: 0.75rem; }
+  .chart-box--tall { height: 320px; }
+  .related-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+  .related-list { font-size: 0.9rem; }
+  .related-list li { padding: 4px 0; border-bottom: 1px dashed var(--border-soft); }
+  .related-list li:last-child { border-bottom: 0; }
+</style>
+{% endblock %}

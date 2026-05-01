@@ -1,0 +1,68 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Legacy :Fees: paths — Data integrity{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Legacy :Fees: paths{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Legacy :Fees: paths',
+     subtitle='Before the account scaffolder was fixed, creating a credit-card or line-of-credit account wrote Expenses:{entity}:Fees:{institution}:{name} — which doesn’t map to any Schedule C line. These open directives are still in the ledger and every one is a path the AI classifier might try to use.',
+     kicker='Settings · Data integrity'
+) %}
+  {{ B.btn('Back to data integrity', href='/settings/data-integrity', variant='ghost') }}
+{% endcall %}
+
+{% if not legacy %}
+{{ F.empty_state('Nothing to migrate. Your ledger has no legacy :Fees: paths.', cta_text='Back to data integrity', cta_href='/settings/data-integrity') }}
+{% else %}
+<p style="margin:-8px 0 1rem">
+  <strong>{{ legacy | length }}</strong> legacy path{{ '' if legacy|length == 1 else 's' }} detected —
+  <strong>{{ orphan_count }}</strong> unused (safe to close),
+  <strong>{{ active_count }}</strong> already referenced by ledger postings.
+</p>
+
+{% call C.card(title='What to do', tone='info') %}
+<ul style="margin:0; padding-left:1.2rem; line-height:1.7">
+  <li><strong>Orphan paths</strong> (usage = 0) are safe to close — no postings reference them. Future re-scaffolding opens the correct <code>:Bank:</code> path.</li>
+  <li><strong>Active paths</strong> (usage ≥ 1) are in use by postings. Rewriting them means rewriting every override and every SimpleFIN transaction that references them — non-trivial. The app doesn’t auto-migrate these yet; leave them in place (they’re valid Beancount paths, just tax-unhelpful) and use the correct <code>:Bank:</code> companion going forward.</li>
+</ul>
+{% endcall %}
+
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead><tr><th>Current path</th><th>Proposed replacement</th><th>Usage</th><th>Replacement already open?</th></tr></thead>
+  <tbody>
+    {% for row in legacy %}
+    <tr>
+      <td><code style="font-size:0.85rem">{{ row.path }}</code></td>
+      <td><code style="font-size:0.85rem">{{ row.proposed }}</code></td>
+      <td>
+        {% if row.usage_count == 0 %}{{ D.badge('orphan (0 postings)', tone='warn') }}
+        {% else %}{{ D.badge(row.usage_count|string ~ ' posting' ~ ('' if row.usage_count == 1 else 's'), tone='accent') }}{% endif %}
+      </td>
+      <td>
+        {% if row.proposed_exists %}{{ D.badge('yes', tone='ok') }}
+        {% else %}<span class="subtle">not yet — visit the account detail page to auto-create companions</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endif %}
+{% endblock %}

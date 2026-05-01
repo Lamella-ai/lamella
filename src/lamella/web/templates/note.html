@@ -1,0 +1,118 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Capture note — Lamella{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block page_title %}Note{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Capture a note',
+     subtitle="Voice-to-text works great. Anything you type here gets parsed by the AI for context — entities, merchants, mileage hints.",
+     kicker='Daily'
+) %}
+{% endcall %}
+
+{% call C.card() %}
+<form method="post" action="/notes"
+      hx-post="/notes"
+      hx-target="#note-recent"
+      hx-swap="outerHTML"
+      hx-on::after-request="if (event.detail.successful) { this.reset(); const t = document.getElementById('note-body'); if (t) t.focus(); }"
+      class="form-grid" style="max-width:none">
+
+  <div class="field">
+    <label for="note-body" class="sr-only">Note</label>
+    <textarea class="field-textarea" id="note-body" name="body" rows="5" autofocus required
+              autocapitalize="sentences" enterkeyhint="done" autocomplete="off" inputmode="text"
+              placeholder="What happened?"
+              style="min-height:140px; font-size:1rem"></textarea>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label" for="note-entity">Entity (optional)</label>
+      <input class="field-input" id="note-entity" type="text" name="entity_hint"
+             autocapitalize="words" enterkeyhint="next" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="note-merchant">Merchant (optional)</label>
+      <input class="field-input" id="note-merchant" type="text" name="merchant_hint"
+             autocapitalize="words" enterkeyhint="done" autocomplete="off" />
+    </div>
+  </div>
+
+  <details>
+    <summary class="subtle" style="cursor:pointer">Backdate this note (optional)</summary>
+    <div class="field" style="margin-top:0.5rem">
+      <input class="field-input" type="datetime-local" name="captured_at" autocomplete="off" />
+      <span class="field-hint">
+        Leave blank to timestamp "now." Fill in to record a historical note —
+        useful for filling in examples the AI can learn from.
+      </span>
+    </div>
+  </details>
+
+  <div class="form-actions">
+    <span class="spacer"></span>
+    {{ B.btn('Save note', type='submit', variant='primary', icon=icon.check()) }}
+  </div>
+</form>
+{% endcall %}
+
+{# ─── Teach a rule directly ─── #}
+<details style="margin-top:1.5rem">
+  <summary class="subtle" style="cursor:pointer; font-weight:500; padding:8px 0">
+    Teach a rule directly (for repeat vendors)
+  </summary>
+  {% call C.card() %}
+    <p class="subtle" style="margin-top:0">
+      Skip the review queue — if you already know how a vendor should always
+      be categorized, create the rule here.
+    </p>
+    <form method="post" action="/teach" class="form-grid" autocomplete="off" style="max-width:none">
+      <div class="field">
+        <label class="field-label" for="teach-merchant">Merchant text contains</label>
+        <input class="field-input" id="teach-merchant" type="text" name="merchant" required autocomplete="off" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="teach-target">Target account</label>
+        <input class="field-input" id="teach-target" type="text" name="target_account" required
+               list="teach-accounts-datalist" autocomplete="off"
+               placeholder="e.g. Expenses:Entity:Category" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="teach-card">Scope to one card/account (optional)</label>
+        <input class="field-input" id="teach-card" type="text" name="card_account"
+               list="teach-accounts-datalist" autocomplete="off" />
+      </div>
+      <div class="form-actions">
+        <span class="spacer"></span>
+        {{ B.btn('Create rule', type='submit', variant='primary') }}
+      </div>
+    </form>
+    <datalist id="teach-accounts-datalist"></datalist>
+    <script>
+      fetch('/api/accounts', {credentials:'same-origin'})
+        .then(r=>r.ok?r.json():null)
+        .then(d=>{if(!d||!Array.isArray(d.all))return;const dl=document.getElementById('teach-accounts-datalist');for(const n of d.all){const o=document.createElement('option');o.value=n;dl.appendChild(o);}})
+        .catch(()=>0);
+    </script>
+  {% endcall %}
+</details>
+
+<div style="margin-top:2rem">
+{% include "partials/note_list.html" %}
+</div>
+{% endblock %}

@@ -1,0 +1,398 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "setup_recovery/_layout.html" %}
+{# B6 Step 0 canary — the new account-picker macro. Replaces the
+   inline <input list="setup-loans-liability-datalist"> on the
+   liability field below. #}
+{% import "_components/account_picker.html" as AP %}
+{% block title %}Loans — Setup — Lamella{% endblock %}
+
+{% block step_heading %}Loans{% endblock %}
+{% block step_subheading %}
+  Each loan needs a liability account (where the principal balance
+  lives), an interest-expense account (where monthly interest
+  payments post), and an entity. Escrow accounts are optional
+  (mortgages only). Loan payment classifications need all three
+  set so the split flow can route principal / interest / escrow
+  correctly.
+{% endblock %}
+
+{% block step_body %}
+{% set q = request.query_params %}
+{% if q.get('added') %}
+<div class="wiz-banner wiz-banner-ok" style="margin-bottom:1.2em;">
+  <strong style="color:var(--ok);">✓ Added <code>{{ q.get('added') }}</code>.</strong>
+  Use the Edit button on its row to fill in optional fields like APR, term, and escrow.
+</div>
+{% endif %}
+{% if q.get('updated') %}
+<div class="wiz-banner wiz-banner-ok" style="margin-bottom:1.2em;">
+  <strong style="color:var(--ok);">✓ Updated <code>{{ q.get('updated') }}</code>.</strong>
+</div>
+{% endif %}
+
+<div style="display:flex; gap:0.6em; margin:0 0 1.2em; align-items:center; flex-wrap:wrap;">
+  <a href="/setup/loans?add=loan" class="wiz-btn wiz-btn-primary">
+    + Add loan
+  </a>
+  <span class="wiz-sub small" style="margin:0;">
+    Opens an in-page modal — no redirect. Optional fields (APR,
+    escrow, term) can be filled in via the per-row Edit afterward.
+  </span>
+</div>
+
+{% if not loans %}
+<section class="wiz-card" style="padding:1.5em; text-align:center;">
+  <strong>No loans registered yet.</strong>
+  <p class="wiz-sub" style="margin:0.4em 0 0;">
+    Optional step — skip if you don&rsquo;t have any.
+  </p>
+</section>
+{% else %}
+<p style="margin:0 0 0.8em;">
+  {{ total }} active loan{{ '' if total == 1 else 's' }}.
+  {% if incomplete %}
+    <strong style="color:var(--warn);">{{ incomplete }} with missing required fields.</strong>
+  {% else %}
+    <strong style="color:var(--ok);">All required fields set.</strong>
+  {% endif %}
+</p>
+
+<table class="field-map">
+  <thead>
+    <tr>
+      <th>Slug</th>
+      <th>Institution</th>
+      <th>Kind</th>
+      <th>Entity</th>
+      <th>Linked asset</th>
+      <th>Status</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for l in loans %}
+    <tr style="background:{% if l.missing_fields %}var(--warn-soft){% else %}var(--ok-soft){% endif %};">
+      <td><strong>{{ l.display_name or l.slug }}</strong></td>
+      <td>{{ l.institution or '—' }}</td>
+      <td>{{ l.loan_type or '—' }}</td>
+      <td>
+        {% if l.entity_slug %}<code>{{ l.entity_slug | entity }}</code>
+        {% else %}<span style="color:var(--warn);">—</span>{% endif %}
+      </td>
+      <td class="small">
+        {% if l.property_slug %}Property <code>{{ l.property_slug }}</code>
+        {% elif l.vehicle_slug %}Vehicle <code>{{ l.vehicle_slug }}</code>
+        {% else %}<span class="wiz-sub">—</span>{% endif %}
+      </td>
+      <td class="small">
+        {% if l.missing_fields %}
+          <span style="color:var(--warn);">missing {{ l.missing_fields | length }}:</span>
+          <span class="wiz-sub small">{{ l.missing_fields | join(', ') }}</span>
+        {% else %}
+          <span style="color:var(--ok);">✓ ready</span>
+        {% endif %}
+      </td>
+      <td>
+        {# Phase 8 step 4: per-row Edit opens an in-page modal with
+           the recovery-shell field set (essentials + escrow). The
+           full editor at /settings/loans/{slug}/edit still exists
+           for power-user state-change ops (record payments, escrow
+           reconcile, payoff workflow); the recovery-flow link no
+           longer breaks out to the main app for routine field edits. #}
+        <a href="/setup/loans?edit={{ l.slug }}" class="small">Edit →</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{# Datalists — one set per page, referenced by id from modal inputs.
+   Per CLAUDE.md rule 5: account paths and entity slugs are long-tail
+   user data and must use autocomplete, not <select>. #}
+<datalist id="setup-loans-entities-datalist">
+  {% for slug in entity_slugs %}<option value="{{ slug }}">{% endfor %}
+</datalist>
+<datalist id="setup-loans-liability-datalist">
+  {% for path in liability_paths %}<option value="{{ path }}">{% endfor %}
+</datalist>
+<datalist id="setup-loans-expense-datalist">
+  {% for path in expense_paths %}<option value="{{ path }}">{% endfor %}
+</datalist>
+{% endblock %}
+
+{% block step_actions %}
+<a href="/setup/recovery" class="wiz-btn wiz-btn-secondary">← Back to checklist</a>
+<form method="post" action="/setup/refresh-progress" style="display:inline-block;">
+  <button type="submit" class="wiz-btn wiz-btn-primary">Done — return to checklist</button>
+</form>
+{% endblock %}
+
+{# ----- Modal block. Phase 4 (Add) + Phase 8 step 4 (Edit). ----- #}
+{% block modal %}
+{% if open_modal in ('loan', 'loan-edit') %}
+{% set fv = form_values or {} %}
+{% set fe = field_errors or {} %}
+{% set is_edit = open_modal == 'loan-edit' %}
+{% import "wizard/_modal.html" as M %}
+{% call M.modal(
+    title=("Edit loan: " ~ (editing_slug or '')) if is_edit else "Add a loan",
+    submit_form_id="loan-modal-form",
+    action_label=("Save changes" if is_edit else "Add loan"),
+    cancel_href="/setup/loans",
+    width="640px"
+) %}
+<form method="post"
+      action="{{ ('/setup/loans/' ~ editing_slug ~ '/edit') if is_edit else '/setup/loans/add' }}"
+      id="loan-modal-form"
+      class="wiz-modal-form">
+
+  <div class="wiz-field">
+    <label class="wiz-label">Display name</label>
+    <input
+      class="wiz-input {% if fe.get('display_name') %}is-invalid{% endif %}"
+      type="text"
+      name="display_name"
+      value="{{ fv.get('display_name', '') }}"
+      maxlength="80"
+      required autofocus
+      placeholder="BankTwo 30-year mortgage"
+    />
+    {% if fe.get('display_name') %}
+      <span class="wiz-error">{{ fe['display_name'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Slug{% if not is_edit %} (optional){% endif %}</label>
+    <input
+      class="wiz-input wiz-input--slug {% if fe.get('slug') %}is-invalid{% endif %}"
+      type="text"
+      name="slug"
+      value="{{ fv.get('slug', '') }}"
+      maxlength="40"
+      pattern="[A-Z][A-Za-z0-9-]*"
+      placeholder="MainResidenceMortgage"
+      {% if is_edit %}readonly tabindex="-1"{% endif %}
+    />
+    <span class="wiz-help">
+      {% if is_edit %}
+        Slug is the loan's stable identifier and can&rsquo;t be changed
+        once set — every posting and account path references it.
+      {% else %}
+        Auto-derived from display name if blank. Must start with an uppercase A&ndash;Z.
+      {% endif %}
+    </span>
+    {% if fe.get('slug') %}
+      <span class="wiz-error">{{ fe['slug'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Loan type</label>
+    {% set sel_type = fv.get('loan_type', '') %}
+    <select class="wiz-input {% if fe.get('loan_type') %}is-invalid{% endif %}" name="loan_type" required>
+      <option value="" disabled {% if not sel_type %}selected{% endif %}>— pick a type —</option>
+      <option value="mortgage" {% if sel_type == 'mortgage' %}selected{% endif %}>Mortgage</option>
+      <option value="auto" {% if sel_type == 'auto' %}selected{% endif %}>Auto loan</option>
+      <option value="student" {% if sel_type == 'student' %}selected{% endif %}>Student loan</option>
+      <option value="personal" {% if sel_type == 'personal' %}selected{% endif %}>Personal loan</option>
+      <option value="heloc" {% if sel_type == 'heloc' %}selected{% endif %}>HELOC / line of credit</option>
+      <option value="eidl" {% if sel_type == 'eidl' %}selected{% endif %}>EIDL / SBA</option>
+      <option value="other" {% if sel_type == 'other' %}selected{% endif %}>Other</option>
+    </select>
+    {% if fe.get('loan_type') %}
+      <span class="wiz-error">{{ fe['loan_type'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Owning entity</label>
+    <input
+      class="wiz-input {% if fe.get('entity_slug') %}is-invalid{% endif %}"
+      type="text"
+      name="entity_slug"
+      list="setup-loans-entities-datalist"
+      value="{{ fv.get('entity_slug', '') }}"
+      placeholder="Personal"
+      autocomplete="off"
+      required
+    />
+    <span class="wiz-help">Pick an existing entity, or type a new slug to create one separately.</span>
+    {% if fe.get('entity_slug') %}
+      <span class="wiz-error">{{ fe['entity_slug'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Institution</label>
+    <input
+      class="wiz-input {% if fe.get('institution') %}is-invalid{% endif %}"
+      type="text"
+      name="institution"
+      value="{{ fv.get('institution', '') }}"
+      placeholder="Bank Two"
+      required
+    />
+    {% if fe.get('institution') %}
+      <span class="wiz-error">{{ fe['institution'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field" style="display:flex; gap:1em; flex-wrap:wrap;">
+    <div style="flex:1; min-width:10em;">
+      <label class="wiz-label">Original principal</label>
+      <input
+        class="wiz-input {% if fe.get('original_principal') %}is-invalid{% endif %}"
+        type="text"
+        name="original_principal"
+        value="{{ fv.get('original_principal', '') }}"
+        placeholder="550000.00"
+        required
+      />
+      {% if fe.get('original_principal') %}
+        <span class="wiz-error">{{ fe['original_principal'] }}</span>
+      {% endif %}
+    </div>
+    <div style="flex:1; min-width:10em;">
+      <label class="wiz-label">Funded date</label>
+      <input
+        class="wiz-input {% if fe.get('funded_date') %}is-invalid{% endif %}"
+        type="date"
+        name="funded_date"
+        value="{{ fv.get('funded_date', '') }}"
+        required
+      />
+      {% if fe.get('funded_date') %}
+        <span class="wiz-error">{{ fe['funded_date'] }}</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="wiz-field" style="display:flex; gap:1em; flex-wrap:wrap;">
+    <div style="flex:1; min-width:10em;">
+      <label class="wiz-label">APR % (optional)</label>
+      <input
+        class="wiz-input"
+        type="text"
+        name="interest_rate_apr"
+        value="{{ fv.get('interest_rate_apr', '') }}"
+        placeholder="6.625"
+      />
+    </div>
+    <div style="flex:1; min-width:10em;">
+      <label class="wiz-label">Term in months (optional)</label>
+      <input
+        class="wiz-input"
+        type="text"
+        name="term_months"
+        value="{{ fv.get('term_months', '') }}"
+        placeholder="360"
+      />
+    </div>
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Monthly payment estimate (optional)</label>
+    <input
+      class="wiz-input"
+      type="text"
+      name="monthly_payment_estimate"
+      value="{{ fv.get('monthly_payment_estimate', '') }}"
+      placeholder="3521.64"
+    />
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Liability account path (optional)</label>
+    {# B6 Step 0 canary surface — kind-filtered to Liabilities, with
+       the §1.2 "remove filter" escape-hatch surfaced inside the
+       popup partial. edit_row=true on the edit-form path so the
+       row's stored value renders without the prefill badge per
+       decisions-pending §1.1. #}
+    {{ AP.account_picker(
+         name='liability_account_path',
+         value=fv.get('liability_account_path', ''),
+         kind='Liabilities',
+         entity_hint=fv.get('entity_slug') or none,
+         edit_row=is_edit,
+         placeholder='Liabilities:Personal:Bank:MainResidenceMortgage',
+         extra_class='wiz-input',
+    ) }}
+    <span class="wiz-help">
+      Auto-derived from entity + institution + slug if blank.
+      Pick an existing Liabilities account from the dropdown to link
+      a previously opened loan instead.
+    </span>
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Interest expense account path (optional)</label>
+    <input
+      class="wiz-input"
+      type="text"
+      name="interest_account_path"
+      list="setup-loans-expense-datalist"
+      value="{{ fv.get('interest_account_path', '') }}"
+      autocomplete="off"
+      placeholder="Expenses:Personal:MainResidenceMortgage:Interest"
+    />
+    <span class="wiz-help">
+      Auto-derived from entity + slug if blank. The save handler
+      auto-scaffolds the canonical path on creation.
+    </span>
+  </div>
+
+  {# Escrow fields — only meaningful for mortgages, surfaced here
+     so the per-row Edit can complete an escrow-having mortgage's
+     setup without breaking out to the full settings editor. The
+     server-side handler just passes them through; no client-side
+     conditional reveal because the user might be editing a non-
+     mortgage loan and intentionally want them blank. #}
+  <div class="wiz-field" style="display:flex; gap:1em; flex-wrap:wrap;">
+    <div style="flex:1; min-width:14em;">
+      <label class="wiz-label">Escrow account path (optional)</label>
+      <input
+        class="wiz-input"
+        type="text"
+        name="escrow_account_path"
+        value="{{ fv.get('escrow_account_path', '') }}"
+        autocomplete="off"
+        placeholder="Assets:Personal:BankTwoBank:MainResidenceMortgageEscrow"
+      />
+      <span class="wiz-help">
+        Mortgages only — the asset account where escrow funds live.
+        Auto-scaffolds if you set Escrow monthly and leave this blank.
+      </span>
+    </div>
+    <div style="flex:0 0 9em;">
+      <label class="wiz-label">Escrow monthly (optional)</label>
+      <input
+        class="wiz-input"
+        type="text"
+        name="escrow_monthly"
+        value="{{ fv.get('escrow_monthly', '') }}"
+        placeholder="380.00"
+      />
+    </div>
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Notes (optional)</label>
+    <textarea
+      class="wiz-input"
+      name="notes"
+      rows="2"
+      maxlength="500">{{ fv.get('notes', '') }}</textarea>
+  </div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

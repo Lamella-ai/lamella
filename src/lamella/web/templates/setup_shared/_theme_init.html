@@ -1,0 +1,28 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# No-flash theme init. Shared across every setup-isolated layout
+   (wizard, recovery) so a dark-mode user doesn't see a light flash
+   while the page loads. Same localStorage key as base.html so the
+   theme survives across main-app ↔ setup-shell transitions.
+
+   Includes nothing else — pure inline <script>. Safe to render in
+   <head> on any setup surface. #}
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("lamella-theme");
+      if (t !== "light" && t !== "dark") {
+        t = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      document.documentElement.setAttribute("data-theme", t);
+    } catch (e) {
+      document.documentElement.setAttribute("data-theme", "light");
+    }
+  })();
+</script>

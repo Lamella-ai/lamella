@@ -1,0 +1,60 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "setup_recovery/_layout.html" %}
+
+{% block title %}Schema drift — Recovery — Lamella{% endblock %}
+
+{% block step_heading %}Schema drift{% endblock %}
+{% block step_subheading %}
+  Mismatches between the running code's expected schema and what's
+  actually applied. Two axes are checked independently: the SQLite
+  database, and the ledger's <code>lamella-ledger-version</code>
+  stamp. Each row links to a confirmation step before any write.
+{% endblock %}
+
+{% block step_body %}
+  {% if last_result %}
+    <div class="wiz-banner wiz-banner-{{ 'ok' if last_result.success else 'warn' }}"
+         style="margin-bottom:1.2em;">
+      {% if last_result.success %}
+        <strong style="color:var(--ok);">✓ {{ last_result.message }}</strong>
+      {% else %}
+        <strong style="color:var(--warn);">⚠ {{ last_result.message }}</strong>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {% if not findings %}
+    <div class="wiz-card" style="text-align:center; padding:2.5em 1em;">
+      <strong style="color:var(--ok); font-size:1.1em;">Schema is in sync.</strong>
+      <p class="wiz-sub" style="margin:0.5em 0 0;">
+        SQLite migrations are caught up and the ledger carries the
+        current version stamp. Nothing to apply here.
+      </p>
+      <p style="margin-top:1.25em;">
+        <a href="/setup/legacy-paths" class="wiz-btn wiz-btn-secondary">Continue to Cleanup →</a>
+      </p>
+    </div>
+  {% else %}
+    <p class="wiz-sub" style="margin-bottom:1.2em;">
+      <strong>{{ findings | length }}</strong> drift finding{{ 's' if findings | length != 1 else '' }}.
+      Each is independent — order of apply doesn't matter.
+    </p>
+
+    <div class="recovery-findings">
+      {% for f in findings %}
+        {% include "setup_recovery/partials/_schema_drift_row.html" %}
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block step_actions %}
+  <a href="/setup/recovery" class="wiz-btn wiz-btn-secondary">← Back to checklist</a>
+{% endblock %}

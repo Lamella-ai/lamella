@@ -1,0 +1,88 @@
+{# Per-account quick-edit modal — HTMX fragment swapped into <body>.
+
+   Form posts to /accounts/{path}/edit (canonical save handler), which
+   responds with HX-Refresh on HTMX callers so the dashboard reloads
+   with the updated row. Companions scaffold + SimpleFIN link still
+   accessible from the focused detail page. #}
+{% import "_components/_modal.html" as M %}
+
+{% call M.modal(
+     id='account-edit-modal',
+     title='Edit ' ~ (account.display_name or account.account_path),
+     subtitle=account.account_path,
+     open=true,
+     size='md'
+) %}
+<form method="post" action="/accounts/{{ account.account_path }}/edit"
+      hx-post="/accounts/{{ account.account_path }}/edit"
+      hx-target="this"
+      autocomplete="off"
+      class="form-grid"
+      style="max-width:none">
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Display name</label>
+      <input class="field-input" type="text" name="display_name"
+             value="{{ account.display_name or '' }}"
+             placeholder="e.g. Personal Checking" />
+    </div>
+    <div class="field">
+      <label class="field-label">Kind</label>
+      <input class="field-input" type="text" name="kind"
+             list="account-edit-kinds"
+             value="{{ account.kind or '' }}" />
+      <datalist id="account-edit-kinds">
+        {% for k in account_kinds %}<option value="{{ k }}" label="{{ k | humanize }}">{% endfor %}
+      </datalist>
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Institution</label>
+      <input class="field-input" type="text" name="institution"
+             value="{{ account.institution or '' }}" />
+    </div>
+    <div class="field">
+      <label class="field-label">Last 4</label>
+      <input class="field-input" type="text" name="last_four"
+             pattern="\d{4}" maxlength="4"
+             value="{{ account.last_four or '' }}" />
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Entity</label>
+      <input class="field-input" type="text" name="entity_slug"
+             list="account-edit-entities"
+             value="{{ account.entity_slug or '' }}" />
+      <datalist id="account-edit-entities">
+        {% for e in entities %}<option value="{{ e.slug }}" label="{{ e.display_name or e.slug }}">{% endfor %}
+      </datalist>
+    </div>
+    <div class="field">
+      <label class="field-label">Closed on</label>
+      <input class="field-input" type="date" name="closed_on"
+             value="{{ account.closed_on or '' }}" />
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="field-label">Notes</label>
+    <textarea class="field-input" name="notes" rows="2">{{ account.notes or '' }}</textarea>
+  </div>
+
+  <input type="hidden" name="ensure_companions" value="1" />
+
+  {% call M.actions() %}
+    <button type="button" class="btn btn-ghost"
+            onclick="this.closest('.modal-backdrop').classList.remove('is-open')">
+      Cancel
+    </button>
+    <a class="btn btn-ghost" href="/accounts/{{ account.account_path }}/edit">Open detail page</a>
+    <button type="submit" class="btn btn-primary">Save changes</button>
+  {% endcall %}
+</form>
+{% endcall %}

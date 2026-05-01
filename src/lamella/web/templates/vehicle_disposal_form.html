@@ -1,0 +1,126 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Dispose of {{ vehicle.display_name or vehicle.slug }}{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Dispose of vehicle{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Dispose of ' ~ (vehicle.display_name or vehicle.slug),
+     subtitle='Records a sale, trade-in, total-loss, gift, or scrap. The preview on the next step shows the draft transaction; nothing is written to the ledger until you click Write to ledger.',
+     kicker='Vehicles'
+) %}
+  {{ B.btn('Cancel', href='/vehicles/' ~ vehicle.slug, variant='ghost') }}
+{% endcall %}
+
+<datalist id="accounts-datalist"></datalist>
+<datalist id="dispose-types-datalist">{% for t in valid_types %}<option value="{{ t }}">{% endfor %}</datalist>
+
+{% call L.form_split() %}
+
+{% call L.form_col() %}
+<form method="post" action="/vehicles/{{ vehicle.slug }}/dispose" autocomplete="off"
+      class="form-split-form--paired">
+
+  {% call C.card(title='Disposal') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field"><label class="field-label">Date</label><input class="field-input" type="date" name="disposal_date" value="{{ today }}" required /></div>
+      <div class="field"><label class="field-label">Type</label><input class="field-input" type="text" name="disposal_type" list="dispose-types-datalist" required /></div>
+    </div>
+    <div class="field">
+      <label class="field-label">Buyer / other party (optional)</label>
+      <input class="field-input" type="text" name="buyer_or_party" placeholder="e.g. J. Smith / CarMax / insurance payout" />
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block tone-warn">
+    <h3>Bookkeeping mode</h3>
+    <p>The gain/loss figure is arithmetic on the numbers you enter. Ordinary-income (§1245 recapture) vs. capital-gain characterization belongs to your tax professional.</p>
+    <h3>Type</h3>
+    <p>Sale, trade-in, total-loss (insurance payout), gift, scrap. The type changes which downstream worksheet rows the system pre-populates but doesn’t fork the ledger postings.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Numbers') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="field">
+      <label class="field-label">Proceeds</label>
+      <input class="field-input" type="text" name="proceeds_amount" placeholder="0.00" required />
+    </div>
+    <div class="field">
+      <label class="field-label">Adjusted basis</label>
+      <input class="field-input" type="text" name="adjusted_basis" value="{{ '%.2f'|format(default_basis) if default_basis else '' }}" />
+    </div>
+    <div class="field">
+      <label class="field-label">Accumulated depreciation</label>
+      <input class="field-input" type="text" name="accumulated_depreciation" placeholder="0.00" />
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Numbers</h3>
+    <p><strong>Adjusted basis</strong> defaults to the most recent election basis (or cost basis if no elections have been recorded).</p>
+    <p><strong>Accumulated depreciation</strong> is the sum of §179 + bonus + MACRS taken over the vehicle’s life — user-entered, since the system doesn’t compute MACRS schedules.</p>
+    <p>Gain/loss = proceeds − (basis − depreciation).</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Ledger destinations') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="field">
+      <label class="field-label">Proceeds account</label>
+      <input class="field-input" type="text" name="proceeds_account" value="{{ default_proceeds_account }}" list="accounts-datalist" required />
+    </div>
+    <div class="field">
+      <label class="field-label">Gain / loss account</label>
+      <input class="field-input" type="text" name="gain_loss_account" value="{{ default_gain_loss_account }}" list="accounts-datalist" required />
+    </div>
+    <div class="field"><label class="field-label">Notes</label><textarea class="field-textarea" name="notes" rows="2"></textarea></div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Destinations</h3>
+    <p><strong>Proceeds account</strong> — where the money lands (Checking, Receivable, …).</p>
+    <p><strong>Gain / loss account</strong> — <code>Income:…</code> for a gain, <code>Expenses:…:CapitalLoss</code> for a loss. The plug flips sign automatically.</p>
+  </div>
+  {% endcall %}
+
+  <div class="form-actions" style="margin-top:1.5rem">
+    {{ B.btn('Cancel', href='/vehicles/' ~ vehicle.slug, variant='ghost') }}
+    <span class="spacer"></span>
+    {{ B.btn('Preview →', type='submit', variant='primary') }}
+  </div>
+</form>
+{% endcall %}
+
+{% call L.help_col() %}{% endcall %}
+
+{% endcall %}
+
+<script>
+  fetch('/api/accounts', { credentials: 'same-origin' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      if (!d || !Array.isArray(d.all)) return;
+      const dl = document.getElementById('accounts-datalist');
+      for (const n of d.all) { const o = document.createElement('option'); o.value = n; dl.appendChild(o); }
+    })
+    .catch(() => undefined);
+</script>
+{% endblock %}

@@ -1,0 +1,37 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Single top card — the one next-action the system thinks is most
+   important right now. When there are zero actions, render the
+   "all set" ok state instead. #}
+{% set top = health.next_actions[0] if health.next_actions else None %}
+<section class="next-action-card next-action-{{ health.summary_badge }}">
+  {% if not top %}
+    <h2 class="ok-badge">✓ All set</h2>
+    <p class="muted small">
+      No outstanding actions for this loan. Use "Show everything"
+      below if you want to poke around.
+    </p>
+  {% else %}
+    <header>
+      <span class="severity-chip severity-{{ top.severity }}">{{ top.severity }}</span>
+      <h2>{{ top.title }}</h2>
+    </header>
+    <p>{{ top.detail }}</p>
+    {% if top.method == "POST" %}
+      <form method="post" action="{{ top.endpoint }}" class="inline-form">
+        {% for k, v in top.payload.items() %}
+          <input type="hidden" name="{{ k }}" value="{{ v }}" />
+        {% endfor %}
+        <button type="submit" class="primary-action">{{ top.action_label }}</button>
+      </form>
+    {% else %}
+      <a href="{{ top.endpoint }}" class="primary-action">{{ top.action_label }}</a>
+    {% endif %}
+  {% endif %}
+</section>

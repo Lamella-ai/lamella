@@ -1,0 +1,85 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Backups — Settings{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Backups{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Ledger backups',
+     subtitle='Snapshots of every .bean / .yml file under your ledger directory. Restores always take a "pre-restore" safety snapshot first — you can back out of a back-out.',
+     kicker='Settings · Danger zone'
+) %}
+{% endcall %}
+
+{% if saved %}{% call F.banner(tone='ok', title='Saved') %}{{ saved }}{% endcall %}{% endif %}
+
+{% call L.section(title='Create backup') %}
+{% call C.card() %}
+<form method="post" action="/settings/backups/create" class="form-grid" style="max-width:none">
+  <div class="field">
+    <label class="field-label">Label <span class="subtle">(optional; shows in the filename)</span></label>
+    <input class="field-input" type="text" name="label" placeholder="e.g. before-entity-merge" />
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Create backup now', type='submit', variant='primary') }}</div>
+</form>
+{% endcall %}
+{% endcall %}
+
+{% call L.section(title='Existing backups', subtitle='%d total' % backups|length if backups else '') %}
+{% if backups %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead><tr><th>Created</th><th>Label</th><th class="num">Size</th><th>File</th><th class="shrink"></th></tr></thead>
+  <tbody>
+  {% for b in backups %}
+  <tr>
+    <td>{{ b.created_at|local_ts(true) }}</td>
+    <td>{{ b.label or '—' }}</td>
+    <td class="num">{{ (b.size_bytes / 1024) | round(1) }} KB</td>
+    <td><code>{{ b.filename }}</code></td>
+    <td class="shrink">
+      <a class="muted-text" style="font-size:0.82rem" href="/settings/backups/download/{{ b.filename }}">Download</a>
+      &nbsp;·&nbsp;
+      <details style="display:inline-block">
+        <summary class="muted-text" style="cursor:pointer; color:var(--warn); font-size:0.82rem">Restore…</summary>
+        <form method="post" action="/settings/backups/restore" style="margin-top:0.5rem; display:flex; gap:6px; align-items:center; flex-wrap:wrap">
+          <input type="hidden" name="filename" value="{{ b.filename }}" />
+          <input class="field-input" type="text" name="confirm" required pattern="RESTORE" placeholder="Type RESTORE" style="max-width:160px" />
+          {{ B.btn('Apply restore', type='submit', variant='danger', size='sm') }}
+        </form>
+      </details>
+      &nbsp;·&nbsp;
+      <form method="post" action="/settings/backups/delete" style="display:inline"
+            data-confirm="Delete backup '{{ b.filename }}'? Cannot be undone."
+            data-confirm-strong="{{ b.filename }}"
+            data-confirm-button="Delete backup">
+        <input type="hidden" name="filename" value="{{ b.filename }}" />
+        {{ B.btn('Delete', type='submit', variant='ghost', size='sm') }}
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% else %}
+{{ F.empty_state('No backups yet.') }}
+{% endif %}
+{% endcall %}
+
+<p class="subtle" style="margin-top:1.5rem"><a href="/settings">← back to Settings</a></p>
+{% endblock %}

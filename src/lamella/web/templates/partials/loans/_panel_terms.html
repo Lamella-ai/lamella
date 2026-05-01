@@ -1,0 +1,80 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Summary grid — terms, model status, ledger actuals, anchored balance. #}
+<h3>Terms + status</h3>
+<div class="summary-grid">
+  <div class="panel">
+    <h4>Terms</h4>
+    <dl>
+      <dt>Original principal</dt>
+      <dd>{{ loan.original_principal | money }}</dd>
+      {% if loan.interest_rate_apr %}
+        <dt>APR</dt><dd>{{ loan.interest_rate_apr }}%</dd>
+      {% endif %}
+      {% if loan.term_months %}
+        <dt>Term</dt><dd>{{ loan.term_months }} mo</dd>
+      {% endif %}
+      {% if est_pmt %}
+        <dt>Monthly P&amp;I</dt><dd>{{ est_pmt | money }}</dd>
+      {% endif %}
+      {% if loan.escrow_monthly %}
+        <dt>Escrow / mo</dt><dd>{{ loan.escrow_monthly | money }}</dd>
+      {% endif %}
+    </dl>
+  </div>
+
+  {% if current_split %}
+  <div class="panel">
+    <h4>This month (model)</h4>
+    <dl>
+      <dt>Principal</dt><dd>{{ current_split.principal | money }}</dd>
+      <dt>Interest</dt><dd>{{ current_split.interest | money }}</dd>
+      {% if current_split.escrow and current_split.escrow > 0 %}
+        <dt>Escrow</dt><dd>{{ current_split.escrow | money }}</dd>
+      {% endif %}
+      <dt>Total</dt><dd><strong>{{ current_split.total | money }}</strong></dd>
+    </dl>
+  </div>
+  {% endif %}
+
+  {% if schedule %}
+  <div class="panel">
+    <h4>Remaining (model)</h4>
+    <dl>
+      <dt>Principal paid</dt><dd>{{ total_principal_paid | money }}</dd>
+      <dt>Interest paid</dt><dd>{{ total_interest_paid | money }}</dd>
+      <dt>Remaining principal</dt><dd><strong>{{ remaining | money }}</strong></dd>
+    </dl>
+  </div>
+  {% endif %}
+
+  {% if anchored_balance is not none %}
+  <div class="panel">
+    <h4>Anchored balance</h4>
+    <dl>
+      <dt>As of</dt><dd>{{ anchor_used.as_of_date }}</dd>
+      <dt>Anchor balance</dt><dd>{{ anchor_used.balance | money }}</dd>
+      <dt>Since-anchor principal</dt><dd>{{ principal_paid_since_anchor | money }}</dd>
+      <dt>Current (anchored)</dt><dd><strong>{{ anchored_balance | money }}</strong></dd>
+      {% if model_vs_actual is not none %}
+        <dt>Δ vs model</dt>
+        <dd>
+          {% if model_vs_actual > 0 %}
+            <span class="muted">+{{ model_vs_actual | money }} ahead of schedule</span>
+          {% elif model_vs_actual < 0 %}
+            <span class="muted">{{ model_vs_actual | money }} behind</span>
+          {% else %}
+            <span class="muted">on track</span>
+          {% endif %}
+        </dd>
+      {% endif %}
+    </dl>
+  </div>
+  {% endif %}
+</div>

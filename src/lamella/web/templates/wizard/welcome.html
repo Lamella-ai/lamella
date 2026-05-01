@@ -1,0 +1,292 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "wizard/_layout.html" %}
+
+{% block step_heading %}Welcome to Lame<span class="brand-wordmark-accent">ll</span>a{% endblock %}
+{% block step_subheading %}
+Let&rsquo;s get you set up. This takes about a minute.
+{% endblock %}
+
+{% block step_body %}
+
+{% if intent_locked %}
+<div class="wiz-banner is-info" role="status">
+  <div class="wiz-banner-title">Looks like you already have a setup.</div>
+  <div class="wiz-banner-body">
+    We see <strong>{{ existing_indiv_count }} individual{{ '' if existing_indiv_count == 1 else 's' }}</strong>
+    and <strong>{{ existing_biz_count }} business{{ '' if existing_biz_count == 1 else 'es' }}</strong>
+    in your books{% if existing_account_count %} ({{ existing_account_count }} account{{ '' if existing_account_count == 1 else 's' }}){% endif %}.
+    We&rsquo;re defaulting your goal to <strong>Everything &mdash; multiple people and multiple businesses</strong>.
+    This can&rsquo;t be changed because narrower goals wouldn&rsquo;t fit what you already have.
+    The wizard won&rsquo;t modify or delete anything you&rsquo;ve already set up.
+  </div>
+</div>
+{% elif has_existing %}
+<div class="wiz-banner is-info" role="status">
+  <div class="wiz-banner-title">You already have an entity in your books.</div>
+  <div class="wiz-banner-body">
+    The wizard won&rsquo;t modify or delete what you&rsquo;ve already set up &mdash;
+    it can only add new entities and accounts alongside what&rsquo;s there.
+  </div>
+</div>
+{% endif %}
+
+<form method="post" action="/setup/wizard/welcome" class="wiz-body-content" id="welcome-form">
+
+  <div class="wiz-field">
+    <label class="wiz-label" for="wiz-name">Your name</label>
+    <input
+      class="wiz-input {% if errors and errors.name %}is-invalid{% endif %}"
+      id="wiz-name"
+      type="text"
+      name="name"
+      autocomplete="given-name"
+      autofocus
+      maxlength="80"
+      value="{{ form_name if form_name is defined else wizard_state.name }}"
+      placeholder="Jane"
+    />
+    <span class="wiz-help">A name or nickname &mdash; just for personalization.</span>
+    {% if errors and errors.name %}
+      <span class="wiz-error">{{ errors.name }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <span class="wiz-label">What are you using Lamella for?</span>
+    <span class="wiz-help">
+      Pick the closest fit. We&rsquo;ll scaffold sensible defaults and you can adjust everything later.
+    </span>
+    <div class="wiz-radio-grid" role="radiogroup" aria-label="Intent">
+      {% if intent_locked %}
+        {# Forced selection. Render a single non-interactive card and
+           pass intent via a hidden field so server-side validation
+           still gets a value. The other options are intentionally
+           absent from the DOM so a user can't toggle them with
+           devtools. #}
+        {% for opt in intent_options if opt.value == intent_locked_value %}
+        <label class="wiz-radio-card is-locked">
+          <input type="radio" name="intent" value="{{ opt.value }}" checked disabled />
+          <span>
+            <span class="wiz-radio-title">{{ opt.title }} <span class="wiz-pill-lock">required for your setup</span></span>
+            <span class="wiz-radio-blurb">{{ opt.blurb }}</span>
+          </span>
+        </label>
+        {% endfor %}
+        <input type="hidden" name="intent" value="{{ intent_locked_value }}" />
+      {% else %}
+        {% set selected = form_intent if form_intent is defined else wizard_state.intent %}
+        {% for opt in intent_options %}
+        <label class="wiz-radio-card">
+          <input
+            type="radio"
+            name="intent"
+            value="{{ opt.value }}"
+            {% if selected == opt.value %}checked{% endif %}
+          />
+          <span>
+            <span class="wiz-radio-title">{{ opt.title }}</span>
+            <span class="wiz-radio-blurb">{{ opt.blurb }}</span>
+          </span>
+        </label>
+        {% endfor %}
+      {% endif %}
+    </div>
+    {% if errors and errors.intent %}
+      <span class="wiz-error">{{ errors.intent }}</span>
+    {% endif %}
+  </div>
+
+  {# Intent-change warning — destructive cases ONLY.
+
+     This block is rendered into the DOM when the user has already
+     scaffolded entities (has_progress=True), but stays hidden
+     unless the JS detects a *capacity* mismatch between the new
+     intent and what's currently planned. Capacity per intent:
+
+       personal:   max 1 individual, 0 businesses
+       business:   0 individuals,    unlimited businesses
+       both:       max 1 individual, unlimited businesses
+       household:  unlimited indivs, 0 businesses
+       everything: unlimited indivs, unlimited businesses
+
+     Examples that DO show the warning (entities will be discarded):
+       - both with a business -> personal      (loses the business)
+       - both with an individual -> business   (loses the individual)
+       - household with 2 people -> personal   (loses 1 person)
+       - everything with biz -> household      (loses biz)
+
+     Examples that DO NOT show the warning (capacity grows):
+       - personal -> both                      (adds a slot)
+       - any -> everything                     (everything fits)
+       - household with 1 person -> personal   (still fits)
+
+     The checkbox starts UNCHECKED and is required before Continue
+     submits when this block is visible. #}
+  {% if original_intent and has_progress %}
+  <div
+    class="wiz-banner is-warn"
+    role="alert"
+    id="intent-change-warning"
+    data-original-intent="{{ original_intent }}"
+    data-indiv-count="{{ indiv_count }}"
+    data-biz-count="{{ biz_count }}"
+    data-indiv-names="{{ indiv_names | tojson | safe }}"
+    data-biz-names="{{ biz_names | tojson | safe }}"
+    {% if not (errors and errors.intent_change) %}hidden{% endif %}
+  >
+    <div class="wiz-banner-title">Changing your goal will discard what we&rsquo;ve set up.</div>
+    <div class="wiz-banner-body" id="intent-change-detail">
+      Reviewing&hellip;
+    </div>
+    <label class="wiz-confirm-row">
+      <input type="checkbox" name="confirm_intent_change" value="1" id="confirm-intent-change" />
+      <span>Yes, discard and continue.</span>
+    </label>
+    {% if errors and errors.intent_change %}
+      <span class="wiz-error">{{ errors.intent_change }}</span>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</form>
+
+<div class="wiz-import-pivot" role="note">
+  <span>Already have Beancount files?</span>
+  <a class="wiz-btn-link" href="/setup/import">Import them instead &rarr;</a>
+</div>
+
+{% if original_intent and has_progress %}
+<script>
+  (function () {
+    var warning = document.getElementById("intent-change-warning");
+    var detail = document.getElementById("intent-change-detail");
+    var checkbox = document.getElementById("confirm-intent-change");
+    var continueBtn = document.querySelector('button[form="welcome-form"]');
+    if (!warning || !detail || !continueBtn) return;
+
+    var originalIntent = warning.dataset.originalIntent;
+    var indivCount = parseInt(warning.dataset.indivCount, 10) || 0;
+    var bizCount = parseInt(warning.dataset.bizCount, 10) || 0;
+    var indivNames = [];
+    var bizNames = [];
+    try { indivNames = JSON.parse(warning.dataset.indivNames || "[]"); } catch (e) {}
+    try { bizNames = JSON.parse(warning.dataset.bizNames || "[]"); } catch (e) {}
+
+    /* Capacity each intent supports — mirrors INTENT_CAPS in
+       routes/setup_wizard.py. null means unlimited. */
+    var caps = {
+      personal:   { individuals: 1,    businesses: 0    },
+      business:   { individuals: 0,    businesses: null },
+      both:       { individuals: 1,    businesses: null },
+      household:  { individuals: null, businesses: 0    },
+      everything: { individuals: null, businesses: null },
+    };
+
+    function fmtList(names) {
+      if (!names || !names.length) return "";
+      if (names.length === 1) return "“" + names[0] + "”";
+      if (names.length === 2) return "“" + names[0] + "” and “" + names[1] + "”";
+      return names.slice(0, -1).map(function (n) { return "“" + n + "”"; }).join(", ")
+        + ", and “" + names[names.length - 1] + "”";
+    }
+
+    /* Build the {individualLoss, businessLoss, message} for a target
+       intent. Returns null when nothing would be lost (non-destructive). */
+    function computeLoss(target) {
+      var cap = caps[target];
+      if (!cap) return null;
+      var indivCap = cap.individuals;
+      var bizCap = cap.businesses;
+      var indivLoss = (indivCap !== null) ? Math.max(0, indivCount - indivCap) : 0;
+      var bizLoss = (bizCap !== null) ? Math.max(0, bizCount - bizCap) : 0;
+      if (!indivLoss && !bizLoss) return null;
+
+      var parts = [];
+      if (bizLoss > 0) {
+        var which = bizLoss === bizCount
+          ? bizNames
+          : bizNames.slice(-bizLoss);
+        var noun = bizLoss === 1 ? "business" : "businesses";
+        parts.push("the " + noun + " " + fmtList(which));
+      }
+      if (indivLoss > 0) {
+        var whichI = indivLoss === indivCount
+          ? indivNames
+          : indivNames.slice(-indivLoss);
+        var nounI = indivLoss === 1 ? "person" : "people";
+        parts.push("the " + nounI + " " + fmtList(whichI));
+      }
+      return {
+        message: "We&rsquo;ll discard " + parts.join(" and ") +
+                 " that you&rsquo;ve set up so far. Anything you explicitly added later " +
+                 "(accounts, properties, vehicles) will stay if it has activity."
+      };
+    }
+
+    function syncContinueButton() {
+      var visible = !warning.hasAttribute("hidden");
+      if (visible && !checkbox.checked) {
+        continueBtn.setAttribute("aria-disabled", "true");
+        continueBtn.classList.add("is-disabled");
+      } else {
+        continueBtn.removeAttribute("aria-disabled");
+        continueBtn.classList.remove("is-disabled");
+      }
+    }
+
+    function update() {
+      var picked = document.querySelector('input[name="intent"]:checked');
+      var pickedValue = picked ? picked.value : "";
+      // Same intent → never destructive.
+      if (!pickedValue || pickedValue === originalIntent) {
+        warning.setAttribute("hidden", "");
+        if (checkbox) checkbox.checked = false;
+        syncContinueButton();
+        return;
+      }
+      // Different intent — only warn if capacity actually drops.
+      var loss = computeLoss(pickedValue);
+      if (!loss) {
+        warning.setAttribute("hidden", "");
+        if (checkbox) checkbox.checked = false;
+        syncContinueButton();
+        return;
+      }
+      detail.innerHTML = loss.message;
+      warning.removeAttribute("hidden");
+      syncContinueButton();
+    }
+
+    document.querySelectorAll('input[name="intent"]').forEach(function (el) {
+      el.addEventListener("change", update);
+    });
+    if (checkbox) checkbox.addEventListener("change", syncContinueButton);
+
+    /* Block submit if warning is visible + checkbox unticked. */
+    var form = document.getElementById("welcome-form");
+    if (form) {
+      form.addEventListener("submit", function (ev) {
+        if (!warning.hasAttribute("hidden") && checkbox && !checkbox.checked) {
+          ev.preventDefault();
+          checkbox.focus();
+        }
+      });
+    }
+
+    update();
+  })();
+</script>
+{% endif %}
+{% endblock %}
+
+{% block step_actions %}
+<span class="spacer"></span>
+<button type="submit" form="welcome-form" class="wiz-btn wiz-btn-primary">Continue</button>
+{% endblock %}

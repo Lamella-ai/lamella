@@ -1,0 +1,32 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Brand header for setup-isolated layouts. Logo on the left links
+   to the layout's home URL; theme-toggle button on the right.
+
+   Required context vars (caller sets via {% set %} before include
+   or passes via include's `with` clause):
+     brand_href     — URL the logo links to (e.g. /setup/wizard,
+                      /setup/recovery)
+     brand_aria     — aria-label for the brand link
+     theme_btn_id   — DOM id for the theme-toggle button. The
+                      bottom-of-page _theme_toggle_script.html
+                      partial reads this same id to wire the click
+                      handler. They must match per-layout. #}
+<header class="wiz-head" role="banner">
+  <a class="wiz-brand" href="{{ brand_href }}" aria-label="{{ brand_aria }}">
+    <img class="wiz-brand-mark" src="{{ request.url_for('static', path='img/lamella-icon.svg') }}" alt="" />
+    <span class="wiz-brand-name">Lame<span class="brand-wordmark-accent">ll</span>a</span>
+  </a>
+  <div class="wiz-head-actions">
+    <button class="wiz-icon-btn" id="{{ theme_btn_id }}" type="button" aria-label="Toggle theme">
+      <svg class="icon icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+      <svg class="icon icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </div>
+</header>

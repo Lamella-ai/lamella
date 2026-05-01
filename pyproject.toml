@@ -1,0 +1,104 @@
+# Copyright 2026 Lamella LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+# https://lamella.ai
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lamella"
+version = "0.3.3.dev0"
+description = "Lamella — context-aware financial intelligence over a Beancount ledger, with Paperless-ngx and SimpleFIN integrations."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    # ADR-0050 — auth dependencies. argon2-cffi for Argon2id password
+    # hashing (OWASP / NIST current recommendation); itsdangerous for
+    # the signed session-id cookie wrapper. Both are small, mature,
+    # and widely deployed.
+    "argon2-cffi>=23.1",
+    "itsdangerous>=2.2",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "httpx>=0.27",
+    "beancount>=2.3.6",
+    "apscheduler>=3.10",
+    "pyyaml>=6.0",
+    "tenacity>=8.3",
+    "weasyprint>=68.1",
+    "pillow>=12.2.0",
+    "pandas>=2.2",
+    "odfpy>=1.4",
+    "openpyxl>=3.1",
+    # Ledger plugins referenced by the user's main.bean. Only auto_accounts
+    # from beancount-lazy-plugins is actually loaded by the ledger after the
+    # consolidation cleanup; the rest of that package and the share / reds /
+    # interpolate packages were dropped along with their plugin directives.
+    "beancount-lazy-plugins @ git+https://github.com/Evernight/beancount-lazy-plugins",
+    # fava stays as a sidecar ONLY — docker-compose runs it as a separate
+    # service from the same image. Our Python code must not import fava.
+    # Dropped once the in-app replacement features (error surface,
+    # bean-query, account autocomplete, editor) ship.
+    "fava>=1.27",
+    # Phase H — vector-search over resolved transactions + user
+    # corrections. ON by default (ai_vector_search_enabled defaults
+    # to True), so the core dependency list carries this.
+    # IMPORTANT: the Dockerfile preinstalls CPU-only torch from the
+    # PyTorch CPU index BEFORE `pip install .` — the default torch
+    # wheel on Linux x86_64 bundles CUDA (cuda-toolkit + nvidia-*
+    # libs, several GB) and would blow past the GitHub runner's
+    # disk quota. CPU torch is ~200MB; the all-MiniLM-L6-v2 weights
+    # (~80MB) are pulled to the HuggingFace cache on first classify
+    # call. If the torch import somehow fails at runtime, classify
+    # falls back to the substring path.
+    "sentence-transformers>=2.7",
+    # PDF introspection for the Paperless verify-and-writeback flow.
+    # Needed to (a) detect PDFs with an existing text layer so we can
+    # skip the vision call on native PDFs (the content was never
+    # OCR'd and is authoritative), and (b) count pages so the audit
+    # note correctly flags "only page 1 verified" on multi-page docs.
+    # Wheel is ~25MB; CPU-only, no extra deps.
+    "pymupdf>=1.24",
+]
+
+[project.optional-dependencies]
+prod = []
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "respx>=0.21",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+lamella = "lamella.main:run"
+# Legacy alias kept for the cutover window so older shell aliases /
+# systemd units / shortcuts keep working. Drop after one release.
+beancounter-glue = "lamella.main:run"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lamella"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[dependency-groups]
+dev = [
+    "coverage>=7.13.5",
+    "pdfminer-six>=20221105",
+]

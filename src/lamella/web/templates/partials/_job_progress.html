@@ -1,0 +1,202 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Inner progress panel. Swapped in every 1s by /jobs/{id}/partial.
+   Needs: `job` (Job dataclass), `events` (list[JobEvent]), `terminal` (bool).
+   data-terminal="1" is the signal _job_modal.html's htmx:afterSwap
+   listener uses to halt the polling loop once the job is done. #}
+<div class="job-modal__panel"
+     data-terminal="{{ '1' if terminal else '0' }}">
+  <header class="job-modal__header">
+    <div>
+      <h2 class="job-modal__title">{{ job.title }}</h2>
+      <p class="job-modal__kind">{{ job.kind }} · id {{ job.id }}</p>
+    </div>
+    <div class="job-modal__header-right">
+      <span class="job-modal__status job-modal__status--{{ job.status }}">
+        {{ job.status }}
+      </span>
+      {# Minimize button: stashes the modal in the bottom-right dock
+         (sessionStorage-backed) so the user can navigate without
+         losing the running job. Lives inside the polled header so
+         it doesn't disrupt layout — every poll rebuilds it but the
+         click handler hits the stable global wired up by the modal
+         IIFE in _job_modal.html. Hidden once the job is terminal,
+         since at that point the user just wants to read the result
+         and click Close. #}
+      {% if not terminal %}
+      <button type="button"
+              class="job-modal__minimize"
+              aria-label="Minimize"
+              title="Minimize"
+              onclick="window.lamellaJobMinimize && window.lamellaJobMinimize()">—</button>
+      {% endif %}
+    </div>
+  </header>
+
+  <div class="job-modal__bar-wrap">
+    {% if terminal %}
+      {# Job has stopped — freeze the bar at 100% in a status color
+         so the user can't be misled into thinking work is still
+         happening. Removes the indeterminate animation. #}
+      <div class="job-modal__bar job-modal__bar--terminal job-modal__bar--{{ job.status }}">
+        <div class="job-modal__bar-fill" style="width: 100%"></div>
+      </div>
+      <div class="job-modal__bar-label">
+        {% if job.total %}
+          {{ job.completed }} of {{ job.total }} ({{ (job.percent or 0) | round(0) }}%) — {{ job.status }}
+        {% else %}
+          {{ job.completed }} processed — {{ job.status }}
+        {% endif %}
+      </div>
+    {% elif job.total %}
+      <div class="job-modal__bar">
+        <div class="job-modal__bar-fill" style="width: {{ (job.percent or 0) | round(1) }}%"></div>
+      </div>
+      <div class="job-modal__bar-label">
+        {{ job.completed }} of {{ job.total }} ({{ (job.percent or 0) | round(0) }}%)
+      </div>
+    {% else %}
+      <div class="job-modal__bar job-modal__bar--indeterminate">
+        <div class="job-modal__bar-fill"></div>
+      </div>
+      <div class="job-modal__bar-label">{{ job.completed }} processed</div>
+    {% endif %}
+  </div>
+
+  <dl class="job-modal__counters">
+    <div><dt>Success</dt><dd class="outcome-success">{{ job.success_count }}</dd></div>
+    <div><dt>Failure</dt><dd class="outcome-failure">{{ job.failure_count }}</dd></div>
+    <div><dt>Not found</dt><dd class="outcome-not_found">{{ job.not_found_count }}</dd></div>
+    <div><dt>Error</dt><dd class="outcome-error">{{ job.error_count }}</dd></div>
+  </dl>
+
+  <dl class="job-modal__meta">
+    <div><dt>Elapsed</dt><dd>{{ job.humanize_elapsed() }}</dd></div>
+    <div><dt>ETA</dt><dd>{{ job.humanize_eta() }}</dd></div>
+  </dl>
+
+  {% if job.error_message %}
+    <div class="job-modal__error">
+      <strong>Error:</strong> {{ job.error_message }}
+    </div>
+  {% endif %}
+
+  {% if terminal and job.result and job.result.terminal_html %}
+    {# Inline result — for single-shot jobs (AI drafts, mined clusters,
+       field previews, etc.) the worker returns HTML that the user
+       reads right here instead of navigating off-page. #}
+    <div class="job-modal__result">
+      {{ job.result.terminal_html | safe }}
+    </div>
+  {% endif %}
+
+  <div class="job-modal__log" aria-live="polite">
+    {% if events %}
+      {% for ev in events %}
+        <div class="job-log-line outcome-{{ ev.outcome or 'info' }}">
+          <div class="job-log-line__main">
+            <span class="job-log-line__seq">#{{ ev.seq }}</span>
+            <span class="job-log-line__msg">{{ ev.message }}</span>
+            {% if ev.outcome %}<span class="job-log-line__tag">{{ ev.outcome }}</span>{% endif %}
+          </div>
+          {% if ev.detail %}
+            <div class="job-log-line__detail">
+              {# Structured event detail. Each type renders as a
+                 small table so diffs, field maps, and writeback
+                 summaries stand out from the free-text log. #}
+              {% set kind = ev.detail.get('kind') %}
+              {% if kind == 'current_fields' %}
+                <table class="job-log-detail-table">
+                  <caption>Current Paperless fields</caption>
+                  <tbody>
+                    {% for k, v in (ev.detail.get('fields') or {}).items() %}
+                      <tr><th>{{ k }}</th><td>{{ v if v not in (None, '') else '(not set)' }}</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              {% elif kind == 'diff' %}
+                <table class="job-log-detail-table">
+                  <caption>{{ ev.detail.get('count', '?') }} field difference(s) — before → after</caption>
+                  <thead>
+                    <tr><th>Field</th><th>Before</th><th>After</th><th>Conf</th><th>Apply?</th></tr>
+                  </thead>
+                  <tbody>
+                    {% for d in ev.detail.get('diffs') or [] %}
+                      <tr>
+                        <th>{{ d.field }}</th>
+                        <td class="muted">{{ d.before or '(empty)' }}</td>
+                        <td><strong>{{ d.after or '(empty)' }}</strong></td>
+                        <td>{{ "%.2f"|format(d.confidence or 0.0) }}</td>
+                        <td>
+                          {% if d.will_apply %}<span class="outcome-success">yes</span>
+                          {% else %}<span class="muted">held (low conf)</span>{% endif %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              {% elif kind == 'patch' %}
+                <table class="job-log-detail-table">
+                  <caption>Applied to Paperless #{{ ev.detail.get('paperless_id') }}</caption>
+                  <tbody>
+                    {% for k, v in (ev.detail.get('applied') or {}).items() %}
+                      <tr><th>{{ k }}</th><td><strong>{{ v }}</strong></td></tr>
+                    {% endfor %}
+                    {% if ev.detail.get('tag') %}
+                      <tr><th>tag</th><td><strong>{{ ev.detail.get('tag') }}</strong></td></tr>
+                    {% endif %}
+                    {% if ev.detail.get('note_added') %}
+                      <tr><th>audit note</th><td>added</td></tr>
+                    {% endif %}
+                  </tbody>
+                </table>
+              {% elif kind == 'summary' %}
+                <table class="job-log-detail-table">
+                  <caption>Final result</caption>
+                  <tbody>
+                    {% for k, v in (ev.detail.get('fields') or {}).items() %}
+                      <tr><th>{{ k }}</th><td>{{ v }}</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              {% elif ev.detail %}
+                <details>
+                  <summary class="muted small">detail</summary>
+                  <pre class="job-log-detail-raw">{{ ev.detail }}</pre>
+                </details>
+              {% endif %}
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="job-log-line job-log-line--empty">No events yet …</div>
+    {% endif %}
+  </div>
+
+  <footer class="job-modal__actions">
+    {% if terminal %}
+      {% if job.return_url %}
+        <a href="{{ job.return_url }}" class="btn btn-primary">View results</a>
+      {% endif %}
+      <button class="btn" type="button"
+              onclick="(function(){var r=document.getElementById('job-modal-root');var u=(r&&r.getAttribute('data-on-close-url'))||'/';window.location.href=u;})();">
+        Close
+      </button>
+    {% else %}
+      <button class="btn btn-danger" type="button"
+              hx-post="/jobs/{{ job.id }}/cancel"
+              hx-target="closest .job-modal"
+              hx-swap="innerHTML"
+              {% if job.cancel_requested %}disabled{% endif %}>
+        {% if job.cancel_requested %}Cancelling …{% else %}Cancel{% endif %}
+      </button>
+    {% endif %}
+  </footer>
+</div>

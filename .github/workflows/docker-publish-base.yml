@@ -1,0 +1,72 @@
+# Copyright 2026 Lamella LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+# https://lamella.ai
+
+name: Build and publish base Docker image
+
+# Manual-only. The base image carries torch, sentence-transformers,
+# pymupdf, weasyprint + system libs, and every other pyproject dep.
+# Rebuild it ONLY when pyproject.toml's dependency list changes.
+# Push-to-main builds use the fast app-only Dockerfile which FROMs
+# this image.
+
+on:
+  workflow_dispatch:
+    inputs:
+      extra_tag:
+        description: "Additional tag (e.g. 2026-04-22 or v1). 'latest' is always published."
+        required: false
+        default: ""
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}-base
+
+jobs:
+  build-and-push-base:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute date tag
+        id: datetag
+        run: echo "date=$(date -u +'%Y-%m-%d')" >> "$GITHUB_OUTPUT"
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ steps.datetag.outputs.date }}
+            type=raw,value=${{ inputs.extra_tag }},enable=${{ inputs.extra_tag != '' }}
+
+      - name: Build and push base image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.base
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=base
+          cache-to: type=gha,mode=max,scope=base

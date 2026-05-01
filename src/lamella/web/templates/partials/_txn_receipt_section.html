@@ -1,0 +1,83 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Receipt-attach UI for /txn/{token}. Renders inside both the
+  staged-row detail page (_txn_detail_staged.html) and any future
+  caller that wants the same panel; the wrapper div is the hx-target
+  so re-rendering the partial replaces this whole section in place.
+
+  Listed-docs come from the receipt_links cache (joined to
+  paperless_doc_index for display fields). The search box loads
+  candidates against the Paperless API on demand.
+-->
+<div id="staged-receipt-section" class="card-body" style="display:flex; flex-direction:column; gap:1rem">
+
+  {% if linked %}
+  <div>
+    <h4 style="margin:0 0 0.4rem; font-size:0.95rem">Linked receipts</h4>
+    <ul class="bare" style="margin:0; padding:0; display:flex; flex-direction:column; gap:0.4rem">
+      {% for r in linked %}
+      <li style="display:flex; align-items:center; gap:0.5rem; padding:0.4rem 0.5rem; border:1px solid var(--border); border-radius:4px">
+        <div style="flex:1; min-width:0">
+          <div>
+            {% if r.paperless_deep_link %}
+            <a href="{{ r.paperless_deep_link }}" target="_blank" rel="noopener">
+              <strong>#{{ r.paperless_id }}</strong>
+            </a>
+            {% else %}
+            <strong>#{{ r.paperless_id }}</strong>
+            {% endif %}
+            {% if r.title %}<span class="subtle">— {{ r.title }}</span>{% endif %}
+          </div>
+          <div class="muted small">
+            {% if r.correspondent_name %}{{ r.correspondent_name }}{% endif %}
+            {% if r.total_amount %} · ${{ r.total_amount }}{% endif %}
+            {% if r.receipt_date %} · {{ r.receipt_date }}{% endif %}
+            · linked {{ r.match_method }}
+          </div>
+        </div>
+        <form method="post"
+              action="/txn/{{ token }}/receipt-unlink"
+              hx-post="/txn/{{ token }}/receipt-unlink"
+              hx-target="#staged-receipt-section"
+              hx-swap="outerHTML"
+              style="margin:0">
+          <input type="hidden" name="paperless_doc_id" value="{{ r.paperless_id }}">
+          <button type="submit" class="btn btn--sm btn--danger">Unlink</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% else %}
+  <p class="subtle small" style="margin:0">No receipt linked yet.</p>
+  {% endif %}
+
+  {% if paperless_configured %}
+  <div>
+    <h4 style="margin:0 0 0.4rem; font-size:0.95rem">Attach a receipt</h4>
+    <form method="get"
+          action="/txn/{{ token }}/receipt-search"
+          hx-get="/txn/{{ token }}/receipt-search"
+          hx-target="#staged-receipt-search-results"
+          hx-swap="innerHTML"
+          style="display:flex; gap:0.4rem; align-items:center">
+      <input type="search" name="q" placeholder="Search Paperless…"
+             style="flex:1; padding:0.4rem 0.5rem">
+      <button type="submit" class="btn btn--sm">Search</button>
+    </form>
+    <div id="staged-receipt-search-results" style="margin-top:0.5rem">
+      <p class="muted small" style="margin:0">
+        Type a query to search Paperless.
+      </p>
+    </div>
+  </div>
+  {% else %}
+  <p class="subtle small" style="margin:0">
+    Paperless is not configured — set the URL + API token in
+    <a href="/settings">/settings</a> to enable receipt attach.
+  </p>
+  {% endif %}
+
+</div>

@@ -1,0 +1,83 @@
+# syntax=docker/dockerfile:1.6
+
+FROM python:3.12-slim@sha256:46cb7cc2877e60fbd5e21a9ae6115c30ace7a077b9f8772da879e4590c18c2e3 AS builder
+
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        libffi-dev \
+        git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+COPY pyproject.toml ./
+COPY src ./src
+
+RUN python -m venv /opt/venv \
+    && /opt/venv/bin/pip install --upgrade pip \
+    && /opt/venv/bin/pip install \
+         --index-url https://download.pytorch.org/whl/cpu \
+         torch \
+    && /opt/venv/bin/pip install .
+
+FROM python:3.12-slim@sha256:46cb7cc2877e60fbd5e21a9ae6115c30ace7a077b9f8772da879e4590c18c2e3 AS runtime
+
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    LAMELLA_DATA_DIR=/data \
+    LAMELLA_MIGRATIONS_DIR=/app/migrations \
+    LAMELLA_CONFIG_DIR=/app/config \
+    LEDGER_DIR=/ledger \
+    PORT=8080 \
+    HOME=/app \
+    XDG_CACHE_HOME=/data/cache \
+    HF_HOME=/data/huggingface \
+    TRANSFORMERS_CACHE=/data/huggingface \
+    SENTENCE_TRANSFORMERS_HOME=/data/huggingface
+# Why: deploys that override the runtime uid (e.g. PUID/PGID env
+# vars on self-hosted images, orchestrator pod-security policies)
+# typically map the container user to a uid not in /etc/passwd.
+# Any library that calls getpwuid() to resolve HOME —
+# sentence-transformers + huggingface_hub do this — raises
+# `KeyError: 'getpwuid(): uid not found: N'` and the vector-index
+# startup task dies silently. Setting HOME + HF_HOME +
+# TRANSFORMERS_CACHE explicitly avoids the lookup.
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl \
+        libpango-1.0-0 \
+        libpangoft2-1.0-0 \
+        libharfbuzz0b \
+        libjpeg62-turbo \
+        shared-mime-info \
+        fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 1000 app \
+    && useradd --uid 1000 --gid app --home /app --shell /usr/sbin/nologin app \
+    && mkdir -p /app /data /ledger \
+    && chown -R app:app /app /data
+
+COPY --from=builder /opt/venv /opt/venv
+COPY --chown=app:app src /app/src
+COPY --chown=app:app migrations /app/migrations
+COPY --chown=app:app config /app/config
+COPY --chown=app:app docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
+WORKDIR /app
+USER app
+
+EXPOSE 8080 5003
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -fsS http://localhost:${PORT:-8080}/healthz || exit 1
+
+# Single-container entrypoint: backgrounds fava on :5003, execs uvicorn
+# on :8080. See docker-entrypoint.sh for details. Fava is a fallback
+# UI; the primary app is uvicorn.
+CMD ["/app/docker-entrypoint.sh"]

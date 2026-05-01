@@ -1,0 +1,429 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}{{ property.display_name or property.slug }} — Property{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}{{ property.display_name or property.slug }}{% endblock %}
+
+{% block content %}
+{% set _subtitle_bits = [] %}
+{% if property.property_type %}{% set _ = _subtitle_bits.append(property.property_type) %}{% endif %}
+{% if property.address %}{% set _ = _subtitle_bits.append(property.address) %}{% endif %}
+{% if property.city %}{% set _ = _subtitle_bits.append(property.city ~ (', ' ~ property.state if property.state else '')) %}{% endif %}
+{% if property.purchase_date %}{% set _ = _subtitle_bits.append('acquired ' ~ property.purchase_date) %}{% endif %}
+
+{% call L.page_head(
+     title=(property.display_name or property.slug),
+     subtitle=' · '.join(_subtitle_bits),
+     kicker='Settings · Properties'
+) %}
+  {{ B.btn('Back to properties', href='/settings/properties', variant='ghost') }}
+{% endcall %}
+
+<div style="margin:-8px 0 1rem; display:flex; gap:6px; flex-wrap:wrap">
+  {% if not property.is_active %}{{ D.badge('Inactive', tone='muted') }}{% endif %}
+  {% if property.is_primary_residence %}{{ D.badge('Primary residence', tone='info') }}{% endif %}
+  {% if property.is_rental %}{{ D.badge('Rental', tone='accent') }}{% endif %}
+  {% if property.sale_date %}{{ D.badge('Sold ' + property.sale_date|string, tone='muted') }}{% endif %}
+</div>
+
+{% if saved %}{% call F.banner(tone='ok', title='Saved') %}Property updated.{% endcall %}{% endif %}
+
+{% call C.kpi_grid() %}
+  {{ C.kpi_tile(
+       label='Cost basis (target)',
+       value=D.money(cost_basis, signed=false),
+       meta='purchase + closing'
+  ) }}
+  {{ C.kpi_tile(
+       label='In ledger',
+       value=D.money(book_value, signed=false),
+       meta=('gap ' ~ D.money(cost_basis_gap, signed=true)) if cost_basis_gap and cost_basis_gap != 0 else 'matches target',
+       tone=('warn' if cost_basis_gap and cost_basis_gap != 0 else 'ok')
+  ) }}
+  {{ C.kpi_tile(
+       label='Current value',
+       value=(D.money(current_value, signed=false) if current_value is not none else '—'),
+       meta='latest valuation' if current_value is not none else 'add a valuation below'
+  ) }}
+  {{ C.kpi_tile(
+       label='Equity',
+       value=(D.money(equity, signed=false) if equity is not none else '—'),
+       meta='value − debt',
+       tone=('ok' if equity is not none and equity > 0 else '')
+  ) }}
+{% endcall %}
+
+{% if property.sale_date or property.sale_price %}
+{% call C.card(title='Sale', tone='muted') %}
+<dl style="display:grid; grid-template-columns:auto 1fr; gap:6px 16px; margin:0">
+  {% if property.sale_date %}<dt class="subtle">Sale date</dt><dd>{{ property.sale_date }}</dd>{% endif %}
+  {% if property.sale_price %}<dt class="subtle">Sale price</dt><dd>{{ D.money(property.sale_price, signed=false) }}</dd>{% endif %}
+</dl>
+{% endcall %}
+{% endif %}
+
+{% call L.section(title='Cost basis ledger', subtitle='Every posting to the asset account, ordered by date.') %}
+{% if property.asset_account_path %}
+{% if cost_basis_postings %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr><th>Date</th><th>Payee / narration</th><th class="num">Amount</th><th class="num">Running</th></tr>
+  </thead>
+  <tbody>
+    {% for row in cost_basis_postings %}
+    <tr>
+      <td>{{ row.date }}</td>
+      <td>
+        {% if row.payee %}<strong>{{ row.payee }}</strong> · {% endif %}
+        <span class="subtle">{{ row.narration }}</span>
+      </td>
+      <td class="num">{{ D.money(row.amount, signed=true) }}</td>
+      <td class="num">{{ D.money(row.running, signed=false) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+<p class="subtle" style="margin-top:0.5rem">Account: <code>{{ property.asset_account_path }}</code> · running total should end at the cost-basis target ({{ D.money(cost_basis, signed=false) }}).</p>
+{% else %}
+{{ F.empty_state('Nothing posted to ' ~ property.asset_account_path ~ ' yet. Record the purchase as an atomic closing transaction (or reclassify uncategorized acquisition rows below) to build cost basis.') }}
+{% endif %}
+{% else %}
+{{ F.empty_state('Set an asset account path below so we know which Beancount account represents this property.') }}
+{% endif %}
+{% endcall %}
+
+{% if acquisition_fixme_candidates %}
+{% call L.section(title='Possible acquisition transactions', subtitle='%d candidate%s' % (acquisition_fixme_candidates|length, '' if acquisition_fixme_candidates|length == 1 else 's')) %}
+<p class="subtle" style="margin:0 0 0.75rem">
+  Uncategorized transactions whose narration mentions earnest money, title, inspection, appraisal, closing, or similar acquisition keywords —
+  none of them are yet posted to <code>{{ property.asset_account_path or 'the asset account' }}</code>.
+  Reclassify each via the review queue.
+</p>
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr><th>Date</th><th>Payee / narration</th><th class="num">Amount</th><th>Matched keywords</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for c in acquisition_fixme_candidates %}
+    <tr>
+      <td>{{ c.date }}</td>
+      <td>
+        {% if c.payee %}<strong>{{ c.payee }}</strong> · {% endif %}
+        <span class="subtle">{{ c.narration }}</span>
+      </td>
+      <td class="num">{{ D.money(c.amount, signed=true) }}</td>
+      <td>
+        {% for tok in c.hits %}{{ D.badge(tok, tone='accent') }} {% endfor %}
+      </td>
+      <td>{{ B.btn('Review', href='/review#txn=' ~ c.txn_hash, variant='ghost', size='sm') }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+{% call L.section(title='Edit property') %}
+<datalist id="accounts-datalist"></datalist>
+<datalist id="prop-types-datalist">{% for t in property_types %}<option value="{{ t }}">{% endfor %}</datalist>
+<datalist id="prop-entities-datalist">{% for e in entities %}<option value="{{ e.slug }}" label="{{ e.display_name or e.slug }}">{% endfor %}</datalist>
+<datalist id="prop-active-datalist">
+  <option value="1" label="Active">
+  <option value="0" label="Closed / sold">
+</datalist>
+<datalist id="prop-source-datalist">
+  <option value="zillow" label="Zillow / Redfin">
+  <option value="appraisal" label="Appraisal">
+  <option value="county" label="County assessor">
+  <option value="sale" label="Comparable sale">
+  <option value="manual" label="Manual estimate">
+</datalist>
+
+{% call L.form_split() %}
+
+{% call L.form_col() %}
+<form method="post" action="/settings/properties" autocomplete="off"
+      class="form-split-form--paired">
+  <input type="hidden" name="slug" value="{{ property.slug }}" />
+
+  {% call C.card(title='Identity') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field"><label class="field-label">Display name</label><input class="field-input" type="text" name="display_name" value="{{ property.display_name or '' }}" /></div>
+      <div class="field">
+        <label class="field-label">Property type</label>
+        <input class="field-input" type="text" name="property_type" list="prop-types-datalist" value="{{ property.property_type or '' }}" />
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">Entity (owner)</label>
+      {% if property.entity_slug %}
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+        <code>{{ property.entity_slug | entity }}</code>
+        <span class="subtle">locked — real-estate ownership changes need a disposal/re-acquisition record, not a field edit</span>
+        <input type="hidden" name="entity_slug" value="{{ property.entity_slug }}" />
+      </div>
+      {% else %}
+      <input class="field-input" type="text" name="entity_slug" list="prop-entities-datalist" required placeholder="pick owning entity" />
+      {% endif %}
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Identity</h3>
+    <p><strong>Property type</strong> drives what tax schedule activity rolls into — single-family + primary-residence flows to Schedule A; rental flows to Schedule E.</p>
+    <p><strong>Entity</strong> binding is locked once set. A real-world ownership change (intercompany transfer, sale + repurchase) goes through the disposal flow, not a field edit.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Address') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field"><label class="field-label">Address</label><input class="field-input" type="text" name="address" value="{{ property.address or '' }}" /></div>
+      <div class="field"><label class="field-label">City</label><input class="field-input" type="text" name="city" value="{{ property.city or '' }}" /></div>
+    </div>
+    <div class="form-row-2">
+      <div class="field"><label class="field-label">State</label><input class="field-input" type="text" name="state" value="{{ property.state or '' }}" /></div>
+      <div class="field"><label class="field-label">Postal code</label><input class="field-input" type="text" name="postal_code" value="{{ property.postal_code or '' }}" /></div>
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Address</h3>
+    <p>Used for property-tax assessor lookups, county-assessor valuation imports, and rental-listing sync. State + postal code are the most load-bearing — they drive depreciation timing rules in a few jurisdictions.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Purchase') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field"><label class="field-label">Purchase date</label><input class="field-input" type="date" name="purchase_date" value="{{ property.purchase_date or '' }}" /></div>
+      <div class="field"><label class="field-label">Purchase price</label><input class="field-input" type="text" name="purchase_price" value="{{ property.purchase_price or '' }}" /></div>
+    </div>
+    <div class="form-row-2">
+      <div class="field"><label class="field-label">Closing costs</label><input class="field-input" type="text" name="closing_costs" value="{{ property.closing_costs or '' }}" /></div>
+      <div class="field">
+        <label class="field-label">Asset account path</label>
+        <input class="field-input" type="text" name="asset_account_path" list="accounts-datalist"
+               value="{{ property.asset_account_path or '' }}"
+               placeholder="Assets:Personal:Property:MainResidence" />
+      </div>
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Purchase + cost basis</h3>
+    <p><strong>Purchase price</strong> + <strong>closing costs</strong> together form the depreciable basis target. Closing costs include title, transfer tax, and origination fees that capitalize into basis (not points).</p>
+    <p><strong>Asset account path</strong> is the Beancount account that tracks book value. The Cost basis ledger panel above sums postings to this account; it should match the target.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Flags') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field"><label style="display:flex; gap:8px; align-items:center; font-size:0.92rem"><input type="checkbox" name="is_primary_residence" value="1" {% if property.is_primary_residence %}checked{% endif %} /> Primary residence</label></div>
+      <div class="field"><label style="display:flex; gap:8px; align-items:center; font-size:0.92rem"><input type="checkbox" name="is_rental" value="1" {% if property.is_rental %}checked{% endif %} /> Rental</label></div>
+    </div>
+    <div class="field">
+      <label class="field-label">Active</label>
+      <input class="field-input" type="text" name="is_active" list="prop-active-datalist" value="{{ '1' if property.is_active else '0' }}" />
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block tone-warn">
+    <h3>Flags</h3>
+    <p><strong>Primary residence</strong> + <strong>rental</strong> are independent — a property can be one, both (in the case of an owner-occupied duplex), or neither (vacant lot, second home). Tax flows fork on these flags.</p>
+    <p><strong>Active</strong> only flips false when the property is fully closed out — sold, foreclosed, or otherwise disposed.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Sale (when applicable)') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field"><label class="field-label">Sale date</label><input class="field-input" type="date" name="sale_date" value="{{ property.sale_date or '' }}" /></div>
+      <div class="field"><label class="field-label">Sale price</label><input class="field-input" type="text" name="sale_price" value="{{ property.sale_price or '' }}" /></div>
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block tone-err">
+    <h3>Sale</h3>
+    <p>For a real-world disposal, prefer the dedicated <a href="/settings/properties/{{ property.slug }}/dispose">disposal flow</a> over editing these fields directly — it walks through closing-cost allocation, depreciation recapture, and §121 exclusion eligibility.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Notes') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="field"><textarea class="field-textarea" name="notes" rows="3">{{ property.notes or '' }}</textarea></div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Notes</h3>
+    <p>Free-form context — tenant history, deferred maintenance, refinance plans. Surfaced on the property detail page above.</p>
+  </div>
+  {% endcall %}
+
+  <div class="form-actions" style="margin-top:1.5rem">
+    <span class="spacer"></span>{{ B.btn('Save property', type='submit', variant='primary') }}
+  </div>
+</form>
+{% endcall %}
+
+{% call L.help_col() %}{% endcall %}
+
+{% endcall %}
+
+<div style="margin-top:1rem; display:flex; gap:8px; flex-wrap:wrap">
+  {{ B.btn('Change ownership / intercompany transfer', href='/settings/properties/' ~ property.slug ~ '/change-ownership', variant='ghost', size='sm') }}
+  {% if property.is_active %}
+    {{ B.btn('Sell / dispose', href='/settings/properties/' ~ property.slug ~ '/dispose', variant='ghost', size='sm') }}
+  {% endif %}
+</div>
+{% endcall %}
+
+{% call L.section(title='Loans secured by this property') %}
+{% if loans %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Status</th><th>Loan</th><th>Type</th><th>Institution</th>
+      <th class="num">Current balance</th><th class="num">Limit / orig.</th>
+      <th class="num">Headroom</th><th class="num">Monthly</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for l in loans %}
+    <tr>
+      <td>{% if l.is_active %}{{ D.badge('active', tone='ok') }}{% else %}{{ D.badge('closed', tone='muted') }}{% endif %}</td>
+      <td><a href="/settings/loans/{{ l.slug }}">{{ l.display_name or l.slug }}</a></td>
+      <td>{{ l.loan_type }}{% if l.is_revolving %} <span class="subtle">(revolving)</span>{% endif %}</td>
+      <td>{{ l.institution or '—' }}</td>
+      <td class="num">{{ D.money(l.current_balance, signed=false) }}</td>
+      <td class="num">{% if l.is_revolving and l.credit_limit %}{{ D.money(l.credit_limit, signed=false) }}{% else %}{{ D.money(l.original_principal, signed=false) }}{% endif %}</td>
+      <td class="num">{% if l.available_headroom is not none %}{{ D.money(l.available_headroom, signed=false) }}{% else %}—{% endif %}</td>
+      <td class="num">{% if l.monthly_payment_estimate and not l.is_revolving %}{{ D.money(l.monthly_payment_estimate, signed=false) }}{% else %}—{% endif %}</td>
+    </tr>
+    {% endfor %}
+    {% if loans|length > 1 %}
+    <tr style="border-top:2px solid var(--border-strong)">
+      <td colspan="4"><strong>Combined</strong></td>
+      <td class="num"><strong>{{ D.money(loans_summary.combined_balance, signed=false) }}</strong></td>
+      <td class="num">{% if loans_summary.combined_credit_limit %}{{ D.money(loans_summary.combined_credit_limit, signed=false) }}{% else %}—{% endif %}</td>
+      <td class="num">{% if loans_summary.has_revolving %}{{ D.money(loans_summary.combined_available_headroom, signed=false) }}{% else %}—{% endif %}</td>
+      <td class="num"><strong>{{ D.money(loans_summary.combined_monthly, signed=false) }}</strong></td>
+    </tr>
+    {% endif %}
+  </tbody>
+</table>
+{% endcall %}
+{% else %}
+{{ F.empty_state('No loans linked. Open any loan at /settings/loans and set its “Property secured” to this property.') }}
+{% endif %}
+{% endcall %}
+
+{% call L.section(title='Value history', subtitle='Log Zillow, appraisal, or county-assessor values over time. The latest dated value drives the equity calc above.') %}
+{% if valuations %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead><tr><th>As of</th><th class="num">Value</th><th>Source</th><th>Notes</th><th class="shrink"></th></tr></thead>
+  <tbody>
+    {% for v in valuations %}
+    <tr>
+      <td>{{ v.as_of_date }}</td>
+      <td class="num">{{ D.money(v.value, signed=false) }}</td>
+      <td>{{ v.source or '—' }}</td>
+      <td class="subtle">{{ v.notes or '' }}</td>
+      <td class="shrink">
+        <form method="post" action="/settings/properties/{{ property.slug }}/valuations/{{ v.id }}/delete"
+              data-confirm="Remove the {{ v.recorded_on or v.valuation_date }} valuation ({{ D.money(v.value, signed=false) }}) for {{ property.display_name or property.slug }}? Depreciation calcs will fall back to the next-most-recent valuation."
+              data-confirm-button="Remove valuation">
+          {{ B.btn('Remove', type='submit', variant='ghost', size='sm') }}
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endif %}
+
+{% call C.card(title='Record a valuation') %}
+<form method="post" action="/settings/properties/{{ property.slug }}/valuations" class="form-grid" style="max-width:none" autocomplete="off">
+  <div class="form-row-2">
+    <div class="field"><label class="field-label">As of date</label><input class="field-input" type="date" name="as_of_date" required /></div>
+    <div class="field"><label class="field-label">Value</label><input class="field-input" type="text" name="value" placeholder="e.g. 625000" required /></div>
+  </div>
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Source</label>
+      <input class="field-input" type="text" name="source" list="prop-source-datalist" />
+    </div>
+    <div class="field"><label class="field-label">Notes</label><input class="field-input" type="text" name="notes" /></div>
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Add valuation', type='submit', variant='primary', icon=icon.plus()) }}</div>
+</form>
+{% endcall %}
+{% endcall %}
+
+{% if expense_rollup %}
+{% call L.section(title='Expense rollup', subtitle='All expense postings under this property’s subtree.') %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead><tr><th>Category</th><th class="num">Total</th></tr></thead>
+  <tbody>
+    {% for acct, amt in expense_rollup %}
+    <tr>
+      <td title="{{ acct }}">{{ acct | alias }}</td>
+      <td class="num">{{ D.money(amt, signed=false) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+<p class="subtle" style="margin-top:1.5rem"><a href="/settings/properties">← back to Properties</a></p>
+
+<script>
+  fetch('/api/accounts', {credentials:'same-origin'})
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      if (!d || !Array.isArray(d.all)) return;
+      const dl = document.getElementById('accounts-datalist');
+      const labels = (d.labels && typeof d.labels === 'object') ? d.labels : {};
+      window.__acctLabels = labels;
+      for (const n of d.all) {
+        const o = document.createElement('option');
+        o.value = n;
+        if (labels[n] && labels[n] !== n) o.label = labels[n];
+        dl.appendChild(o);
+      }
+    })
+    .catch(() => undefined);
+</script>
+{% endblock %}

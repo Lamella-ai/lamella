@@ -1,0 +1,29 @@
+{# One loan card. Click → /settings/loans/{slug} for the focused detail
+   page (anchors, payments, refi history). Card-only — no quick edit
+   modal yet (loan editing is structurally different from V/P/A and
+   has its own focused page). #}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/data.html" as D %}
+<a class="record-card{% if not l.is_active %} record-card--quiet{% endif %}"
+   href="/settings/loans/{{ l.slug }}">
+  <div class="record-card-head">
+    <span class="record-card-title">{{ l.display_name or l.slug }}</span>
+    {% if l.is_active %}{{ D.badge('Active', tone='ok') }}
+    {% else %}{{ D.badge('Closed', tone='muted') }}{% endif %}
+    {% if l.is_revolving %}{{ D.badge('Revolving', tone='accent') }}{% endif %}
+  </div>
+  <div class="record-card-meta">
+    {{ l.loan_type | humanize }}
+    {% if l.institution %} · {{ l.institution }}{% endif %}
+    {% if l.entity_slug %}<br>Owed by {{ l.entity_slug | entity }}{% endif %}
+  </div>
+  <div class="record-card-stats">
+    {% if l.is_revolving and l.credit_limit %}
+    <span>Limit {{ l.credit_limit | money }}</span>
+    {% elif l.original_principal %}
+    <span>Principal {{ l.original_principal | money }}</span>
+    {% endif %}
+    {% if l.interest_rate_apr %}<span>{{ l.interest_rate_apr }}% APR</span>{% endif %}
+    {% if l.funded_date %}<span>Funded {{ l.funded_date }}</span>{% endif %}
+  </div>
+</a>

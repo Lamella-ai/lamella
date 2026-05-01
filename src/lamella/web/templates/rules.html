@@ -1,0 +1,117 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Rules — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Classification rules{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Classification rules',
+     subtitle='Hard rules that skip the AI classifier. Use sparingly — most setups don’t need many.'
+) %}
+{% endcall %}
+
+{% call C.card(title='Do you even need rules?', tone='info') %}
+<p class="subtle" style="margin:0 0 0.5rem"><strong>Probably not.</strong> The AI handles classification using every context signal — entity descriptions, account descriptions, active notes, receipt content, mileage logs, active projects, vector-similar history, merchant frequency histograms. Your job is usually to write context (on <a href="/settings/entities">Entities</a>, <a href="/settings/account-descriptions">Accounts</a>, <a href="/projects">Projects</a>), not rules.</p>
+<p class="subtle" style="margin:0 0 0.5rem">Rules exist for one case: a merchant so unambiguous, recurring, and well-scoped that running the AI on every occurrence is a waste of tokens. Example: a <code>Netflix</code> subscription on a specific card always goes to one account. A hard rule at confidence ≥ 0.95, card-scoped, saves the classify call.</p>
+<p class="subtle" style="margin:0 0 0.5rem"><strong>Don’t make a rule for a merchant whose correct target depends on context.</strong> Hardware Store could be inventory, supplies, or a project. The AI resolves those case-by-case using receipt content + active projects + mileage; a hard rule would silently miscategorize.</p>
+<p class="subtle" style="margin:0">AI-learned rules never auto-apply; only user-created rules at confidence ≥ 0.95 skip the classify call. The intercompany gate still overrides auto-apply when a wrong-card situation is detected.</p>
+{% endcall %}
+
+<datalist id="pattern-types-datalist">
+  {% for pt in pattern_types %}<option value="{{ pt }}">{% endfor %}
+</datalist>
+
+{% call C.card(title='New hard rule') %}
+<form method="post" action="/rules" hx-post="/rules" hx-target="#rule-list" hx-swap="beforeend" class="form-grid" style="max-width:none">
+  <div class="form-row-2">
+    <div class="field"><label class="field-label">Pattern type</label><input class="field-input" type="text" name="pattern_type" list="pattern-types-datalist" required /></div>
+    <div class="field"><label class="field-label">Pattern value</label><input class="field-input" type="text" name="pattern_value" required placeholder="substring / regex / lo..hi" /></div>
+  </div>
+  <div class="form-row-2">
+    <div class="field"><label class="field-label">Target account</label><input class="field-input" type="text" name="target_account" required placeholder="Expenses:Entity:Category" /></div>
+    <div class="field"><label class="field-label">Card account (optional)</label><input class="field-input" type="text" name="card_account" placeholder="Liabilities:Entity:Card:xxxx" /></div>
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Save rule', type='submit', variant='primary', icon=icon.plus()) }}</div>
+</form>
+{% endcall %}
+
+{% call L.section(title='Active hard rules', subtitle='%d total' % rules|length) %}
+{% if not rules %}
+{{ F.empty_state('No hard rules yet. Most setups don’t need more than a handful.') }}
+{% else %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr><th>ID</th><th>Type</th><th>Value</th><th>Card scope</th><th>Target</th><th class="num">Confidence</th><th class="num">Hits</th><th>Last used</th><th></th></tr>
+  </thead>
+  <tbody id="rule-list">
+    {% for rule in rules %}{% include "partials/rule_row.html" %}{% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endif %}
+{% endcall %}
+
+{% call L.section(title='Historical patterns — informational', subtitle='%d candidates' % mined_proposals|length) %}
+{% call C.card(tone='muted') %}
+<p class="subtle" style="margin:0 0 0.5rem">
+  (Payee → account) pairs observed ≥ 5 times in your ledger with ≥ 60% dominance. <strong>These are already AI priors</strong> — the classifier sees them on every call.
+  Promotion is the rare exception, not the default. FIXME / Uncategorized / catch-all targets are filtered out.
+</p>
+<p class="subtle" style="margin:0">
+  Only promote when (a) the merchant’s correct account never depends on context, (b) confidence is ≥ 95% with no meaningful alternatives,
+  and (c) saving the AI call is worth the risk of silent miscategorization. Narrow card-scope is strongly recommended.
+</p>
+{% endcall %}
+
+{% if not mined_proposals %}
+{{ F.empty_state('No patterns meet the threshold yet — either the ledger is young, or every dominant pattern is already a hard rule.') }}
+{% else %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr><th>Normalized payee</th><th>Proposed account</th><th class="num">Support</th><th class="num">Confidence</th><th>Alternatives</th><th class="shrink">Promote</th></tr>
+  </thead>
+  <tbody>
+    {% for p in mined_proposals[:100] %}
+    <tr>
+      <td><code>{{ p.normalized_payee }}</code></td>
+      <td><code>{{ p.proposed_account }}</code></td>
+      <td class="num">{{ p.support }}</td>
+      <td class="num">{{ (p.confidence * 100) | round | int }}%</td>
+      <td>
+        {% for alt_account, alt_count in p.alternatives[:3] %}
+          <code>{{ alt_account.split(':')[-1] }}</code>
+          <span class="subtle">({{ alt_count }})</span>{% if not loop.last %}, {% endif %}
+        {% endfor %}
+      </td>
+      <td class="shrink">
+        <form method="post" action="/rules/promote-mined" style="margin:0">
+          <input type="hidden" name="pattern_value" value="{{ p.normalized_payee }}">
+          <input type="hidden" name="target_account" value="{{ p.proposed_account }}">
+          {{ B.btn('Promote', type='submit', variant='ghost', size='sm') }}
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endif %}
+{% endcall %}
+{% endblock %}

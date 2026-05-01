@@ -1,0 +1,25 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Rendered from POST /paperless/{doc_id}/enrich as the HTMX swap target. #}
+<div class="paperless-enrich-result" id="paperless-enrich-{{ doc_id }}">
+  {% if outcome.skipped_reason %}
+    <p class="muted"><strong>Enrich skipped:</strong> {{ outcome.skipped_reason }}</p>
+  {% else %}
+    <p>
+      {% if outcome.note_added %}✓ Note posted.{% endif %}
+      {% if outcome.tag_applied %}
+        ✓ Tagged <code>Lamella Enriched</code>.
+      {% endif %}
+      {% if outcome.custom_fields_set %}
+        ✓ Custom fields set:
+        <code>{{ outcome.custom_fields_set | join(", ") }}</code>.
+      {% endif %}
+    </p>
+  {% endif %}
+</div>

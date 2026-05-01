@@ -1,0 +1,60 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% block title %}{{ flow.title }} — New property{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block content %}
+{% include "partials/loans/_wizard_progress.html" %}
+
+<h1>{{ flow.title }}</h1>
+<h2>Step 2: New property details</h2>
+
+{% include "partials/_wizard_errors.html" %}
+
+<form method="post" action="/settings/loans/wizard/{{ flow_name }}/step"
+      class="stacked-form">
+  {# Round-trip prior steps' values as hidden inputs. #}
+  {% for k, v in params.items() %}
+    {% if v is not none and k not in ['step', 'new_property_slug',
+        'new_property_display_name', 'new_property_type',
+        'new_property_entity_slug', 'new_property_address'] %}
+      <input type="hidden" name="{{ k }}" value="{{ v }}" />
+    {% endif %}
+  {% endfor %}
+  <input type="hidden" name="step" value="new_property_details" />
+
+  <label>Slug
+    <input type="text" name="new_property_slug" required
+           value="{{ params.new_property_slug or '' }}"
+           placeholder="MainResidence" />
+  </label>
+  <label>Display name
+    <input type="text" name="new_property_display_name" required
+           value="{{ params.new_property_display_name or '' }}" />
+  </label>
+  <label>Type
+    <select name="new_property_type" required>
+      {% for t in ['primary_residence', 'rental', 'investment', 'land', 'other'] %}
+        <option value="{{ t }}"
+          {% if params.new_property_type == t %}selected{% endif %}>{{ t }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Entity (optional)
+    <input type="text" name="new_property_entity_slug"
+           value="{{ params.new_property_entity_slug or '' }}" />
+  </label>
+  <label>Address (optional)
+    <input type="text" name="new_property_address"
+           value="{{ params.new_property_address or '' }}" />
+  </label>
+
+  <button type="submit" class="primary-action">Next →</button>
+</form>
+{% endblock %}

@@ -1,0 +1,40 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<tr class="{% if row.needs_review %}review{% endif %} {% if row.status == 'deduped' %}deduped{% endif %}">
+  <td>{{ row.date or "—" }}</td>
+  <td>{{ "%.2f"|format(row.amount or 0) }}</td>
+  <td>{{ row.payee or "" | truncate(40) }}</td>
+  <td class="muted small">{{ row.description or "" | truncate(60) }}</td>
+  <td><code>{{ row.account or "" }}</code></td>
+  <td>{{ row.confidence or "—" }}</td>
+  <td>
+    <span class="badge badge-{{ row.status }}">{{ row.status }}</span>
+    {% if row.pair_kind %}<span class="badge">{{ row.pair_kind }}</span>{% endif %}
+  </td>
+  <td>
+    {% if row.status != 'deduped' %}
+    <details>
+      <summary>Edit</summary>
+      <form method="post" action="/import/{{ record.id }}/preview/recategorize">
+        <input type="hidden" name="raw_row_id" value="{{ row.raw_row_id }}" />
+        <label>Account <input name="account" value="{{ row.account or '' }}" required /></label>
+        <label>Entity
+          <input name="entity" list="import-entities-{{ row.raw_row_id }}"
+                 value="{{ row.entity or '' }}" autocomplete="off" />
+          <datalist id="import-entities-{{ row.raw_row_id }}">
+            {% for ent in entities %}<option value="{{ ent }}">{% endfor %}
+          </datalist>
+        </label>
+        <label>Sched. C cat. <input name="schedule_c_category" /></label>
+        <button type="submit">Save</button>
+      </form>
+    </details>
+    {% endif %}
+  </td>
+</tr>

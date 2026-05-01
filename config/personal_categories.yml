@@ -1,0 +1,213 @@
+# Copyright 2026 Lamella LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+# https://lamella.ai
+
+# Personal entity category scaffold.
+#
+# Two kinds of entries live here:
+#
+#   1. Schedule A itemized-deduction categories — `line` prefixed with
+#      "A-" so the reporter can surface them on a Schedule A summary
+#      even though the chart of accounts is entity-first. These matter
+#      at tax time for anyone who itemizes (vs. standard deduction).
+#
+#   2. Common personal-living categories — no `line` field. Not
+#      deductible, but worth tracking for personal finance clarity
+#      (food, housing, transportation, entertainment, etc.). Without
+#      these, the AI classifier dumps every grocery run and utility
+#      bill into `Expenses:Personal:Uncategorized` because that's
+#      the only existing bucket.
+#
+# Each entry's `account_patterns` list tells the reporter which
+# account-path regexes to match for that category. The scaffolder
+# writes the FIRST pattern's canonical concrete form as an Open
+# directive. Patterns use Python `re.match` (anchored at start).
+
+# ------------------------- Schedule A (deductible) ----------------------
+
+- line: A-1
+  description: "Medical and dental expenses"
+  account_patterns:
+    - "Expenses:[^:]+:Medical($|:)"
+    - "Expenses:[^:]+:Healthcare($|:)"
+
+- line: A-5a
+  description: "State and local income tax (SALT)"
+  account_patterns:
+    - "Expenses:[^:]+:Taxes:StateIncome($|:)"
+    - "Expenses:[^:]+:Taxes:State($|:)"
+
+- line: A-5b
+  description: "State and local real estate taxes"
+  account_patterns:
+    - "Expenses:[^:]+:Taxes:RealEstate($|:)"
+    - "Expenses:[^:]+:Taxes:Property($|:)"
+
+- line: A-5c
+  description: "State and local personal property taxes"
+  account_patterns:
+    - "Expenses:[^:]+:Taxes:PersonalProperty($|:)"
+
+- line: A-8a
+  description: "Home mortgage interest reported on Form 1098"
+  account_patterns:
+    - "Expenses:[^:]+:Interest:Mortgage($|:)"
+    - "Expenses:[^:]+:MortgageInterest($|:)"
+
+- line: A-11
+  description: "Charitable contributions by cash or check"
+  account_patterns:
+    - "Expenses:[^:]+:CharitableContributions($|:)"
+    - "Expenses:[^:]+:Charity($|:)"
+
+- line: A-12
+  description: "Charitable contributions other than by cash"
+  account_patterns:
+    - "Expenses:[^:]+:CharitableContributions:NonCash($|:)"
+
+- line: A-15
+  description: "Casualty and theft losses"
+  account_patterns:
+    - "Expenses:[^:]+:CasualtyLosses($|:)"
+
+- line: A-16
+  description: "Other itemized deductions (gambling losses, etc.)"
+  account_patterns:
+    - "Expenses:[^:]+:GamblingLosses($|:)"
+    - "Expenses:[^:]+:OtherItemized($|:)"
+
+# -------------------- Common non-deductible personal --------------------
+
+- description: "Groceries"
+  account_patterns:
+    - "Expenses:[^:]+:Food:Groceries($|:)"
+
+- description: "Dining out / restaurants"
+  account_patterns:
+    - "Expenses:[^:]+:Food:Dining($|:)"
+
+- description: "Coffee shops"
+  account_patterns:
+    - "Expenses:[^:]+:Food:Coffee($|:)"
+
+- description: "Housing — rent"
+  account_patterns:
+    - "Expenses:[^:]+:Housing:Rent($|:)"
+
+- description: "Housing — utilities (electric, gas, water, sewer, trash)"
+  account_patterns:
+    - "Expenses:[^:]+:Housing:Utilities($|:)"
+
+- description: "Housing — internet + phone"
+  account_patterns:
+    - "Expenses:[^:]+:Housing:InternetAndPhone($|:)"
+
+- description: "Housing — repairs / maintenance"
+  account_patterns:
+    - "Expenses:[^:]+:Housing:Repairs($|:)"
+
+- description: "Housing — HOA dues"
+  account_patterns:
+    - "Expenses:[^:]+:Housing:HOA($|:)"
+
+- description: "Housing — homeowners / renters insurance"
+  account_patterns:
+    - "Expenses:[^:]+:Housing:Insurance($|:)"
+
+- description: "Transportation — fuel"
+  account_patterns:
+    - "Expenses:[^:]+:Transportation:Fuel($|:)"
+
+- description: "Transportation — parking and tolls"
+  account_patterns:
+    - "Expenses:[^:]+:Transportation:ParkingAndTolls($|:)"
+
+- description: "Transportation — vehicle maintenance"
+  account_patterns:
+    - "Expenses:[^:]+:Transportation:Maintenance($|:)"
+
+- description: "Transportation — vehicle insurance"
+  account_patterns:
+    - "Expenses:[^:]+:Transportation:Insurance($|:)"
+
+- description: "Transportation — registration and DMV"
+  account_patterns:
+    - "Expenses:[^:]+:Transportation:Registration($|:)"
+
+- description: "Transportation — rideshare / taxi / transit"
+  account_patterns:
+    - "Expenses:[^:]+:Transportation:Rideshare($|:)"
+
+- description: "Health insurance premiums (non-deductible portion)"
+  account_patterns:
+    - "Expenses:[^:]+:Healthcare:Insurance($|:)"
+
+- description: "Out-of-pocket healthcare (copays, Rx, dental)"
+  account_patterns:
+    - "Expenses:[^:]+:Healthcare:OutOfPocket($|:)"
+
+- description: "Clothing and shoes"
+  account_patterns:
+    - "Expenses:[^:]+:Clothing($|:)"
+
+- description: "Personal care — haircuts, toiletries, etc."
+  account_patterns:
+    - "Expenses:[^:]+:PersonalCare($|:)"
+
+- description: "Entertainment — streaming subscriptions (Netflix, Spotify)"
+  account_patterns:
+    - "Expenses:[^:]+:Entertainment:Streaming($|:)"
+
+- description: "Entertainment — software / app subscriptions"
+  account_patterns:
+    - "Expenses:[^:]+:Entertainment:Subscriptions($|:)"
+
+- description: "Entertainment — events (concerts, movies, sports)"
+  account_patterns:
+    - "Expenses:[^:]+:Entertainment:Events($|:)"
+
+- description: "Hobbies and recreation"
+  account_patterns:
+    - "Expenses:[^:]+:Hobbies($|:)"
+
+- description: "Education — tuition, books, courses"
+  account_patterns:
+    - "Expenses:[^:]+:Education($|:)"
+
+- description: "Gifts given"
+  account_patterns:
+    - "Expenses:[^:]+:Gifts($|:)"
+
+- description: "Travel — lodging"
+  account_patterns:
+    - "Expenses:[^:]+:Travel:Lodging($|:)"
+
+- description: "Travel — airfare / transportation"
+  account_patterns:
+    - "Expenses:[^:]+:Travel:Airfare($|:)"
+
+- description: "Travel — meals"
+  account_patterns:
+    - "Expenses:[^:]+:Travel:Meals($|:)"
+
+- description: "Pets — food, vet, supplies"
+  account_patterns:
+    - "Expenses:[^:]+:Pets($|:)"
+
+- description: "Kids — childcare, school, activities"
+  account_patterns:
+    - "Expenses:[^:]+:Kids($|:)"
+
+- description: "Professional services — legal, accounting, advisory"
+  account_patterns:
+    - "Expenses:[^:]+:ProfessionalServices($|:)"
+
+- description: "Bank / card fees on personal accounts"
+  account_patterns:
+    - "Expenses:[^:]+:Bank:Fees($|:)"
+
+- description: "Miscellaneous / uncategorized (last resort)"
+  account_patterns:
+    - "Expenses:[^:]+:Miscellaneous($|:)"

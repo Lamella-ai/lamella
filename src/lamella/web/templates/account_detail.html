@@ -1,0 +1,315 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}{{ label }} — Account{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}{{ label }}{% endblock %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+
+{% if saved %}
+{% call F.banner(tone='ok', title='Saved') %}
+  {% if opened %}Opened {{ opened }} companion account{{ '' if opened == 1 else 's' }}.{% endif %}
+{% endcall %}
+{% endif %}
+
+{% if request.query_params.get('opening_balance') %}
+{% call F.banner(tone='ok', title='Opening balance recorded') %}
+  Saved as a balance anchor — a known balance on a specific date.
+  No synthetic transaction is generated; later activity moves the
+  balance forward from this reference point.
+{% endcall %}
+{% endif %}
+
+{% include "partials/_anomaly_banner.html" %}
+
+{% call L.page_head(
+     title=label,
+     subtitle=a.account_path
+              + (' · ' + (a.kind | humanize) if a.kind else '')
+              + (' · closed ' + a.closed_on|string if a.closed_on else ''),
+     kicker='Account'
+) %}
+  {{ B.btn('Edit', href='/accounts/' + a.account_path + '/edit', icon=icon.edit()) }}
+  {{ B.btn('Balance anchors', href='/settings/accounts/' + a.account_path + '/balances', icon=icon.checkcircle()) }}
+  {{ B.btn('Search txns', href='/search?q=' + a.account_path, icon=icon.search()) }}
+  {% if a.entity_slug %}
+  {{ B.btn(a.entity_display_name or a.entity_slug, href='/businesses/' + a.entity_slug, icon=icon.briefcase()) }}
+  {% endif %}
+{% endcall %}
+
+{# ─── KPI strip ─── #}
+{% call C.kpi_grid() %}
+  {{ C.kpi_tile(
+       label='Current balance',
+       value='{:,.2f}'.format(balance),
+       tone='err' if balance < 0 else ''
+  ) }}
+  {{ C.kpi_tile(
+       label='Postings',
+       value='{:,}'.format(posting_count)
+  ) }}
+  {{ C.kpi_tile(
+       label='Anchors',
+       value=anchors|length|string,
+       href='/settings/accounts/' + a.account_path + '/balances',
+       meta='Recorded balance points'
+  ) }}
+  {% if a.institution %}
+  {{ C.kpi_tile(label='Institution', value=a.institution) }}
+  {% endif %}
+  {% if a.last_four %}
+  {{ C.kpi_tile(label='Last four', value='····' + a.last_four) }}
+  {% endif %}
+{% endcall %}
+
+{# ─── Balance history chart ─── #}
+{% call L.section(title='Balance history', subtitle='Last 12 months') %}
+{% call C.card() %}
+<div class="chart-box"><canvas id="balance-chart"></canvas></div>
+{% endcall %}
+{% endcall %}
+
+{# ─── Opening balance form (collapsible) ─── #}
+{% call L.section(title='Opening balance') %}
+{% call C.card() %}
+<details class="anchor-details">
+  <summary>
+    <strong>Record a known balance on a date</strong>
+    <span class="subtle"> — saved as a balance anchor, no synthetic transaction</span>
+  </summary>
+  <p class="subtle" style="margin-top:0.6rem">
+    Use this for accounts where you know the balance as of a specific date but
+    don't have the full pre-ledger transaction history. The anchor records
+    "this account had X on this date" as a reference point. Drift between
+    consecutive anchors and the postings between them surfaces in the audit
+    report — gaps stay visible instead of being silently padded over.
+  </p>
+  <form method="post" action="/accounts/{{ a.account_path }}/opening-balance" class="form-grid" style="max-width:none; margin-top:1rem">
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label" for="ob-date">As of date</label>
+        <input class="field-input" id="ob-date" type="date" name="as_of_date" required />
+      </div>
+      <div class="field">
+        <label class="field-label" for="ob-amount">Known balance</label>
+        <input class="field-input" id="ob-amount" type="text" name="amount" placeholder="0.00" required />
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label" for="ob-currency">Currency</label>
+        <input class="field-input" id="ob-currency" type="text" name="currency" value="USD" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="ob-source">Source / note</label>
+        <input class="field-input" id="ob-source" type="text" name="source_note" placeholder="e.g. Jan 2024 statement" />
+      </div>
+    </div>
+    <div class="form-actions">
+      <span class="spacer"></span>
+      {{ B.btn('Record opening balance', type='submit', variant='primary') }}
+    </div>
+  </form>
+</details>
+{% endcall %}
+{% endcall %}
+
+{# ─── Balance anchors ─── #}
+{% if anchors %}
+{% call L.section(title='Balance anchors', subtitle='%d known balance%s recorded' % (anchors|length, 's' if anchors|length != 1 else '')) %}
+{% call C.card() %}
+  <p class="subtle" style="margin-top:0">
+    <a href="/settings/accounts/{{ a.account_path }}/balances">Manage anchors + view drift →</a>
+  </p>
+  <ul class="list-clean" style="font-size:0.92rem">
+    {% for anc in anchors[-3:] %}
+    <li>
+      <span class="muted-text">{{ anc.as_of_date }}</span>
+      — <strong class="num">{{ "{:,.2f}".format(anc.balance | float) }}</strong> {{ anc.currency }}
+      {% if anc.source %}<span class="subtle">({{ anc.source }})</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+{% endcall %}
+{% endcall %}
+{% else %}
+{% call L.section(title='Balance anchors') %}
+{% call C.card() %}
+  {{ F.empty_state(
+      'No balance anchors yet. Record a known balance from a statement or SimpleFIN pull to enable drift audits over time.',
+      'Add the first anchor',
+      '/settings/accounts/' + a.account_path + '/balances'
+  ) }}
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+{# ─── Companion accounts ─── #}
+{% if companions %}
+  {% set missing = companions | selectattr('exists', 'equalto', false) | list %}
+{% call L.section(
+     title='Companion accounts',
+     subtitle='Schedule C-compatible Expenses / Income / Equity sub-accounts'
+) %}
+{% if missing %}
+  {% call F.banner(tone='warn', title='%d missing' % missing|length) %}
+    What the system thinks this <strong>{{ a.kind or 'account' }}</strong>
+    needs but isn't in the ledger. Click below to scaffold them.
+  {% endcall %}
+{% else %}
+  {% call F.banner(tone='ok', title='All present') %}
+    Every Schedule C-compatible companion account is opened.
+  {% endcall %}
+{% endif %}
+
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Path</th>
+      <th>Purpose</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in companions %}
+    <tr>
+      <td><code>{{ c.path }}</code></td>
+      <td class="subtle">{{ c.purpose }}</td>
+      <td>
+        {% if c.exists %}
+          {{ D.badge('open', tone='ok') }}
+        {% else %}
+          {{ D.badge('missing', tone='warn') }}
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+
+{% if missing %}
+<form method="post" action="/accounts/{{ a.account_path }}/ensure-companions" style="margin-top:0.75rem">
+  {{ B.btn(
+      'Create the %d missing account%s' % (missing|length, '' if missing|length == 1 else 's'),
+      type='submit',
+      variant='primary',
+      icon=icon.plus()
+  ) }}
+  <span class="subtle" style="margin-left:0.5rem">
+    Opens them in <code>connector_accounts.bean</code>. Safe to re-run.
+  </span>
+</form>
+{% endif %}
+{% endcall %}
+{% endif %}
+
+{# ─── Recent postings ─── #}
+{% call L.section(
+     title='Recent postings',
+     subtitle='%d of %d' % (recent|length, posting_count)
+) %}
+{% if recent %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th class="num">Amount</th>
+      <th>Payee</th>
+      <th>Narration</th>
+      <th class="shrink"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in recent %}
+    <tr>
+      <td class="num muted-text">{{ p.date }}</td>
+      <td class="num {% if p.amount < 0 %}money money--neg{% else %}money money--pos{% endif %}">
+        {{ "{:,.2f}".format(p.amount) }}
+      </td>
+      <td>{{ p.payee or "" }}</td>
+      <td class="subtle">{{ p.narration[:70] }}</td>
+      <td class="shrink">
+        <a href="/txn/{{ p.lamella_txn_id }}" class="muted-text" style="font-size:0.82rem">txn →</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% else %}
+{% call C.card() %}
+  {{ F.empty_state('No postings yet.') }}
+{% endcall %}
+{% endif %}
+{% endcall %}
+
+<script>
+(async function () {
+  const res = await fetch("/accounts/{{ a.account_path }}/balance-chart.json");
+  if (!res.ok) return;
+  const data = await res.json();
+  const ctx = document.getElementById("balance-chart");
+  if (!ctx) return;
+  // Read theme-aware colors from CSS variables so the chart respects
+  // light/dark mode out of the box.
+  const cs = getComputedStyle(document.documentElement);
+  const accent     = cs.getPropertyValue('--chart-net').trim()      || '#2563eb';
+  const accentFill = cs.getPropertyValue('--chart-net-fill').trim() || 'rgba(37,99,235,0.14)';
+  const fg         = cs.getPropertyValue('--fg').trim()             || '#0f172a';
+  const grid       = cs.getPropertyValue('--border').trim()         || '#e4e7ec';
+  Chart.defaults.color = fg;
+  Chart.defaults.borderColor = grid;
+  new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: data.labels,
+      datasets: [{
+        label: "Balance",
+        data: data.balances.map(Number),
+        borderColor: accent,
+        backgroundColor: accentFill,
+        tension: 0.25,
+        pointRadius: 3,
+        fill: true,
+      }],
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { callback: (v) => v.toLocaleString() }, grid: { color: grid } },
+        x: { grid: { color: grid } },
+      },
+    },
+  });
+})();
+</script>
+
+<style>
+  .chart-box { height: 280px; padding: 0.75rem; }
+  details.anchor-details summary { cursor: pointer; padding: 4px 0; }
+  details.anchor-details summary:hover { color: var(--accent); }
+  details.anchor-details[open] summary { color: var(--accent); }
+</style>
+{% endblock %}

@@ -1,0 +1,36 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Classify #{{ record.id }} — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Import · Classify{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Classify import #' + record.id|string,
+     subtitle="Confirm the classifier's guesses. Sheets classified as generic_csv / generic_xlsx will move on to the column-mapping step.",
+     kicker='Intake · Import'
+) %}
+  {{ B.btn('← Back', href='/import/' + record.id|string) }}
+{% endcall %}
+
+<form method="post" action="/import/{{ record.id }}/classify">
+  {% for src in sources %}
+    {% include "partials/import_source_card.html" %}
+  {% endfor %}
+  <div class="form-actions">
+    <span class="spacer"></span>
+    {{ B.btn('Continue', type='submit', variant='primary') }}
+  </div>
+</form>
+{% endblock %}

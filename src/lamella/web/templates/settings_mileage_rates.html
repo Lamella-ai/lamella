@@ -1,0 +1,84 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Mileage rates — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Mileage rates{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='IRS mileage rates · date-ranged',
+     subtitle='IRS updates the federal standard rate ~every 6 months. Each rate has an effective-from date; the system looks up the rate whose effective-from is the latest date ≤ the trip date.',
+     kicker='Settings'
+) %}
+  {{ B.btn('Mileage log', href='/mileage', icon=icon.car()) }}
+{% endcall %}
+
+<p class="subtle">
+  Fallback when no rate row covers a trip date: <strong>${{ "%.3f"|format(fallback_rate) }}/mi</strong>
+</p>
+
+{% call L.section(title='Add rate') %}
+{% call C.card() %}
+<form method="post" action="/settings/mileage-rates" class="form-grid" style="max-width:none">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Effective from</label>
+      <input class="field-input" type="date" name="effective_from" value="{{ today }}" required />
+    </div>
+    <div class="field">
+      <label class="field-label">Rate per mile (USD)</label>
+      <input class="field-input" type="text" name="rate_per_mile" required placeholder="0.67" />
+    </div>
+  </div>
+  <div class="field">
+    <label class="field-label">Notes (optional)</label>
+    <input class="field-input" type="text" name="notes" placeholder="e.g. IRS Rev. Proc. 2025-XX — 2026 standard rate" />
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Add rate', type='submit', variant='primary', icon=icon.plus()) }}</div>
+</form>
+{% endcall %}
+{% endcall %}
+
+{% call L.section(title='Existing rates', subtitle='%d configured' % rates|length if rates else '') %}
+{% if rates %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead><tr><th>Effective from</th><th class="num">Rate per mile</th><th>Notes</th><th class="shrink"></th></tr></thead>
+  <tbody>
+  {% for r in rates %}
+  <tr>
+    <td><strong>{{ r.effective_from }}</strong></td>
+    <td class="num">${{ "%.3f"|format(r.rate_per_mile) }}</td>
+    <td class="subtle">{{ r.notes or '' }}</td>
+    <td class="shrink">
+      <form method="post" action="/settings/mileage-rates/{{ r.id }}/delete"
+            data-confirm="Delete the IRS mileage rate effective {{ r.effective_from }} (${{ '%.3f' % r.rate_per_mile }}/mi)?"
+            data-confirm-button="Delete rate">
+        {{ B.btn('Delete', type='submit', variant='ghost', size='sm') }}
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% else %}
+{{ F.empty_state(
+    'No date-ranged rates yet. The fallback rate $%.3f/mi applies to every trip until you add one above.' % fallback_rate
+) }}
+{% endif %}
+{% endcall %}
+{% endblock %}

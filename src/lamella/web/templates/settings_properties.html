@@ -1,0 +1,65 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Properties — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Properties{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Properties',
+     subtitle='One card per property. Click in for valuations / disposal / refi history; tap the pencil for a quick edit. New properties auto-scaffold the asset + expense accounts.',
+     kicker='Records'
+) %}
+  <button type="button"
+          class="btn btn-primary"
+          hx-get="/properties/new-modal"
+          hx-target="body"
+          hx-swap="beforeend">
+    {{ icon.plus() }} Add property
+  </button>
+{% endcall %}
+
+{% if saved %}{% call F.banner(tone='ok', title='Saved') %}{{ saved }}{% endcall %}{% endif %}
+
+{% if properties %}
+<div class="record-grid" id="properties-grid">
+  {% for c in properties %}
+  {% include "partials/_property_card.html" %}
+  {% endfor %}
+</div>
+{% else %}
+{{ F.empty_state(
+    'No properties tracked yet.',
+    'Add your first property',
+    '#',
+    icon=icon.home(28)
+) }}
+<p class="subtle" style="text-align:center; margin-top:0.5rem">
+  Use the <strong>Add property</strong> button above.
+</p>
+{% endif %}
+
+<script>
+/* Close any open modal when the server fires HX-Trigger=property-saved
+   on the modal-edit POST. Mirrors entities.html / vehicles_index.html. */
+document.body.addEventListener("property-saved", function () {
+  document.querySelectorAll(".modal-backdrop.is-open").forEach(function (m) {
+    m.classList.remove("is-open");
+    setTimeout(function () { m.remove(); }, 200);
+  });
+});
+</script>
+{% endblock %}

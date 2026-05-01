@@ -1,0 +1,120 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "setup_recovery/_layout.html" %}
+
+{% block title %}Recovery — Lamella{% endblock %}
+
+{% block step_heading %}Recovery{% endblock %}
+{% block step_subheading %}
+  Drift between the running code and the ledger. Review each row,
+  edit or dismiss as needed, then apply the batch in one pass.
+  Each group commits independently — schema migrations first,
+  then label corrections, then chart cleanup.
+{% endblock %}
+
+{% block step_body %}
+  {% if total_findings == 0 and missing_required_steps %}
+    {# State 1b: no detector drift, but the dashboard gate still wants
+       things — entities labeled, accounts kinded, charts scaffolded,
+       etc. compute_setup_progress is the source of truth for the
+       gate; recovery's drift detectors only cover schema + legacy
+       paths. Surfacing the missing steps here keeps "Back to
+       dashboard" from looping the user back into /setup. #}
+    <div class="wiz-card" style="padding:1.4em 1.2em;">
+      <strong style="font-size:1.1em;">Setup steps still required</strong>
+      <p class="wiz-sub" style="margin:0.5em 0 1em;">
+        No schema or legacy-path drift was detected, but the dashboard
+        is gated on a few setup checks below. Click each row to fix.
+      </p>
+      <ul style="list-style:none; padding:0; margin:0;">
+        {% for step in missing_required_steps %}
+          <li style="border-top:1px solid var(--border); padding:0.8em 0;">
+            <strong>{{ step.label }}</strong>
+            <div class="wiz-sub" style="margin:0.2em 0 0.5em;">{{ step.summary }}</div>
+            {% if step.fix_url %}
+              <a href="{{ step.fix_url }}" class="wiz-btn wiz-btn-primary" style="font-size:0.92em;">Fix &rarr;</a>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% elif total_findings == 0 %}
+    {# State 1: nothing to do. The success-shape we celebrate when reached. #}
+    <div class="wiz-card" style="text-align:center; padding:2.5em 1em;">
+      <strong style="color:var(--ok); font-size:1.15em;">Your install is healthy.</strong>
+      <p class="wiz-sub" style="margin:0.6em 0 0;">
+        No drift detected. SQLite migrations are caught up, the
+        ledger version stamp is current, and the chart of accounts
+        is in canonical shape.
+      </p>
+      <p style="margin-top:1.4em;">
+        <a href="/" class="wiz-btn wiz-btn-secondary">← Back to dashboard</a>
+      </p>
+    </div>
+  {% else %}
+    {# State 2 + 3: findings present. The summary line collapses
+       state 2 (no drafts → "3 findings to review") and state 3
+       (drafts present → "3 findings, 1 dismissed"). #}
+    <p class="wiz-sub" style="margin-bottom:1.2em;">
+      <strong>{{ total_findings }}</strong> drift finding{{ 's' if total_findings != 1 else '' }} to review.
+      {% if dismissed_count %}
+        <strong>{{ dismissed_count }}</strong> dismissed.
+      {% endif %}
+      {% if individual_only_count %}
+        <strong>{{ individual_only_count }}</strong> require{{ 's' if individual_only_count == 1 else '' }} individual confirmation.
+      {% endif %}
+    </p>
+
+    {% if stale_draft_ids %}
+      {# Stale-draft advisory. Orchestrator's closed-world drop
+         handles these silently at apply time; the page makes the
+         drop visible so the user understands the discrepancy
+         between their draft and the current detector output. #}
+      <div class="wiz-banner wiz-banner-warn" style="margin-bottom:1.2em;">
+        <strong>{{ stale_draft_ids | length }}</strong>
+        finding{{ 's' if stale_draft_ids | length != 1 else '' }} in your saved draft
+        {{ 'is' if stale_draft_ids | length == 1 else 'are' }} no longer detected
+        and will be skipped — likely resolved by another action since
+        you composed this batch.
+      </div>
+    {% endif %}
+
+    {# The form is empty (controls live on per-row HTMX endpoints).
+       Whole-form POST in 6.1.4c will submit to /setup/recovery/apply
+       which reads the current repair_state, not form fields. #}
+    <form id="recovery-bulk-form" method="post" action="/setup/recovery/apply"></form>
+
+    {% for group in groups %}
+      {% set rows = rows_by_group[group] %}
+      {% if rows %}
+        <section class="recovery-group" data-group="{{ group }}">
+          <h2 class="recovery-group-heading">
+            {% if group == "schema" %}Schema migrations{% endif %}
+            {% if group == "labels" %}Label corrections{% endif %}
+            {% if group == "cleanup" %}Cleanup{% endif %}
+            <span class="recovery-group-count">({{ rows | length }})</span>
+          </h2>
+          <div class="recovery-findings">
+            {% for row in rows %}
+              {% include "setup_recovery/partials/_finding_row.html" %}
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+    {% endfor %}
+
+    <div class="recovery-apply-bar">
+      {% include "setup_recovery/partials/_apply_button.html" %}
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block step_actions %}
+  <a href="/" class="wiz-btn wiz-btn-secondary">← Back to dashboard</a>
+{% endblock %}

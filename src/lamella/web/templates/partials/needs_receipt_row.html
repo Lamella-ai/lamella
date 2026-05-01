@@ -1,0 +1,147 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# One transaction card — semantic markup, no <table>. The outer
+   <li> sits inside the <ul class="needs-cards"> rendered by
+   receipts_needed_body.html. After a /link or /dismiss POST, htmx
+   swaps THIS <li> by id so the rest of the queue stays put. #}
+{%- import "_components/_txn.html" as Txn -%}
+{%- import "_components/_needs_candidate.html" as CandMacro -%}
+{%- set top_n = 3 -%}
+{%- set top_cands = row.candidates[:top_n] -%}
+{%- set rest_cands = row.candidates[top_n:] -%}
+<li id="needs-row-{{ row.item.txn_hash }}"
+    class="needs-card {% if row.required %}needs-card--required{% else %}needs-card--preferred{% endif %}{% if row.item.is_fixme %} needs-card--fixme{% endif %}">
+  <header class="needs-card__head">
+    <label class="bulk-select-label" title="Select for bulk actions">
+      <input type="checkbox" class="bulk-select-cb"
+             name="txn_hash" value="{{ row.item.txn_hash }}"
+             form="needs-bulk-form"
+             aria-label="Select {{ row.item.payee or row.item.narration or row.item.txn_hash[:8] }}" />
+    </label>
+    <div class="needs-card__txn">
+      <a href="/txn/{{ row.item.lamella_txn_id }}" class="txn-row-link">
+        {{ Txn.summary(row.item) }}
+      </a>
+      <div class="needs-card__badges">
+        {% if row.required %}
+          <span class="badge required">receipt required</span>
+        {% else %}
+          <span class="badge preferred">receipt preferred</span>
+        {% endif %}
+        {% if row.item.is_fixme %}<span class="badge fixme">Uncategorized</span>{% endif %}
+      </div>
+      <div class="txn-accounts muted">
+        {% for acct in row.item.expense_accounts %}
+          <span class="to" title="{{ acct }}">{{ acct | alias }}</span>{% if not loop.last %}, {% endif %}
+        {% endfor %}
+        {% if row.item.other_accounts %}
+          &larr;
+          {% for acct in row.item.other_accounts %}
+            <span class="from" title="{{ acct }}">{{ acct | alias }}</span>{% if not loop.last %}, {% endif %}
+          {% endfor %}
+        {% endif %}
+      </div>
+      <div class="txn-meta muted">
+        {% if row.item.last_four %}card ****{{ row.item.last_four }} &middot; {% endif %}
+        <small>{{ row.item.txn_hash[:8] }}…</small>
+      </div>
+    </div>
+  </header>
+
+  <section class="needs-card__body">
+    <form id="link-form-{{ row.item.txn_hash }}"
+          hx-post="/receipts/needed/{{ row.item.txn_hash }}/link"
+          hx-target="#needs-row-{{ row.item.txn_hash }}"
+          hx-swap="outerHTML"
+          class="multilink-form" autocomplete="off">
+      <input type="hidden" name="match_method" value="user_confirmed" />
+      {% if row.candidates %}
+        <p class="muted small">
+          {{ row.candidates | length }} suggested
+          — tick whatever belongs (invoice + receipt etc.) and Link.
+        </p>
+        <ul class="candidate-list">
+          {% for cand in top_cands %}
+            {{ CandMacro.candidate_li(cand, row, is_first=loop.first) }}
+          {% endfor %}
+        </ul>
+        {% if rest_cands %}
+          <details class="more-candidates">
+            <summary>Show {{ rest_cands | length }} more candidate{% if rest_cands|length != 1 %}s{% endif %}</summary>
+            <ul class="candidate-list">
+              {% for cand in rest_cands %}
+                {{ CandMacro.candidate_li(cand, row) }}
+              {% endfor %}
+            </ul>
+          </details>
+        {% endif %}
+      {% else %}
+        <p class="muted small">No automatic matches. Search Paperless below or link by ID.</p>
+        <ul class="candidate-list" hidden></ul>
+      {% endif %}
+      {% if row.item.is_fixme %}
+        <label class="target-label">
+          Target account (optional, override for uncategorized)
+          <input type="text" name="target_account" list="accounts-datalist"
+                 placeholder="Expenses:Entity:Category" autocomplete="off" />
+        </label>
+      {% endif %}
+      <button type="submit" class="primary-action link-btn"
+              {% if not row.candidates %}hidden{% endif %}>Link selected</button>
+    </form>
+
+    <details class="manual-search">
+      <summary>Search Paperless for a different receipt</summary>
+      <div class="manual-search-controls">
+        <input type="search" name="q" placeholder="vendor, doc title, OCR snippet…"
+               class="manual-search-input"
+               hx-get="/receipts/needed/{{ row.item.txn_hash }}/search"
+               hx-trigger="keyup changed delay:350ms, search"
+               hx-target="#search-results-{{ row.item.txn_hash }}"
+               hx-swap="innerHTML"
+               hx-include="this"
+               autocomplete="off" />
+      </div>
+      <ul id="search-results-{{ row.item.txn_hash }}"
+          class="candidate-list candidate-list--search">
+        <li class="muted small" style="list-style:none; padding:0.3rem 0">
+          Type to search.
+        </li>
+      </ul>
+      <p class="muted small" style="margin-top:0.3rem">
+        Ticked search results submit with the Link button above.
+      </p>
+    </details>
+  </section>
+
+  <footer class="needs-card__actions">
+    <details class="manual-link">
+      <summary>Link by Paperless ID</summary>
+      <form hx-post="/receipts/needed/{{ row.item.txn_hash }}/link"
+            hx-target="#needs-row-{{ row.item.txn_hash }}"
+            hx-swap="outerHTML"
+            class="inline-form">
+        <input type="number" name="paperless_id" placeholder="Paperless doc id" required />
+        <input type="hidden" name="match_method" value="manual" />
+        {% if row.item.is_fixme %}
+          <input type="text" name="target_account" placeholder="Target account (optional)" />
+        {% endif %}
+        <button type="submit">Link</button>
+      </form>
+    </details>
+
+    <form hx-post="/receipts/needed/{{ row.item.txn_hash }}/dismiss"
+          hx-target="#needs-row-{{ row.item.txn_hash }}"
+          hx-swap="outerHTML"
+          class="inline-form dismiss-form">
+      <input type="text" name="reason" placeholder="Why no receipt? (e.g. cash tip)" />
+      <button type="submit" class="secondary">No receipt expected</button>
+    </form>
+  </footer>
+</li>

@@ -1,0 +1,23 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% block title %}{{ job.title }} — job{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block page_title %}Job{% endblock %}
+{% block content %}
+<h1 style="font-size:1.4rem; margin:0 0 1rem">{{ job.title }}</h1>
+<div class="job-detail__panel"
+     {% if not job.is_terminal %}
+       hx-get="/jobs/{{ job.id }}/partial"
+       hx-trigger="load, every 1s"
+       hx-swap="innerHTML"
+     {% endif %}>
+  {% include "partials/_job_progress.html" %}
+</div>
+{% endblock %}

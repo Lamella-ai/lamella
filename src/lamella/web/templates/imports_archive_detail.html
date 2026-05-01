@@ -1,0 +1,105 @@
+{#-
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Imported-file detail — ADR-0060. Shows file metadata, a CSV/paste
+  preview, and the staged rows pointing back at this file via
+  source_ref.file_id.
+-#}
+
+{% extends "base.html" %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}{{ file.original_filename }} · Imports — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}{{ file.original_filename }}{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title=file.original_filename,
+     subtitle='file_id ' ~ ('%05d' % file.id) ~ ' · format: ' ~ file.source_format ~ ' · ' ~ file.byte_size ~ ' bytes · imported ' ~ file.imported_at,
+     kicker='ADR-0060 archive · ' ~ file.content_sha256[:12] ~ '…'
+) %}{% endcall %}
+
+{% if not file.exists_on_disk %}
+{% call F.banner(tone='warn', title='File missing on disk') %}
+  The archive row exists in the database but the file at
+  <code>{{ file.archived_path }}</code> is not present. The
+  reconstruct pass walks <code>&lt;ledger&gt;/imports/</code> on
+  startup; if you restored from a backup that didn't include
+  the imports directory, this row will rebuild from filename
+  pattern when you put the file back.
+{% endcall %}
+{% endif %}
+
+{% call L.section(title='Actions') %}
+<div style="display:flex; gap:0.5rem; flex-wrap:wrap">
+  {{ B.btn('Download original',
+           href='/imports/' ~ file.id ~ '/download',
+           variant='primary') }}
+  {{ B.btn('← Back to imports',
+           href='/imports',
+           variant='secondary') }}
+</div>
+{% endcall %}
+
+{% if preview_rows %}
+{% call L.section(title='Preview (first 50 rows)' ~ (' — truncated' if preview_truncated else '')) %}
+<table class="tbl tbl--compact">
+  <tbody>
+  {% for row in preview_rows %}
+    <tr>
+      {% for cell in row %}<td>{{ cell }}</td>{% endfor %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if preview_truncated %}
+<p class="subtle">
+  More content in the file — use Download to see the full content.
+</p>
+{% endif %}
+{% endcall %}
+{% endif %}
+
+{% call L.section(title='Staged rows from this file (' ~ staged_count ~ ')') %}
+{% if staged_rows %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Sheet</th>
+      <th class="num">Row</th>
+      <th>Date</th>
+      <th>Source</th>
+      <th class="num">Amount</th>
+      <th>Description</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for s in staged_rows %}
+    <tr>
+      <td>{{ s.sheet or '—' }}</td>
+      <td class="num">{{ s.row }}</td>
+      <td>{{ s.posting_date }}</td>
+      <td><code>{{ s.source }}</code></td>
+      <td class="num">{{ s.amount }} {{ s.currency }}</td>
+      <td>{{ s.payee or s.description or '' }}</td>
+      <td><code>{{ s.status }}</code></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="subtle">
+  No staged rows currently reference this file. They may all be
+  promoted (the source_ref still points back, but this surface
+  shows the pending / classified rows).
+</p>
+{% endif %}
+{% endcall %}
+
+{% endblock %}

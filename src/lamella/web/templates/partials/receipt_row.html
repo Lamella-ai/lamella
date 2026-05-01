@@ -1,0 +1,147 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<tr id="receipt-row-{{ row.paperless_id }}">
+  <td><input type="checkbox" name="doc_ids" value="{{ row.paperless_id }}" /></td>
+  <td>
+    <a class="candidate-thumb-small" href="/paperless/preview/{{ row.paperless_id }}"
+       target="_blank" rel="noopener" title="Open preview">
+      <img src="/paperless/thumb/{{ row.paperless_id }}" loading="lazy"
+           alt="#{{ row.paperless_id }}" />
+    </a>
+    <br />
+    {% if row.paperless_url %}
+      <a href="{{ row.paperless_url }}" target="_blank" rel="noopener" class="small">#{{ row.paperless_id }}</a>
+    {% else %}
+      <span class="small muted">#{{ row.paperless_id }}</span>
+    {% endif %}
+  </td>
+  <td>
+    {{ row.title or "—" }}
+    {% if row.document_type_name %}<br /><small class="muted">{{ row.document_type_name }}</small>{% endif %}
+  </td>
+  <td>{{ row.vendor or "—" }}</td>
+  <td>{{ row.receipt_date or row.created_date or "—" }}</td>
+  <td>{% if row.total is not none %}{% if fmt_amount is defined %}{{ fmt_amount(row.total, 2) }}{% else %}{{ "%.2f"|format(row.total) }}{% endif %}{% else %}—{% endif %}</td>
+  <td class="candidates-cell">
+    {% if row.linked_txns %}
+      {% for h in row.linked_txns %}
+        {%- set _hash_label = (h.txn_hash or '')[:8] -%}
+        <span class="linked">
+          ✓ linked &middot;
+          <a href="/txn/{{ h.lamella_txn_id or h.txn_hash or '' }}" title="Open full transaction detail">
+            <code>{{ _hash_label or 'unknown' }}…</code>
+          </a>
+        </span>
+      {% endfor %}
+      {%- set _linked = row.linked_txns[0] if row.linked_txns else None -%}
+      <details class="paperless-verify-actions" style="margin-top:0.25rem;">
+        <summary class="small muted">Verify / enrich via AI</summary>
+        <form hx-post="/paperless/{{ row.paperless_id }}/verify"
+              hx-target="body"
+              hx-swap="beforeend"
+              class="inline-form">
+          <p class="muted small" style="margin:0.2rem 0;">
+            Re-OCR the attached image via vision AI, compare against
+            Paperless's current fields, and push confident corrections
+            back. "Lamella Fixed" tag + audit note are stamped on
+            the document.
+          </p>
+          {% if _linked and (_linked.date or _linked.amount or _linked.payee or _linked.narration) %}
+            {# Linked to a txn: the date / vendor / total are known.
+               Pass them as hidden fields and skip the "what do you
+               think this should be" prompts. The verify prompt's
+               hypothesis section needs the vendor too so the model
+               can cross-check the OCR vendor name; without it the
+               AI gets only date+total and can't catch a wrong-doc
+               linkage where someone scanned the wrong receipt for
+               this txn. #}
+            {% if _linked.date %}<input type="hidden" name="suspected_date" value="{{ _linked.date }}" />{% endif %}
+            {% if _linked.amount %}<input type="hidden" name="suspected_total" value="{{ _linked.amount }}" />{% endif %}
+            {%- set _v = _linked.payee or _linked.narration -%}
+            {% if _v %}<input type="hidden" name="suspected_vendor" value="{{ _v }}" />{% endif %}
+            <p class="muted small" style="margin:0.2rem 0;">
+              Linked to a transaction; using its date{% if _linked.date %} ({{ _linked.date }}){% endif %}{% if _linked.amount %}, amount ({{ _linked.amount }}){% endif %}{% if _v %}, and merchant ({{ _v }}){% endif %} as ground truth. Add a reason below if you want to bias the AI's attention.
+            </p>
+            <label>Reason <small class="muted">(optional)</small>
+              <input type="text" name="reason" placeholder="e.g. OCR date looks wrong" />
+            </label>
+          {% else %}
+            <label>Suspected date <small class="muted">(optional)</small>
+              <input type="text" name="suspected_date" placeholder="YYYY-MM-DD" />
+            </label>
+            <label>Reason <small class="muted">(optional)</small>
+              <input type="text" name="reason" placeholder="e.g. OCR date looks wrong" />
+            </label>
+          {% endif %}
+          <button type="submit">Verify this receipt</button>
+        </form>
+        <hr />
+        <form hx-post="/paperless/{{ row.paperless_id }}/enrich"
+              hx-target="#paperless-enrich-{{ row.paperless_id }}"
+              hx-swap="outerHTML"
+              class="inline-form">
+          <p class="muted small" style="margin:0.2rem 0;">
+            Apply derived context (vehicle, entity, project) to the
+            Paperless doc. Writes a note + "Lamella Enriched"
+            tag. Safe to run multiple times — dedup skips duplicates.
+          </p>
+          <label>Vehicle
+            <input type="text" name="vehicle" placeholder="e.g. 2009 Work SUV" />
+          </label>
+          <label>Entity
+            <input type="text" name="entity" placeholder="Personal / Acme / …" />
+          </label>
+          <label>Note body
+            <input type="text" name="note_body" placeholder="Gas for 2009 Work SUV" />
+          </label>
+          <button type="submit">Enrich with context</button>
+        </form>
+        <div id="paperless-enrich-{{ row.paperless_id }}"></div>
+      </details>
+    {% else %}
+      {% if row.candidates %}
+        <p class="muted small" style="margin:0 0 0.3rem;">
+          Click the transaction this receipt belongs to:
+        </p>
+        <div class="candidate-list">
+          {% for cand in row.candidates %}
+            <form hx-post="/receipts/{{ row.paperless_id }}/link"
+                  hx-target="#receipt-row-{{ row.paperless_id }} .candidates-cell"
+                  hx-swap="innerHTML"
+                  class="inline-form">
+              <input type="hidden" name="txn_hash" value="{{ cand.txn_hash }}" />
+              <input type="hidden" name="txn_date" value="{{ cand.date }}" />
+              <input type="hidden" name="txn_amount" value="{{ cand.amount }}" />
+              <button type="submit" class="candidate-btn">
+                {{ cand.date }} · ${% if fmt_amount is defined %}{{ fmt_amount(cand.amount, 2) }}{% else %}{{ "%.2f"|format(cand.amount) }}{% endif %}
+                {% if cand.day_delta %}<span class="muted">({{ cand.day_delta }}d off)</span>{% endif %}
+                {% if cand.txn.narration %}· {{ cand.txn.narration[:60] }}{% endif %}
+              </button>
+            </form>
+          {% endfor %}
+        </div>
+      {% else %}
+        <span class="muted">unlinked {% if row.total is none or (row.receipt_date is none and row.created_date is none) %}(Paperless fields for total/date not populated){% else %}(no matching transaction in this window){% endif %}</span>
+      {% endif %}
+      <details class="manual-link">
+        <summary>Manual link</summary>
+        <p class="muted small">Paste a transaction hash from <a href="/search">Search</a> if you know the exact one.</p>
+        <form hx-post="/receipts/{{ row.paperless_id }}/link"
+              hx-target="#receipt-row-{{ row.paperless_id }} .candidates-cell"
+              hx-swap="innerHTML"
+              class="inline-form">
+          <input type="text" name="txn_hash" placeholder="txn hash" required />
+          <input type="text" name="txn_date" placeholder="YYYY-MM-DD" required />
+          <input type="text" name="txn_amount" placeholder="amount" required />
+          <button type="submit">Link</button>
+        </form>
+      </details>
+    {% endif %}
+  </td>
+</tr>

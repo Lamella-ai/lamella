@@ -1,0 +1,140 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Trips — {{ vehicle.display_name or vehicle.slug }}{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Trips{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Trips — ' ~ (vehicle.display_name or vehicle.slug),
+     subtitle=vehicle.slug ~ (' · ' ~ vehicle.entity_slug if vehicle.entity_slug else ' · personal'),
+     kicker='Vehicles'
+) %}
+  {{ B.btn('Log trip', href='/mileage?vehicle=' ~ (vehicle.display_name or vehicle.slug), variant='primary', icon=icon.car()) }}
+  {{ B.btn('Import mileage', href='/mileage/import', variant='ghost') }}
+  {{ B.btn('All-vehicle view', href='/mileage/all?vehicle=' ~ (vehicle.display_name or vehicle.slug), variant='ghost') }}
+{% endcall %}
+
+<datalist id="vt-year-datalist">{% for y in years %}<option value="{{ y }}">{% endfor %}</datalist>
+{% if year is not none %}
+<datalist id="vt-month-datalist">{% for m in months_for_year %}<option value="{{ m }}" label="{{ month_names[m - 1] }}">{% endfor %}</datalist>
+{% endif %}
+
+{% call C.card() %}
+<form method="get" action="/vehicles/{{ vehicle.slug }}/trips" class="form-grid" style="max-width:none">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Year</label>
+      <input class="field-input" type="text" name="year" list="vt-year-datalist" value="{{ year or '' }}" onchange="this.form.submit()" placeholder="(any)" />
+    </div>
+    {% if year is not none %}
+    <div class="field">
+      <label class="field-label">Month</label>
+      <input class="field-input" type="text" name="month" list="vt-month-datalist" value="{{ month or '' }}" onchange="this.form.submit()" placeholder="(any)" />
+    </div>
+    {% endif %}
+  </div>
+  {% if year is not none or month is not none %}
+  <div class="form-actions">{{ B.btn('Clear filters', href='/vehicles/' ~ vehicle.slug ~ '/trips', variant='ghost', size='sm') }}</div>
+  {% endif %}
+  <noscript><div class="form-actions"><span class="spacer"></span>{{ B.btn('Filter', type='submit', variant='primary', size='sm') }}</div></noscript>
+</form>
+
+<p class="subtle" style="margin:0.75rem 0 0">
+  Showing <strong>{{ "{:,}".format(total) }}</strong> {{ 'trip' if total == 1 else 'trips' }}
+  {% if year is not none %}in {% if month is not none %}{{ month_names[month - 1] }} {{ year }}{% else %}{{ year }}{% endif %}
+  {% else %}(all time){% endif %}
+  · <strong>{{ "{:,.1f}".format(total_miles) }}</strong> mi total
+</p>
+{% endcall %}
+
+{% if trips %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr><th>Date</th><th class="num">Miles</th><th>Odometer</th><th>Entity</th><th>Split</th><th>Substantiation</th><th class="shrink"></th></tr>
+  </thead>
+  <tbody>
+    {% for t in trips %}
+    <tr>
+      <td>
+        <time>{{ t.entry_date }}</time>
+        {% if t.entry_time %}<div class="subtle" style="font-size:0.82rem">{{ t.entry_time }}</div>{% endif %}
+      </td>
+      <td class="num">
+        {{ "{:,.1f}".format(t.miles) }}
+        {% if t.miles == 0 %}{{ D.badge('0-mi', tone='muted') }}{% endif %}
+      </td>
+      <td class="subtle" style="font-size:0.85rem">
+        {% if t.odometer_start and t.odometer_end %}{{ "{:,}".format(t.odometer_start) }} → {{ "{:,}".format(t.odometer_end) }}
+        {% elif t.odometer_end %}→ {{ "{:,}".format(t.odometer_end) }}
+        {% else %}—{% endif %}
+      </td>
+      <td class="subtle" style="font-size:0.85rem">{{ t.entity or '—' }}</td>
+      <td class="subtle" style="font-size:0.85rem">
+        {% set has_split = (t.business_miles is not none) or (t.commuting_miles is not none) or (t.personal_miles is not none) %}
+        {% if has_split %}
+          {% if t.business_miles %}<span title="business">B {{ "{:,.1f}".format(t.business_miles) }}</span>{% endif %}
+          {% if t.commuting_miles %}<span title="commuting"> · C {{ "{:,.1f}".format(t.commuting_miles) }}</span>{% endif %}
+          {% if t.personal_miles %}<span title="personal"> · P {{ "{:,.1f}".format(t.personal_miles) }}</span>{% endif %}
+        {% elif t.meta_category %}{{ t.meta_category }}
+        {% elif t.purpose_category %}{{ t.purpose_category }}
+        {% else %}<span class="subtle">—</span>{% endif %}
+      </td>
+      <td>
+        {% if t.purpose %}{{ t.purpose }}{% endif %}
+        {% if t.from_loc or t.to_loc %}
+          <div class="subtle" style="font-size:0.82rem">{{ t.from_loc or "" }}{% if t.from_loc and t.to_loc %} → {% endif %}{{ t.to_loc or "" }}</div>
+        {% endif %}
+        {% if t.notes %}<div class="subtle" style="font-size:0.82rem">{{ t.notes }}</div>{% endif %}
+        {% if not t.purpose and not t.from_loc and not t.to_loc and not t.notes %}<span class="subtle">(none)</span>{% endif %}
+      </td>
+      <td class="shrink" style="white-space:nowrap">
+        {{ B.btn('edit', href='/mileage/' ~ t.id ~ '/edit', variant='ghost', size='sm') }}
+        <form method="post" action="/mileage/{{ t.id }}/delete" style="display:inline"
+              data-confirm="Delete the {{ t.driven_on }} trip ({{ t.miles }} mi{% if t.purpose %} · {{ t.purpose }}{% endif %})? mileage_summary.bean rebuild on next year-end will exclude it."
+              data-confirm-button="Delete trip">
+          {{ B.btn('delete', type='submit', variant='ghost', size='sm') }}
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+
+{% if total_pages > 1 %}
+{% set qs_base = '?' %}
+{% if year is not none %}{% set qs_base = qs_base + 'year=' + year|string + '&' %}{% endif %}
+{% if month is not none %}{% set qs_base = qs_base + 'month=' + month|string + '&' %}{% endif %}
+<nav style="margin-top:1rem; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+  {% if page > 1 %}
+    {{ B.btn('← previous', href='/vehicles/' ~ vehicle.slug ~ '/trips' ~ qs_base ~ 'page=' ~ (page - 1), variant='ghost', size='sm') }}
+  {% endif %}
+  <span class="subtle" style="font-size:0.85rem">
+    Page {{ page }} of {{ total_pages }} · rows {{ (page - 1) * page_size + 1 }}–{{ [page * page_size, total]|min }} of {{ "{:,}".format(total) }}
+  </span>
+  {% if page < total_pages %}
+    {{ B.btn('next →', href='/vehicles/' ~ vehicle.slug ~ '/trips' ~ qs_base ~ 'page=' ~ (page + 1), variant='ghost', size='sm') }}
+  {% endif %}
+</nav>
+{% endif %}
+
+{% else %}
+{{ F.empty_state('No trips for this vehicle' ~ (' in ' ~ (month_names[month - 1] ~ ' ' if month is not none else '') ~ year|string if year is not none else '') ~ '.', cta_text='Log one', cta_href='/mileage?vehicle=' ~ (vehicle.display_name or vehicle.slug)) }}
+{% endif %}
+{% endblock %}

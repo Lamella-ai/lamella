@@ -1,0 +1,117 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+-->
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Entities — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Entities{% endblock %}
+
+{% block content %}
+{% set _has_any = grouped.people or grouped.businesses or grouped.other or grouped.skip %}
+
+{% call L.page_head(
+     title='Entities',
+     subtitle='People come first, then businesses, then everything else. Click a card to edit; the form opens as a focused modal — no full page reload.',
+     kicker='Records'
+) %}
+  <button type="button"
+          class="btn btn-primary"
+          hx-get="/entities/new-modal?kind=person"
+          hx-target="body"
+          hx-swap="beforeend">
+    + Add person
+  </button>
+  <button type="button"
+          class="btn btn-primary"
+          hx-get="/entities/new-modal?kind=business"
+          hx-target="body"
+          hx-swap="beforeend">
+    + Add business
+  </button>
+{% endcall %}
+
+{% if saved %}
+{% call F.banner(tone='ok', title='Saved') %}{{ saved }}{% endcall %}
+{% endif %}
+
+{% if not _has_any %}
+{{ F.empty_state(
+  'No entities yet — your ledger has no businesses, farms, or people registered.',
+  cta_text='+ Add person',
+  cta_href='/entities/new?kind=person',
+) }}
+{% else %}
+
+<div id="entities-grid">
+
+{# ── People — first, always. The setup wizard puts people before
+    businesses; matches user expectation that "personal me" is the
+    default identity. ── #}
+{% if grouped.people %}
+{% call L.section(title='People', subtitle=(grouped.people|length|string ~ ' person' ~ ('s' if grouped.people|length != 1 else ''))) %}
+<div id="entities-people-grid" class="record-grid">
+  {% for c in grouped.people %}
+    {% include "partials/_entity_card.html" %}
+  {% endfor %}
+</div>
+{% endcall %}
+{% endif %}
+
+{% if grouped.businesses %}
+{% call L.section(title='Businesses', subtitle=(grouped.businesses|length|string ~ ' business' ~ ('es' if grouped.businesses|length != 1 else ''))) %}
+<div id="entities-businesses-grid" class="record-grid">
+  {% for c in grouped.businesses %}
+    {% include "partials/_entity_card.html" %}
+  {% endfor %}
+</div>
+{% endcall %}
+{% endif %}
+
+{% if grouped.other %}
+{% call L.section(title='Other', subtitle='Entities without a recognized type — click an entity and set one to surface them in the right section.') %}
+<div id="entities-other-grid" class="record-grid">
+  {% for c in grouped.other %}
+    {% include "partials/_entity_card.html" %}
+  {% endfor %}
+</div>
+{% endcall %}
+{% endif %}
+
+{% if grouped.skip %}
+{% call L.section(title='Skipped', subtitle='Tagged "skip" — excluded from classification, scaffolding, and reports. Imported junk slugs land here for cleanup.') %}
+<div id="entities-skip-grid" class="record-grid">
+  {% for c in grouped.skip %}
+    {% include "partials/_entity_card.html" %}
+  {% endfor %}
+</div>
+{% endcall %}
+{% endif %}
+
+</div>{# /entities-grid #}
+
+{% endif %}
+
+<script>
+/* When the entity-modal POST succeeds the server returns the new
+   card as the HTMX swap target AND fires an HX-Trigger header
+   "entity-saved". This handler hears that and closes whichever modal
+   is open. Keeps the inline ``hx-on::after-request`` short on the
+   form template itself. */
+document.body.addEventListener("entity-saved", function () {
+  document.querySelectorAll(".modal-backdrop.is-open").forEach(function (m) {
+    m.classList.remove("is-open");
+    // The modal lives at <body> beforeend (added by hx-get); remove
+    // it after the close animation so a re-open builds a fresh form.
+    setTimeout(function () { m.remove(); }, 200);
+  });
+});
+</script>
+{% endblock %}

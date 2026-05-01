@@ -1,0 +1,19 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<article class="balance-card">
+  <h3>{{ balance.entity | entity }}</h3>
+  <dl>
+    <dt>Assets</dt><dd>{{ "%.2f"|format(balance.assets) }} USD</dd>
+    <dt>Liabilities</dt><dd>{{ "%.2f"|format(balance.liabilities) }} USD</dd>
+    <dt>Net worth</dt><dd class="strong">{{ "%.2f"|format(balance.net_worth) }} USD</dd>
+    <dt>Income</dt><dd>{{ "%.2f"|format(balance.income) }} USD</dd>
+    <dt>Expenses</dt><dd>{{ "%.2f"|format(balance.expenses) }} USD</dd>
+    <dt>Net income</dt><dd class="strong">{{ "%.2f"|format(balance.net_income) }} USD</dd>
+  </dl>
+</article>

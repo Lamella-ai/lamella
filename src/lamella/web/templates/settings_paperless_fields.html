@@ -1,0 +1,246 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Paperless fields — Settings{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Paperless custom fields{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Paperless custom fields',
+     subtitle='Map every Paperless custom field to a canonical role. The matcher reads this mapping to know which monetary field is the “total”, which is “subtotal”, which is “sales tax” (ignored), etc. Fields marked auto were keyword-guessed; fields marked user are locked against automatic re-seeding. Paperless’s built-in correspondent and created date are used automatically as vendor / receipt-date fallbacks; those roles are only needed when the built-ins aren’t reliable. Fields named Lamella_Entity / Lamella_Category / Lamella_TXN / Lamella_Account are auto-created by the writeback flow and carry the lamella_writeback role; the matcher writes to them after a receipt is linked to a classified txn (ADR-0044), there is no read-side consumer.',
+     kicker='Settings'
+) %}
+  <form method="post" action="/settings/paperless-fields/refresh"
+        hx-post="/settings/paperless-fields/refresh"
+        hx-target="body" hx-swap="beforeend"
+        style="margin:0">
+    {{ B.btn('Refresh local cache', type='submit', variant='ghost', icon=icon.refresh(), disabled=(not paperless_configured)) }}
+  </form>
+{% endcall %}
+
+{% if saved %}{% call F.banner(tone='ok', title='Saved') %}Mapping saved.{% endcall %}{% endif %}
+{% if refreshed %}{% call F.banner(tone='ok', title='Refreshed') %}Refreshed from Paperless.{% endcall %}{% endif %}
+{% if created %}{% call F.banner(tone='ok', title='Field created') %}Created new Paperless field and mapped it to <code>{{ created }}</code>.{% endcall %}{% endif %}
+{% if classified %}{% call F.banner(tone='ok', title='Classified') %}Classified existing field as <code>{{ classified }}</code>.{% endcall %}{% endif %}
+{% if doc_types_saved %}{% call F.banner(tone='ok', title='Saved') %}Document type role mapping saved.{% endcall %}{% endif %}
+{% if not paperless_configured %}
+  {% call F.banner(tone='err', title='Paperless not configured') %}
+    Refresh will fail until you set <code>PAPERLESS_URL</code> and <code>PAPERLESS_API_TOKEN</code>.
+  {% endcall %}
+{% endif %}
+
+{# Writeback status panel. Surfaces the master gate for Lamella to
+   actually PATCH Paperless fields, plus a glance at recent activity
+   from paperless_writeback_log so the user can see whether writes are
+   landing instead of guessing from the role label alone. #}
+{% if writeback_enabled is defined %}
+  {% if writeback_enabled %}
+    {% call F.banner(tone='ok', title='Writeback is ON') %}
+      Lamella will PATCH the four <code>Lamella_*</code> custom fields
+      (entity / category / txn-id / account) on a Paperless document
+      after a receipt is linked to a classified transaction. The AI
+      verify cascade also writes corrections back to <code>total</code>
+      / <code>subtotal</code> / <code>tax</code> / <code>vendor</code>
+      / <code>receipt_date</code> when its confidence is high.
+      <strong>{{ writeback_total }} writeback{{ '' if writeback_total == 1 else 's' }}</strong> logged so far.
+      <a href="/paperless/writebacks" style="margin-left:0.5rem">View activity →</a>
+    {% endcall %}
+  {% else %}
+    {% call F.banner(tone='warn', title='Writeback is OFF') %}
+      The four <code>Lamella_*</code> fields exist in Paperless but
+      Lamella will NOT push values to them until you enable writeback.
+      The AI verify cascade still RUNS and shows you proposed diffs,
+      but it will not PATCH Paperless. Toggle
+      <code>paperless_writeback_enabled</code> on
+      <a href="/settings/paperless">/settings</a> to flip the master
+      gate.
+    {% endcall %}
+  {% endif %}
+  {% if writeback_recent %}
+    {% call C.card(title='Recent writebacks', subtitle='%d total · last 5 shown' % writeback_total, flush=true) %}
+      <table class="tbl">
+        <thead><tr><th>Paperless #</th><th>Kind</th><th class="num">Fields</th><th>When</th></tr></thead>
+        <tbody>
+        {% for w in writeback_recent %}
+          <tr>
+            <td><a href="/paperless/{{ w.paperless_id }}/preview">#{{ w.paperless_id }}</a></td>
+            <td><code>{{ w.kind }}</code></td>
+            <td class="num">{{ w.fields_count }}</td>
+            <td class="muted-text">{{ w.written_at }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% endcall %}
+  {% endif %}
+{% endif %}
+
+{% if request.query_params.get('created') %}
+  {% call F.banner(tone='ok', title='Created in Paperless') %}
+    Created Paperless custom field for role <code>{{ request.query_params.get('created') }}</code>
+    and mapped it. Verified against Paperless by re-fetching the field list. Go to Paperless → Settings → Custom Fields to see it.
+  {% endcall %}
+{% endif %}
+{% if request.query_params.get('mapped_existing') %}
+  {% call F.banner(tone='ok', title='Mapped existing field') %}
+    Your existing Paperless field <code>{{ request.query_params.get('mapped_existing') }}</code>
+    was already suitable for role <code>{{ request.query_params.get('role') }}</code> — mapped it
+    instead of creating a duplicate.
+  {% endcall %}
+{% endif %}
+{% if request.query_params.get('create_failed') %}
+  {% call F.banner(tone='err', title='Failed to create field in Paperless') %}
+    <p style="margin:0">Failed to create field <code>{{ request.query_params.get('create_failed') }}</code>.</p>
+    <p style="margin:0.4rem 0 0">{{ request.query_params.get('reason') }}</p>
+    <p class="subtle" style="margin:0.3rem 0 0">
+      Common causes: Paperless permissions middleware silently dropping writes on non-admin tokens; reverse proxy rewriting the POST; Paperless &lt; 2.x using a different create endpoint. Workaround: create the field manually in Paperless Settings → Custom Fields, then refresh and use the “Classify” button below.
+    </p>
+  {% endcall %}
+{% endif %}
+{% if request.query_params.get('refreshed') %}
+  {% call F.banner(tone='info', title='Cache refreshed') %}
+    Refreshed local field cache from Paperless. <strong>This did NOT create any new fields.</strong>
+    To create missing fields, use the “Create in Paperless” buttons in the Setup status table below.
+  {% endcall %}
+{% endif %}
+
+{% if setup_panel %}
+{% call L.section(title='Setup status', subtitle='Required roles: total is the only one the matcher can’t work without. Vendor and receipt date have reliable built-in fallbacks; mapping custom fields for them is optional.') %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead><tr><th>Role</th><th>Status</th><th>Action</th></tr></thead>
+  <tbody>
+    {% for item in setup_panel %}
+    <tr>
+      <td>
+        <code>{{ item.role }}</code>
+        {% if item.critical %} {{ D.badge('critical', tone='warn') }}{% endif %}
+      </td>
+      {% if item.status == "mapped" %}
+        <td>
+          {{ D.badge('mapped', tone='ok') }}
+          {% for f in item.mapped_fields %}<code>{{ f.paperless_field_name }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+        </td>
+        <td class="subtle">—</td>
+      {% elif item.status == "suggest" %}
+        <td>
+          {{ D.badge('suggest', tone='warn') }}
+          No mapping, but
+          {% for s in item.suggestions %}<code>{{ s.paperless_field_name }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+          looks like it would fit.
+        </td>
+        <td>
+          {% for s in item.suggestions %}
+          <form method="post" action="/settings/paperless-fields/classify" style="display:inline; margin-right:6px">
+            <input type="hidden" name="role" value="{{ item.role }}">
+            <input type="hidden" name="field_id" value="{{ s.paperless_field_id }}">
+            {{ B.btn('Classify ' + s.paperless_field_name + ' as ' + item.role, type='submit', variant='ghost', size='sm') }}
+          </form>
+          {% endfor %}
+        </td>
+      {% elif item.status == "create" %}
+        <td>
+          {{ D.badge('missing', tone='err') }}
+          No mapping and no candidate field in Paperless.
+        </td>
+        <td>
+          <form method="post" action="/settings/paperless-fields/create"
+                hx-post="/settings/paperless-fields/create"
+                hx-target="body" hx-swap="beforeend"
+                style="display:flex; gap:6px; align-items:center; flex-wrap:wrap">
+            <input type="hidden" name="role" value="{{ item.role }}">
+            <input class="field-input" type="text" name="name" value="{{ item.default_name }}" size="22" {% if not paperless_configured %}disabled{% endif %} style="max-width:18rem">
+            {{ B.btn('Create in Paperless (' + item.data_type + ')', type='submit', variant='primary', size='sm', icon=icon.plus(), disabled=(not paperless_configured)) }}
+          </form>
+        </td>
+      {% endif %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+{% call L.section(title='Paperless document types', subtitle='Assign each Paperless document type a Lamella role for receipts filtering.') %}
+<form method="post" action="/settings/paperless-fields/document-types">
+{% call C.card(flush=true) %}
+{% if doc_types %}
+<table class="tbl">
+  <thead><tr><th>Type ID</th><th>Paperless type name</th><th>Role</th></tr></thead>
+  <tbody>
+  {% for dt in doc_types %}
+    <tr>
+      <td>{{ dt.document_type_id }}</td>
+      <td>{{ dt.document_type_name or ('Type #' ~ dt.document_type_id) }}</td>
+      <td>
+        <select class="field-input" name="doc_type_role_{{ dt.document_type_id }}">
+          {% set role = doc_type_roles.get(dt.document_type_id, 'ignore') %}
+          <option value="receipt" {% if role == 'receipt' %}selected{% endif %}>receipt</option>
+          <option value="invoice" {% if role == 'invoice' %}selected{% endif %}>invoice</option>
+          <option value="ignore" {% if role == 'ignore' %}selected{% endif %}>ignore</option>
+        </select>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+  {{ F.empty_state('No typed Paperless documents in the local index yet. Run Paperless sync/refresh first.') }}
+{% endif %}
+{% endcall %}
+<div class="form-actions" style="margin-top:1rem"><span class="spacer"></span>{{ B.btn('Save document type roles', type='submit', variant='primary') }}</div>
+</form>
+{% endcall %}
+
+{% if rows %}
+{% call L.section(title='All known Paperless fields', subtitle='%d field%s' % (rows|length, '' if rows|length == 1 else 's')) %}
+<form method="post" action="/settings/paperless-fields">
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr><th>#</th><th>Paperless name</th><th>Role</th><th>Source</th><th>Updated</th></tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.paperless_field_id }}</td>
+      <td>{{ row.paperless_field_name }}</td>
+      <td>
+        <input type="text" name="role_{{ row.paperless_field_id }}" class="field-input" list="paperless-roles-datalist" value="{{ row.canonical_role or '' }}" style="max-width:14rem" />
+      </td>
+      <td>
+        {% if row.auto_assigned %}{{ D.badge('auto', tone='muted') }}{% else %}{{ D.badge('user', tone='accent') }}{% endif %}
+      </td>
+      <td class="subtle">{{ row.updated_at }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+<datalist id="paperless-roles-datalist">
+  {% for role in roles %}<option value="{{ role }}">{% endfor %}
+</datalist>
+<div class="form-actions" style="margin-top:1rem"><span class="spacer"></span>{{ B.btn('Save mapping', type='submit', variant='primary') }}</div>
+</form>
+{% endcall %}
+{% else %}
+{{ F.empty_state('No Paperless fields known yet. Click “Refresh local cache” above to pull the list.') }}
+{% endif %}
+
+<p class="subtle" style="margin-top:1.5rem"><a href="/settings">← back to Settings</a></p>
+{% endblock %}

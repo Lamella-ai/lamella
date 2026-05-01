@@ -1,0 +1,6 @@
+{
+  "id": "abc123",
+  "time": 1700000000,
+  "event": "message",
+  "topic": "test"
+}

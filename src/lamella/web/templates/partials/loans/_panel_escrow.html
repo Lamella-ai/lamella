@@ -1,0 +1,140 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# WP7 — Escrow lifecycle dashboard.
+
+   YTD totals, an inline-SVG running balance sparkline, and a
+   reconciliation form that compares a statement-observed balance
+   against the ledger-walked number.
+#}
+<h3>Escrow</h3>
+
+{% if health.escrow %}
+  <dl class="inline-dl">
+    <dt>Monthly inflow (configured)</dt>
+    <dd>{{ health.escrow.monthly_inflow | money }}</dd>
+    <dt>Annual inflow (configured)</dt>
+    <dd>{{ health.escrow.annual_inflow | money }}</dd>
+    {% if health.escrow.annual_outflow_configured %}
+      <dt>Annual tax + insurance (configured)</dt>
+      <dd>{{ health.escrow.annual_outflow_configured | money }}</dd>
+    {% endif %}
+    {% if escrow_ytd %}
+      <dt>YTD inflow (ledger)</dt>
+      <dd>{{ escrow_ytd.total_in | money }}</dd>
+      <dt>YTD outflow (ledger)</dt>
+      <dd>{{ escrow_ytd.total_out | money }}</dd>
+      <dt>YTD net</dt>
+      <dd>
+        <strong>
+          {% if escrow_ytd.net > 0 %}+{% endif %}{{ escrow_ytd.net | money }}
+        </strong>
+      </dd>
+      {% if escrow_ytd.biggest_outflow %}
+        <dt>Biggest outflow</dt>
+        <dd>
+          {{ escrow_ytd.biggest_outflow.date }} ·
+          {{ escrow_ytd.biggest_outflow.amount | money }} ·
+          <code>{{ escrow_ytd.biggest_outflow.counterpart | alias }}</code>
+        </dd>
+      {% endif %}
+    {% endif %}
+  </dl>
+
+  {% if health.escrow.projected_shortage %}
+    <p class="banner warning small">
+      Configured inflow is below configured outflow — expect the
+      servicer to raise the escrow requirement at the next annual
+      analysis.
+    </p>
+  {% endif %}
+{% else %}
+  <p class="muted small">Escrow isn't configured for this loan.</p>
+{% endif %}
+
+{% if escrow_running and escrow_running|length > 1 %}
+  {# Simple sparkline. Each running_balance point gets plotted as a
+     dot connected by a polyline. Coordinates normalized to the
+     chart viewBox. #}
+  {% set _pts = escrow_running %}
+  {% set _min = _pts|map(attribute=1)|min %}
+  {% set _max = _pts|map(attribute=1)|max %}
+  {% set _span = (_max - _min) if (_max - _min) > 0 else 1 %}
+  {% set _n = _pts|length %}
+  <details>
+    <summary>Running balance chart ({{ _n }} transactions)</summary>
+    <svg viewBox="0 0 400 80" class="escrow-sparkline"
+         role="img" aria-label="Escrow running balance"
+         style="width: 100%; max-width: 400px; border: 1px solid #ccc;">
+      <polyline fill="none" stroke="currentColor" stroke-width="1.5"
+        points="{%- for p in _pts -%}
+          {{ loop.index0 * 400 / (_n - 1) if _n > 1 else 0 }},
+          {{ 75 - ((p[1] - _min) * 70 / _span) }}
+          {% if not loop.last %} {% endif %}
+        {%- endfor -%}" />
+    </svg>
+    <p class="muted small">
+      Min: {{ _min | money }} · Max: {{ _max | money }} ·
+      Latest: {{ _pts[-1][1] | money }} as of {{ _pts[-1][0] }}
+    </p>
+  </details>
+{% endif %}
+
+{% if escrow_all_flows %}
+  <details>
+    <summary>All flows ({{ escrow_all_flows|length }})</summary>
+    <table class="data">
+      <thead>
+        <tr><th>Date</th><th>Kind</th><th class="num">Amount</th><th>Counterpart</th><th>Narration</th></tr>
+      </thead>
+      <tbody>
+        {% for f in escrow_all_flows|reverse %}
+          <tr>
+            <td>{{ f.date }}</td>
+            <td>
+              {% if f.kind == "inflow" %}
+                <span class="chip chip-green">↓ in</span>
+              {% else %}
+                <span class="chip chip-amber">↑ out</span>
+              {% endif %}
+            </td>
+            <td class="num">{{ f.amount | money }}</td>
+            <td><code>{{ f.counterpart | alias }}</code></td>
+            <td>{{ f.narration }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
+{% endif %}
+
+{% if loan.escrow_account_path %}
+  <details>
+    <summary>Reconcile against a statement</summary>
+    <form method="post"
+          action="/settings/loans/{{ loan.slug }}/escrow/reconcile"
+          class="stacked-form">
+      <label>Statement date
+        <input type="date" name="statement_date" required />
+      </label>
+      <label>Statement balance
+        <input type="number" step="0.01" name="statement_balance" required />
+      </label>
+      <label>Offset account (optional — defaults to EscrowAdjustment expense)
+        <input type="text" name="offset_account" list="accounts-datalist"
+               placeholder="Expenses:{{ loan.entity_slug or '...' }}:{{ loan.slug }}:EscrowAdjustment" />
+      </label>
+      <button type="submit" class="primary-action">Reconcile</button>
+      <p class="muted small">
+        When the statement-observed balance differs from the
+        ledger-walked balance by more than $1.00, a zero-sum
+        adjustment transaction is posted.
+      </p>
+    </form>
+  </details>
+{% endif %}

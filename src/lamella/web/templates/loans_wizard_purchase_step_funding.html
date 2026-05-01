@@ -1,0 +1,59 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% block title %}{{ flow.title }} — Funding{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block content %}
+{% include "partials/loans/_wizard_progress.html" %}
+
+<h1>{{ flow.title }}</h1>
+<h2>Step 5: Funding transaction</h2>
+<p class="muted">
+  Records the opening balance — debt accrues on the liability
+  account, balanced against an offset (cost basis, opening
+  equity, cash account, etc.).
+</p>
+
+{% include "partials/_wizard_errors.html" %}
+
+{% set entity = params.loan_entity_slug or 'Personal' %}
+{% set property_slug = params.new_property_slug
+                       if params.property_choice == 'new'
+                       else params.existing_property_slug %}
+{% set default_offset = ("Assets:" ~ entity ~ ":" ~ property_slug ~ ":CostBasis")
+                        if property_slug else "" %}
+
+<form method="post" action="/settings/loans/wizard/{{ flow_name }}/step"
+      class="stacked-form">
+  {% set funding_fields = ['funded_date', 'offset_account', 'funding_narration'] %}
+  {% for k, v in params.items() %}
+    {% if v is not none and k != 'step' and k not in funding_fields %}
+      <input type="hidden" name="{{ k }}" value="{{ v }}" />
+    {% endif %}
+  {% endfor %}
+  <input type="hidden" name="step" value="funding" />
+
+  <label>Funded date
+    <input type="date" name="funded_date" required
+           value="{{ params.funded_date or '' }}" />
+  </label>
+  <label>Offset account
+    <input type="text" name="offset_account" required
+           value="{{ params.offset_account or default_offset }}"
+           placeholder="Assets:Personal:MainResidence:CostBasis" />
+  </label>
+  <label>Narration (optional)
+    <input type="text" name="funding_narration"
+           value="{{ params.funding_narration or '' }}"
+           placeholder="Loan funding — Main Residence Mortgage" />
+  </label>
+
+  <button type="submit" class="primary-action">Review →</button>
+</form>
+{% endblock %}
