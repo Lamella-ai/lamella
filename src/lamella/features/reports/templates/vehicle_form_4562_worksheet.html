@@ -1,0 +1,115 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Form 4562 capture worksheet. One block per vehicle for the target
+   tax year. Pulls from vehicles (identity) + vehicle_elections (per-
+   year election fields). We do NOT compute §179 limits, luxury-auto
+   caps, or recapture — the user or their CPA fills those on the form. #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Form 4562 worksheet — {{ ctx.entity }} {{ ctx.year }}</title>
+  <style>{% include "_print_base.css" %}</style>
+</head>
+<body>
+  <h1>Form 4562 worksheet — Vehicles</h1>
+  <p class="muted">Entity {{ ctx.entity }} · tax year {{ ctx.year }}</p>
+  <p class="muted small">
+    Worksheet — transcribe to Form 4562 Parts I (Section 179), II
+    (Special Depreciation), III (MACRS), V (Listed Property). We
+    capture what you recorded; we do not determine §179 eligibility
+    or compute depreciation.
+  </p>
+
+  {% if ctx.rows %}
+  {% for r in ctx.rows %}
+  <h2>{{ r.vehicle_display_name }} <span class="muted small">({{ r.vehicle_slug }})</span></h2>
+  <table class="lines">
+    <tbody>
+      <tr>
+        <td class="line">Identity</td>
+        <td>Placed in service</td>
+        <td class="amt">{{ r.placed_in_service_date or '—' }}</td>
+      </tr>
+      <tr>
+        <td class="line"></td>
+        <td>GVWR (lb)</td>
+        <td class="amt">{% if r.gvwr_lbs %}{{ '{:,}'.format(r.gvwr_lbs) }}{% else %}—{% endif %}</td>
+      </tr>
+      <tr>
+        <td class="line"></td>
+        <td>Fuel type</td>
+        <td class="amt">{{ r.fuel_type or '—' }}</td>
+      </tr>
+      <tr>
+        <td class="line"></td>
+        <td>Purchase price</td>
+        <td class="amt">{% if r.purchase_price %}{{ r.purchase_price | money }}{% else %}—{% endif %}</td>
+      </tr>
+      <tr>
+        <td class="line"></td>
+        <td>Title / tag / doc fees</td>
+        <td class="amt">{% if r.purchase_fees %}{{ r.purchase_fees | money }}{% else %}—{% endif %}</td>
+      </tr>
+
+      <tr><td colspan="3" class="muted small" style="background:#f2f2f2;">
+        Election — {{ r.tax_year }}
+      </td></tr>
+      <tr>
+        <td class="line"></td>
+        <td>Depreciation method on record</td>
+        <td class="amt">{{ r.depreciation_method or '—' }}</td>
+      </tr>
+      <tr>
+        <td class="line">I-6</td>
+        <td>Section 179 deduction claimed</td>
+        <td class="amt">{% if r.section_179_amount %}{{ r.section_179_amount | money }}{% else %}—{% endif %}</td>
+      </tr>
+      <tr>
+        <td class="line">II-14</td>
+        <td>Bonus depreciation claimed</td>
+        <td class="amt">{% if r.bonus_depreciation_amount %}{{ r.bonus_depreciation_amount | money }}{% else %}—{% endif %}</td>
+      </tr>
+      <tr>
+        <td class="line">III</td>
+        <td>Basis at placed-in-service</td>
+        <td class="amt">{% if r.basis_at_placed_in_service %}{{ r.basis_at_placed_in_service | money }}{% else %}—{% endif %}</td>
+      </tr>
+      <tr>
+        <td class="line">V-26</td>
+        <td>Business-use % override</td>
+        <td class="amt">
+          {% if r.business_use_pct_override is not none %}
+            {{ '%.0f%%'|format(r.business_use_pct_override * 100) }}
+          {% else %}—{% endif %}
+        </td>
+      </tr>
+      <tr>
+        <td class="line">V</td>
+        <td>Listed-property qualified?</td>
+        <td class="amt">
+          {% if r.listed_property_qualified == 1 %}Yes
+          {% elif r.listed_property_qualified == 0 %}No
+          {% else %}—{% endif %}
+        </td>
+      </tr>
+      {% if r.notes %}
+      <tr>
+        <td class="line"></td>
+        <td colspan="2"><em>{{ r.notes }}</em></td>
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+  {% endfor %}
+  {% else %}
+  <p class="muted">No vehicles with {{ ctx.year }} election records.</p>
+  {% endif %}
+</body>
+</html>

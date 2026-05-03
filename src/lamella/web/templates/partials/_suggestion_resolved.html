@@ -1,0 +1,45 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# In-place placeholder rendered after a suggestion is approved /
+   rejected / corrected. Same min-height as the original card so
+   the page layout doesn't reflow when the user clicks Approve and
+   moves their mouse to the next card.
+
+   Variables:
+     status   — "approved" | "rejected" | "corrected"
+     summary  — short message to show under the status
+     decision_id — for the audit / undo link
+     lamella_txn_id — UUIDv7 lineage id for the immutable /txn/{id}
+                      link; populated when the decision's input_ref
+                      resolved to a ledger entry. Preferred.
+     txn_hash — legacy content-hash, kept for the rare case where
+                lineage resolution failed (then we still link by
+                hash so the user has *something* to click).
+#}
+<div class="sugg-card sugg-card-resolved sugg-card-{{ status }}" id="sugg-{{ decision_id }}">
+  <div class="sugg-resolved-status">
+    {% if status == "approved" %}
+      <strong style="color:var(--ok);">✓ Approved</strong>
+    {% elif status == "rejected" %}
+      <strong style="color:var(--err);">✗ Rejected</strong>
+    {% elif status == "corrected" %}
+      <strong style="color:var(--accent-deep);">→ Corrected</strong>
+    {% else %}
+      <strong>{{ status }}</strong>
+    {% endif %}
+  </div>
+  {% if summary %}
+  <div class="sugg-resolved-summary">{{ summary }}</div>
+  {% endif %}
+  <div class="sugg-resolved-meta small muted">
+    decision <a href="/ai/decisions/{{ decision_id }}">#{{ decision_id }}</a>
+    {% if lamella_txn_id %} · <a href="/txn/{{ lamella_txn_id }}">open txn →</a>
+    {% elif txn_hash %} · <a href="/txn/{{ txn_hash }}">open txn →</a>{% endif %}
+  </div>
+</div>

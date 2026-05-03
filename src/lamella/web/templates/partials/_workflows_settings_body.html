@@ -1,0 +1,209 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/buttons.html" as B %}
+{% import "_components/feedback.html" as F %}
+
+{% call L.section(title='Active bindings', subtitle='%d binding%s' % (bindings|length, '' if bindings|length == 1 else 's')) %}
+
+{#- "Add binding" form at the top -#}
+{% call C.card(title='Add new binding', flush=false) %}
+<form method="post" action="/settings/paperless-workflows/create"
+      hx-post="/settings/paperless-workflows/create"
+      hx-target="#bindings-table"
+      hx-swap="outerHTML"
+      style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap">
+
+  <div style="flex: 1; min-width: 200px">
+    <label for="tag_name_input" class="form-label">Paperless tag</label>
+    <input type="text"
+           id="tag_name_input"
+           name="tag_name"
+           list="paperless-tag-suggestions"
+           required
+           placeholder="e.g., Invoice, Receipt, Pending"
+           class="field-input"
+           style="width: 100%">
+    <datalist id="paperless-tag-suggestions">
+      {%- for tag in paperless_tags %}
+        <option value="{{ tag }}">
+      {%- endfor %}
+    </datalist>
+  </div>
+
+  <div style="flex: 1; min-width: 200px">
+    <label for="action_name_select" class="form-label">Action</label>
+    <select id="action_name_select"
+            name="action_name"
+            required
+            class="field-input"
+            style="width: 100%">
+      <option value="">— select an action —</option>
+      {%- for action in actions %}
+        <option value="{{ action.name }}">{{ action.display_label }}</option>
+      {%- endfor %}
+    </select>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 0.5rem">
+    <input type="checkbox"
+           id="enabled_checkbox"
+           name="enabled"
+           checked
+           style="width: auto">
+    <label for="enabled_checkbox" style="margin: 0">Enabled</label>
+  </div>
+
+  <div>
+    {{ B.btn('Add binding', type='submit', variant='primary', icon=icon.plus()) }}
+  </div>
+</form>
+{% endcall %}
+
+{#- Bindings table -#}
+{% call C.card(title='Bindings', flush=true) %}
+<div id="bindings-table">
+{%- if bindings %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Tag</th>
+      <th>Action</th>
+      <th>Enabled</th>
+      <th>Created</th>
+      <th class="text-right">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+  {%- for binding in bindings %}
+    <tr id="binding-{{ loop.index0 }}" hx-target="this" hx-swap="outerHTML swap:1s">
+      <td>
+        <code>{{ binding.tag_name }}</code>
+      </td>
+      <td>
+        {%- set action_meta = actions|selectattr('name', 'equalto', binding.action_name)|first %}
+        {%- if action_meta %}
+          <span title="{{ action_meta.description }}">{{ action_meta.display_label }}</span>
+        {%- else %}
+          <code>{{ binding.action_name }}</code>
+        {%- endif %}
+      </td>
+      <td>
+        <form method="post"
+              action="/settings/paperless-workflows/{{ binding.tag_name|urlencode }}/toggle"
+              hx-post="/settings/paperless-workflows/{{ binding.tag_name|urlencode }}/toggle"
+              style="display: inline">
+          <input type="checkbox"
+                 {{ 'checked' if binding.enabled else '' }}
+                 onchange="this.form.submit()"
+                 style="cursor: pointer">
+        </form>
+      </td>
+      <td class="subtle">{{ binding.created_at }}</td>
+      <td class="text-right">
+        <form method="post"
+              action="/settings/paperless-workflows/{{ binding.tag_name|urlencode }}/delete"
+              hx-post="/settings/paperless-workflows/{{ binding.tag_name|urlencode }}/delete"
+              hx-confirm="Delete binding for {{ binding.tag_name }}? This action cannot be undone."
+              style="display: inline">
+          {{ B.btn('Delete', type='submit', variant='ghost', size='sm', icon=icon.trash()) }}
+        </form>
+        <form method="post"
+              action="/documents/workflows/binding:{{ binding.tag_name|urlencode }}/run"
+              hx-post="/documents/workflows/binding:{{ binding.tag_name|urlencode }}/run"
+              hx-target="body"
+              hx-swap="beforeend"
+              style="display: inline; margin-left: 0.5rem">
+          {{ B.btn('Run now', type='submit', variant='ghost', size='sm', icon=icon.play()) }}
+        </form>
+      </td>
+    </tr>
+  {%- endfor %}
+  </tbody>
+</table>
+{%- else %}
+  {{ F.empty_state('No bindings yet. Create one above to get started.') }}
+{%- endif %}
+</div>
+{% endcall %}
+
+{% endcall %}
+
+{#- Action catalog explainer -#}
+{% call L.section(title='Available actions', subtitle='Reference guide — click "Use as binding" to pre-fill the form above with the suggested tag, or "Run now" to fire the action one-shot against docs already carrying its intended trigger tag') %}
+{% call C.card(flush=true) %}
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem">
+{%- for action in actions %}
+  <div style="padding: 1rem; border: 1px solid var(--color-border); border-radius: var(--border-radius); display:flex; flex-direction:column">
+    <div style="font-weight: 600; margin-bottom: 0.5rem">{{ action.display_label }}</div>
+    <div style="font-size: 0.9rem; color: var(--color-text-subtle); margin-bottom: 0.75rem">
+      {{ action.description }}
+    </div>
+    {%- if action.suggested_trigger_tag %}
+      <div style="font-size: 0.85rem; color: var(--color-text-muted); margin-bottom:0.75rem">
+        <strong>Suggested trigger:</strong> <code>{{ action.suggested_trigger_tag }}</code>
+      </div>
+    {%- else %}
+      <div style="font-size: 0.85rem; color: var(--color-text-muted); margin-bottom:0.75rem; font-style:italic">
+        No default trigger — runs on a schedule or with a custom binding.
+      </div>
+    {%- endif %}
+    <div style="font-size: 0.85rem; color: var(--color-text-muted); margin-bottom:0.75rem">
+      <strong>On success:</strong>
+      {%- if action.suggested_trigger_tag %} removes <code>{{ action.suggested_trigger_tag }}</code>{%- else %} removes the trigger tag{%- endif %}
+      {%- if action.completion_tag %}, adds <code>{{ action.completion_tag }}</code>{%- else %} (no additional tag added){%- endif %}.
+    </div>
+    <div style="margin-top:auto; display:flex; gap:0.5rem; flex-wrap:wrap">
+      {%- if action.suggested_trigger_tag %}
+        <button type="button"
+                class="btn btn-secondary btn-sm"
+                onclick="window.lamellaPrefillBinding('{{ action.suggested_trigger_tag }}', '{{ action.name }}')"
+                title="Pre-fill the Add-binding form with this tag + action so you can review and submit">
+          Use as binding
+        </button>
+        <button type="button"
+                class="btn btn-primary btn-sm"
+                hx-post="/settings/paperless-workflows/oneshot/{{ action.name }}/run"
+                hx-target="body"
+                hx-swap="beforeend"
+                title="Run the action one-shot against docs currently carrying {{ action.suggested_trigger_tag }}; opens a progress modal">
+          Run now
+        </button>
+      {%- else %}
+        <button type="button" class="btn btn-secondary btn-sm" disabled
+                title="This action has no default trigger; create a custom binding above to use it.">
+          Use as binding
+        </button>
+      {%- endif %}
+    </div>
+  </div>
+{%- endfor %}
+</div>
+{% endcall %}
+{% endcall %}
+
+{#- Tiny pre-fill helper for the catalog "Use as binding" buttons.
+    Sets the two form fields, scrolls the form into view, and focuses
+    the submit so the user just hits Enter to confirm. -#}
+<script>
+window.lamellaPrefillBinding = function(tagName, actionName) {
+  var tagInput = document.getElementById('tag_name_input');
+  var actionSelect = document.getElementById('action_name_select');
+  if (tagInput) { tagInput.value = tagName; }
+  if (actionSelect) { actionSelect.value = actionName; }
+  var form = (tagInput && tagInput.form) || (actionSelect && actionSelect.form);
+  if (form) {
+    form.scrollIntoView({behavior: 'smooth', block: 'center'});
+    var submit = form.querySelector('button[type="submit"]');
+    if (submit) { submit.focus(); }
+  }
+};
+</script>

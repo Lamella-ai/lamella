@@ -1,0 +1,29 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<tr id="rule-row-{{ rule.id }}">
+  <td>{{ rule.id }}</td>
+  <td>{{ rule.pattern_type }}</td>
+  <td><code>{{ rule.pattern_value }}</code></td>
+  <td>{% if rule.card_account %}<span title="{{ rule.card_account }}">{{ rule.card_account | alias }}</span>{% else %}—{% endif %}</td>
+  <td><span title="{{ rule.target_account }}">{{ rule.target_account | alias }}</span></td>
+  <td>{{ "%.2f"|format(rule.confidence) }}</td>
+  <td>{{ rule.hit_count }}</td>
+  <td>{{ rule.last_used.strftime('%Y-%m-%d') if rule.last_used else "—" }}</td>
+  <td>
+    <form method="post" action="/rules/{{ rule.id }}/delete"
+          hx-post="/rules/{{ rule.id }}/delete"
+          hx-target="#rule-row-{{ rule.id }}"
+          hx-swap="outerHTML"
+          style="display:inline;"
+          data-confirm="Delete rule #{{ rule.id }} ({{ rule.pattern_type }} = {{ rule.pattern_value }})? Used {{ rule.hit_count }} times. Future txns matching this pattern will fall through to AI classify."
+          data-confirm-button="Delete rule">
+      <button type="submit" class="secondary small">Delete</button>
+    </form>
+  </td>
+</tr>

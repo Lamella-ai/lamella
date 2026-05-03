@@ -1,0 +1,67 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Teach a rule — Lamella{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block page_title %}Teach a rule{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Teach a rule',
+     subtitle='Skip the review queue — if you already know how a vendor should always be categorized, create the rule directly. Future transactions whose narration contains the text you type will auto-classify.'
+) %}
+  {{ B.btn('Existing rules', href='/rules', variant='ghost') }}
+{% endcall %}
+
+<datalist id="teach-accounts-datalist"></datalist>
+
+{% call C.card() %}
+<form method="post" action="/teach" class="form-grid" style="max-width:none" autocomplete="off">
+  <div class="field">
+    <label class="field-label">Merchant text contains</label>
+    <input class="field-input" type="text" name="merchant" required autocomplete="off" value="{{ merchant }}" />
+    <p class="subtle" style="margin:6px 0 0">
+      Case-insensitive substring match against the transaction’s narration. A short distinctive stem (e.g. <code>STAMPS ADD FUNDS</code>) works better than a whole merchant string.
+    </p>
+  </div>
+  <div class="field">
+    <label class="field-label">Target account</label>
+    <input class="field-input" type="text" name="target_account" required list="teach-accounts-datalist" autocomplete="off" placeholder="e.g. Expenses:Entity:Category" />
+  </div>
+  <div class="field">
+    <label class="field-label">Scope to one card / account (optional)</label>
+    <input class="field-input" type="text" name="card_account" list="teach-accounts-datalist" autocomplete="off" />
+    <p class="subtle" style="margin:6px 0 0">
+      Only fire this rule when the transaction’s card is this one. Leave blank to apply regardless of card.
+    </p>
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Create rule', type='submit', variant='primary', icon=icon.plus()) }}</div>
+</form>
+{% endcall %}
+
+<script>
+  fetch('/api/accounts', { credentials: 'same-origin' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      if (!d || !Array.isArray(d.all)) return;
+      const dl = document.getElementById('teach-accounts-datalist');
+      for (const n of d.all) {
+        const o = document.createElement('option');
+        o.value = n;
+        dl.appendChild(o);
+      }
+    })
+    .catch(() => undefined);
+</script>
+{% endblock %}

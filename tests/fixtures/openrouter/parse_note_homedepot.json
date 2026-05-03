@@ -1,0 +1,15 @@
+{
+  "id": "gen-test-note-parse",
+  "model": "anthropic/claude-haiku-4.5",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"merchant_hint\": \"Hardware Store\", \"entity_hint\": \"Acme\", \"amount_hint\": null, \"date_hint\": null, \"keywords\": [\"workshop\", \"supplies\", \"hardware store\"]}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {"prompt_tokens": 180, "completion_tokens": 44, "total_tokens": 224}
+}

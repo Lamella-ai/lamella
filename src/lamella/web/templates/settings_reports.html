@@ -1,0 +1,85 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+-->
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Reports & imports settings — Lamella{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block page_title %}Reports & imports{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Reports, budgets, recurring & import tuning',
+     subtitle='Estimated-tax flat rate, audit limits, recurring detection windows, spreadsheet import behavior. ADR-0047 focused page.',
+     kicker='Settings'
+) %}
+  {{ B.btn('← Back to settings', href='/settings', variant='ghost') }}
+{% endcall %}
+
+{% if saved %}{% call F.banner(tone='ok', title='Saved') %}{% endcall %}{% endif %}
+
+{% call C.card() %}
+<form method="post" action="/settings/reports" class="form-grid" style="max-width:none">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Estimated-tax flat rate</label>
+      <input class="field-input" type="text" name="estimated_tax_flat_rate" value="{{ estimated_tax_flat_rate_raw }}" placeholder="0.25" />
+      <span class="field-hint">Decimal — 0.25 = 25%</span>
+    </div>
+    <div class="field">
+      <label class="field-label">Audit max receipt bytes</label>
+      <input class="field-input" type="text" name="audit_max_receipt_bytes" value="{{ audit_max_receipt_bytes_raw }}" />
+    </div>
+  </div>
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Recurring detection window (days)</label>
+      <input class="field-input" type="text" name="recurring_scan_window_days" value="{{ recurring_scan_window_days_raw }}" />
+    </div>
+    <div class="field">
+      <label class="field-label">Recurring min occurrences</label>
+      <input class="field-input" type="text" name="recurring_min_occurrences" value="{{ recurring_min_occurrences_raw }}" />
+    </div>
+  </div>
+  <div class="field">
+    <label class="field-label">Budget alert channels (csv — blank = all enabled)</label>
+    <input class="field-input" type="text" name="budget_alert_channels" value="{{ budget_alert_channels_raw }}" placeholder="ntfy,pushover" />
+  </div>
+
+  <h4 style="margin:1rem 0 0; font-size:0.88rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted)">Import</h4>
+  <p class="field-hint">
+    Upload dir: <code>{{ import_upload_dir }}</code><br>
+    Ledger output dir: <code>{{ import_ledger_output_dir }}</code>
+  </p>
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Retention days</label>
+      <input class="field-input" type="text" name="import_retention_days" value="{{ import_retention_days_raw }}" />
+    </div>
+    <div class="field">
+      <label class="field-label">Max upload bytes</label>
+      <input class="field-input" type="text" name="import_max_upload_bytes" value="{{ import_max_upload_bytes_raw }}" />
+    </div>
+  </div>
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">AI column-mapping model <span class="subtle">(blank → inherit global)</span></label>
+      <input class="field-input" type="text" name="import_ai_column_map_model" value="{{ import_ai_column_map_model_raw }}" />
+    </div>
+    <div class="field">
+      <label class="field-label">AI confidence threshold</label>
+      <input class="field-input" type="text" name="import_ai_confidence_threshold" value="{{ import_ai_confidence_threshold_raw }}" />
+    </div>
+  </div>
+  <p class="field-hint">Known ingester source classes: <code>{{ import_known_classes }}</code></p>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Save settings', type='submit', variant='primary') }}</div>
+</form>
+<p class="subtle" style="margin-top:1rem">Reports output dir: <code>{{ reports_output_dir }}</code></p>
+{% endcall %}
+{% endblock %}

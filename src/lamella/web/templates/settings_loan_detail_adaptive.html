@@ -1,0 +1,204 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+{% from "_components/account_picker.html" import account_picker %}
+
+{% block title %}{{ loan.display_name or loan.slug }} — Loan{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}{{ loan.display_name or loan.slug }}{% endblock %}
+
+{% block content %}
+{% set _bits = [] %}
+{% if loan.loan_type %}{% set _ = _bits.append(loan.loan_type | humanize) %}{% endif %}
+{% if loan.institution %}{% set _ = _bits.append(loan.institution) %}{% endif %}
+{% if loan.funded_date %}{% set _ = _bits.append('funded ' ~ loan.funded_date|string) %}{% endif %}
+{% if loan.payoff_date %}{% set _ = _bits.append('paid off ' ~ loan.payoff_date|string) %}{% endif %}
+
+{% call L.page_head(
+     title=loan.display_name or loan.slug,
+     subtitle=' · '.join(_bits),
+     kicker='Settings · Loans'
+) %}
+  {{ B.btn('Edit details', href='/settings/loans/' ~ loan.slug ~ '/edit', variant='ghost') }}
+  {% if loan.property_slug %}
+    {{ B.btn('Property →', href='/settings/properties/' ~ loan.property_slug, variant='ghost') }}
+  {% endif %}
+  {{ B.btn('All loans', href='/settings/loans', variant='ghost') }}
+{% endcall %}
+
+<div style="margin:-8px 0 1rem; display:flex; gap:6px; flex-wrap:wrap; align-items:center">
+  {% if not loan.is_active %}
+    {{ D.badge('Closed', tone='muted') }}
+  {% else %}
+    {% set _badge_tone = {'ok':'ok','warn':'warn','err':'err','hot':'err'}.get(health.summary_badge, 'muted') %}
+    {{ D.badge(health.summary_badge, tone=_badge_tone) }}
+  {% endif %}
+  {% if anchor_used %}
+    <span class="subtle" style="font-size:0.85rem">As of <time>{{ anchor_used.as_of_date }}</time></span>
+  {% endif %}
+</div>
+
+{% if saved %}{% call F.banner(tone='ok', title='Saved') %}{% endcall %}{% endif %}
+
+{# ─── Top "next action" card — promoted from _next_action_card.html
+   so it gets the right tone-colored card directly. ─── #}
+{% set top = health.next_actions[0] if health.next_actions else None %}
+{% if not top %}
+{% call C.card(title='✓ All set', tone='ok') %}
+<p class="subtle" style="margin:0">No outstanding actions for this loan. Use “Show everything” at the bottom if you want to poke around.</p>
+{% endcall %}
+{% else %}
+{% set _action_tone = {'1':'info','2':'info','3':'warn','4':'err','5':'err'}.get(top.severity|string, 'info') %}
+{% call C.card(title=top.title, tone=_action_tone) %}
+<p style="margin:0 0 0.75rem">{{ top.detail }}</p>
+{% if top.method == "POST" %}
+  <form method="post" action="{{ top.endpoint }}" style="margin:0">
+    {% for k, v in top.payload.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}" />{% endfor %}
+    {{ B.btn(top.action_label, type='submit', variant='primary') }}
+  </form>
+{% else %}
+  {{ B.btn(top.action_label, href=top.endpoint, variant='primary') }}
+{% endif %}
+{% endcall %}
+{% endif %}
+
+{# ─── Strip of follow-up actions. ─── #}
+{% if health.next_actions|length > 1 %}
+<nav style="margin:-0.5rem 0 1rem; display:flex; gap:6px; flex-wrap:wrap; align-items:center" aria-label="Upcoming actions">
+  {% for action in health.next_actions[1:5] %}
+    {% set _tone = {'1':'info','2':'info','3':'warn','4':'err','5':'err'}.get(action.severity|string, 'muted') %}
+    <a href="{{ action.endpoint }}" title="{{ action.detail }}" style="text-decoration:none">
+      {{ D.badge(action.title, tone=_tone) }}
+    </a>
+  {% endfor %}
+  {% if health.next_actions|length > 5 %}
+    <span class="subtle" style="font-size:0.82rem">+{{ health.next_actions|length - 5 }} more</span>
+  {% endif %}
+</nav>
+{% endif %}
+
+{# ─── Inline initial-funding form. Rendered only when the loan has
+   no funding block yet. Anchored as #fund-initial-form so the
+   "Post funding" next-action button can scroll the user straight
+   here instead of bouncing them back to the same page. ─── #}
+{% if health.funding and not health.funding.is_funded %}
+{% set _funded_default = loan.funded_date or loan.start_date or '' %}
+{% set _narration_default = 'Loan funding — ' ~ (loan.display_name or loan.slug) %}
+<a id="fund-initial-form"></a>
+{% call C.card(title='Post the initial funding transaction', tone='warn') %}
+<p style="margin:0 0 0.75rem">
+  Pick the offset account that balances the liability. Common
+  shapes:
+</p>
+<ul style="margin:0 0 1rem 1.25rem; padding:0; font-size:0.92rem">
+  <li><strong>New purchase:</strong> the property's cost-basis asset
+      (proceeds went straight to the house).</li>
+  <li><strong>Historical / pre-ledger:</strong>
+      <code>Equity:{{ loan.entity_slug or 'Personal' }}:OpeningBalances</code>.</li>
+  <li><strong>Cash-out refi or proceeds-to-checking:</strong>
+      the bank account the funds landed in.</li>
+</ul>
+
+{% if offset_suggestions %}
+<p class="subtle" style="margin:0 0 0.5rem; font-size:0.88rem">
+  Suggestions for this loan:
+</p>
+<ul style="margin:0 0 1rem 1.25rem; padding:0; font-size:0.88rem">
+  {% for s in offset_suggestions %}
+  <li>
+    <code>{{ s.path }}</code>
+    {% if s.why %}<span class="subtle"> — {{ s.why }}</span>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+<form method="post"
+      action="/settings/loans/{{ loan.slug }}/fund-initial"
+      class="stacked-form"
+      style="margin:0">
+  <label style="display:block; margin-bottom:0.75rem">
+    <span style="display:block; font-weight:600; margin-bottom:0.25rem">
+      Funded date
+    </span>
+    <input type="date" name="funded_date"
+           value="{{ _funded_default }}" required
+           class="field-input" />
+  </label>
+
+  <label style="display:block; margin-bottom:0.75rem">
+    <span style="display:block; font-weight:600; margin-bottom:0.25rem">
+      Offset account
+    </span>
+    {{ account_picker(
+         name='offset_account',
+         value=(offset_suggestions[0].path if offset_suggestions else ''),
+         entity_hint=loan.entity_slug or '',
+         mode='picker',
+         allow_create=true,
+         edit_row=true,
+         placeholder='Assets:Personal:MainResidence:CostBasis',
+         required=true) }}
+    <small class="subtle" style="display:block; margin-top:0.25rem">
+      Free-typed paths work too — the account is auto-opened on or
+      before the funded date.
+    </small>
+  </label>
+
+  <label style="display:block; margin-bottom:0.75rem">
+    <span style="display:block; font-weight:600; margin-bottom:0.25rem">
+      Narration <span class="subtle" style="font-weight:400">(optional)</span>
+    </span>
+    <input type="text" name="narration"
+           placeholder="{{ _narration_default }}"
+           class="field-input" />
+  </label>
+
+  {{ B.btn('Post funding transaction', type='submit', variant='primary') }}
+</form>
+{% endcall %}
+{% endif %}
+
+{# ─── Each loan-detail panel becomes a card. The partials still
+   render their internal markup unchanged (summary-grid, dl, forms,
+   etc.). The card chrome gives them site-consistent borders, headers,
+   and spacing. ─── #}
+{% for panel in panels %}
+  {% if panel.relevant or show_all %}
+    {% if panel.expanded or show_all %}
+      {% call C.card(title=panel.key|capitalize) %}
+        {% include panel.template %}
+      {% endcall %}
+    {% else %}
+      {% call C.card() %}
+        <details>
+          <summary style="cursor:pointer; font-weight:600; font-size:1rem">{{ panel.key|capitalize }}</summary>
+          <div style="margin-top:0.75rem">
+            {% include panel.template %}
+          </div>
+        </details>
+      {% endcall %}
+    {% endif %}
+  {% endif %}
+{% endfor %}
+
+<p class="subtle" style="margin-top:1.5rem; text-align:center">
+  {% if show_all %}
+    <a href="?">← Hide irrelevant panels</a>
+  {% else %}
+    <a href="?show_all=1">Show everything →</a>
+  {% endif %}
+</p>
+{% endblock %}

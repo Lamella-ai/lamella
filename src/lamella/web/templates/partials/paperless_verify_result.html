@@ -1,0 +1,95 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Rendered from POST /paperless/{doc_id}/verify as the HTMX swap target. #}
+<div class="paperless-verify-result" id="paperless-verify-{{ doc_id }}">
+  {% if outcome.skipped_reason and not outcome.verified %}
+    <p class="muted">
+      <strong>Verify skipped:</strong> {{ outcome.skipped_reason }}
+    </p>
+  {% elif outcome.verified %}
+    {% if outcome.diffs %}
+      <h4>Vision re-extract — {{ outcome.diffs|length }} field(s) differ</h4>
+      <table class="small">
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Before (Paperless)</th>
+            <th>After (vision)</th>
+            <th>Confidence</th>
+            <th>Applied?</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in outcome.diffs %}
+            <tr>
+              <td><code>{{ d.field }}</code></td>
+              <td class="muted">{{ d.before or "(empty)" }}</td>
+              <td><strong>{{ d.after or "(empty)" }}</strong></td>
+              <td>{{ "%.2f"|format(d.confidence) }}</td>
+              <td>
+                {% if d.confidence >= 0.80 and outcome.fields_patched > 0 %}
+                  ✓
+                {% else %}
+                  <span class="muted">held (low confidence)</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">
+        Vision re-extract found no differences. The current Paperless
+        fields match the image.
+      </p>
+    {% endif %}
+    {% if outcome.extracted and outcome.extracted.ocr_errors_noted %}
+      <p class="muted">
+        <strong>OCR errors noted:</strong>
+        {{ outcome.extracted.ocr_errors_noted | join("; ") }}
+      </p>
+    {% endif %}
+    {% if outcome.mismatch_detected %}
+      <div class="paperless-verify-mismatch" style="margin: 1rem 0; padding: 0.75rem 1rem; border: 1px solid var(--err); border-left: 4px solid var(--err); border-radius: 6px; background: rgba(185, 28, 28, 0.05);">
+        <p style="margin: 0 0 0.5rem; font-weight: 600; color: var(--err);">
+          ⚠ Mismatch — this Paperless document does not match the linked transaction.
+        </p>
+        <p class="muted" style="margin: 0 0 0.75rem; font-size: 0.88rem;">
+          {{ outcome.mismatch_reason }}
+        </p>
+        <form method="post"
+              action="/api/paperless/{{ doc_id }}/unlink-mismatched"
+              hx-post="/api/paperless/{{ doc_id }}/unlink-mismatched"
+              hx-confirm="Unlink this Paperless document from the transaction and clear the auto-stamped Lamella:* custom fields? This affects only the link — the Paperless document itself is not touched."
+              hx-swap="none"
+              style="display: inline-block;">
+          <button type="submit" class="btn" style="background: var(--err); color: #fff; border-color: var(--err);">
+            Unlink — mismatch
+          </button>
+        </form>
+        <p class="muted" style="margin: 0.5rem 0 0; font-size: 0.78rem;">
+          User-initiated only. Lamella never auto-unlinks based on
+          AI signals or sync failures.
+        </p>
+      </div>
+    {% endif %}
+    {% if outcome.tag_applied %}
+      <p class="muted">
+        Tagged <code>Lamella Fixed</code> on Paperless.
+        A note was added to the document with the full reasoning.
+      </p>
+    {% elif outcome.skipped_reason %}
+      <p class="muted">
+        Writeback skipped: {{ outcome.skipped_reason }}
+      </p>
+    {% endif %}
+  {% else %}
+    <p class="muted">Verify did not run — {{ outcome.skipped_reason }}</p>
+  {% endif %}
+</div>

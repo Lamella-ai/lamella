@@ -1,0 +1,733 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Swappable partial for /review (and /review/staged). Returned
+   directly on HX-Request; included in staging_review.html for full
+   page renders. The route assembles all its data via
+   _staged_list_context() so both branches stay in lockstep. #}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+{% import "_components/_txn.html" as Txn %}
+{% import "_components/_txn_actions.html" as T %}
+<div id="staged-list">
+
+{# Banner — friendly translation of the raw `message=...` code from
+   the POST handlers' RedirectResponse URLs (e.g.
+   `classified_9_to_Expenses:Foo`, `classify_group_5_to_Expenses:Foo`,
+   `ask_ai_proposed_...`, `already_promoted`, ...). #}
+{%- set _msg = request.query_params.get('message') -%}
+{%- if _msg -%}
+  {%- if _msg == 'already_promoted' -%}
+    {% call F.banner(tone='info', title='Already classified') %}That row was promoted into the ledger by another action.{% endcall %}
+  {%- elif _msg == 'classify_group_nothing_to_do' -%}
+    {% call F.banner(tone='info', title='Nothing to apply') %}Every row in that group was already classified.{% endcall %}
+  {%- elif _msg == 'ask_ai_already_promoted' -%}
+    {% call F.banner(tone='info', title='Already classified') %}That row was promoted into the ledger before the AI could weigh in.{% endcall %}
+  {%- elif _msg.startswith('classified_') -%}
+    {%- set _parts = _msg[11:].split('_to_', 1) -%}
+    {% call F.banner(tone='ok', title='Classified') %}
+      Wrote a clean entry{% if _parts|length == 2 %} to <code>{{ _parts[1] }}</code>{% endif %}.
+    {% endcall %}
+  {%- elif _msg.startswith('classify_group_') -%}
+    {%- set _parts = _msg[15:].split('_to_', 1) -%}
+    {%- if _parts|length == 2 -%}
+      {% call F.banner(tone='ok', title='Group classified') %}
+        Wrote {{ _parts[0] }} row{% if _parts[0] != '1' %}s{% endif %} to <code>{{ _parts[1] }}</code>.
+        The pattern was learned — future siblings will auto-classify.
+      {% endcall %}
+    {%- else -%}
+      {% call F.banner(tone='ok', title='Group classified') %}Rows written to the ledger.{% endcall %}
+    {%- endif -%}
+  {%- elif _msg.startswith('ask_ai_proposed_') -%}
+    {%- set _tgt = _msg[16:] -%}
+    {% call F.banner(tone='info', title='AI proposal ready') %}
+      Suggested <code>{{ _tgt }}</code> — review the row, then <strong>Accept</strong> to write.
+    {% endcall %}
+  {%- elif _msg.startswith('ask_ai_no_proposal_for_') -%}
+    {% call F.banner(tone='warn', title='AI returned no proposal') %}
+      The classifier didn’t find a confident target. Try classifying manually, or rerun Ask AI with a hint.
+    {% endcall %}
+  {%- elif _msg.startswith('dismissed_') or _msg.startswith('ignored_') -%}
+    {% call F.banner(tone='info', title='Ignored') %}
+      The row is hidden from the pending list. It's preserved — you can find it under <a href="/review/ignored">Ignored</a> and restore it any time.
+    {% endcall %}
+  {%- elif _msg.startswith('restored_') -%}
+    {% call F.banner(tone='ok', title='Restored') %}
+      The row is back in the pending queue.
+    {% endcall %}
+  {%- else -%}
+    {% call F.banner(tone='info', title='Done') %}{{ _msg }}{% endcall %}
+  {%- endif -%}
+{%- endif -%}
+
+{# ─── Filter / sort / paginate strip ─────────────────────────────
+   `_qs(...)` builds /review query strings preserving every other
+   filter so individual controls don't reset siblings. The macro
+   takes a dict of overrides; the rest defaults to the current view
+   state (filter_source, sort, hide_transfers, page=1). #}
+{%- macro _qs(overrides={}) -%}
+  {%- set state = {
+        'source': overrides.source if 'source' in overrides else filter_source,
+        'sort': overrides.sort if 'sort' in overrides else sort,
+        'hide_transfers': overrides.hide_transfers if 'hide_transfers' in overrides else hide_transfers,
+        'page': overrides.page if 'page' in overrides else 1,
+      } -%}
+  {%- set parts = [] -%}
+  {%- if state.source -%}{%- set _ = parts.append('source=' ~ state.source) -%}{%- endif -%}
+  {%- if state.sort and state.sort != 'groups' -%}{%- set _ = parts.append('sort=' ~ state.sort) -%}{%- endif -%}
+  {%- if state.hide_transfers -%}{%- set _ = parts.append('hide_transfers=1') -%}{%- endif -%}
+  {%- if state.page and state.page > 1 -%}{%- set _ = parts.append('page=' ~ state.page) -%}{%- endif -%}
+  {%- if parts -%}?{{ parts|join('&') }}{%- endif -%}
+{%- endmacro -%}
+
+<div class="rsg-filterbar">
+  <div class="rsg-filterbar-stat">
+    <span class="rsg-filterbar-stat-num num">{{ total }}</span>
+    <span class="rsg-filterbar-stat-label">pending</span>
+    {% if total_groups != total %}
+      <span class="rsg-filterbar-stat-sep">·</span>
+      <span class="rsg-filterbar-stat-sub">{{ total_groups }} group{{ 's' if total_groups != 1 else '' }}</span>
+    {% endif %}
+  </div>
+
+  <div class="rsg-filterbar-pills" role="tablist" aria-label="Filter by source">
+    <a class="rsg-pill {% if not filter_source %}is-active{% endif %}"
+       href="/review{{ _qs({'source': none}) }}"
+       hx-get="/review{{ _qs({'source': none}) }}"
+       hx-target="#staged-list" hx-swap="outerHTML" hx-push-url="true">
+      <span class="rsg-pill-label">All sources</span>
+      <span class="rsg-pill-count num">{{ total }}</span>
+    </a>
+    {% for s, count in by_source.items() %}
+    {%- if count > 0 or filter_source == s -%}
+    <a class="rsg-pill {% if filter_source == s %}is-active{% endif %}"
+       href="/review{{ _qs({'source': s}) }}"
+       hx-get="/review{{ _qs({'source': s}) }}"
+       hx-target="#staged-list" hx-swap="outerHTML" hx-push-url="true">
+      <span class="rsg-pill-dot rsg-pill-dot--{{ s }}" aria-hidden="true"></span>
+      <span class="rsg-pill-label">{{ s }}</span>
+      <span class="rsg-pill-count num">{{ count }}</span>
+    </a>
+    {%- endif -%}
+    {% endfor %}
+  </div>
+
+  <div class="rsg-filterbar-tools">
+    {# Hide-transfers toggle. Shows count only when there are transfers
+       to hide (or when already toggled on so the user can find their
+       way back). #}
+    {% if transfer_count > 0 or hide_transfers %}
+    <a class="rsg-toggle {% if hide_transfers %}is-active{% endif %}"
+       href="/review{{ _qs({'hide_transfers': not hide_transfers}) }}"
+       hx-get="/review{{ _qs({'hide_transfers': not hide_transfers}) }}"
+       hx-target="#staged-list" hx-swap="outerHTML" hx-push-url="true"
+       title="{% if hide_transfers %}Show the {{ transfer_count }} transfer-flagged row{{ 's' if transfer_count != 1 else '' }} again.{% else %}Hide the {{ transfer_count }} transfer-flagged row{{ 's' if transfer_count != 1 else '' }} — the matcher handles those automatically when both halves arrive.{% endif %}">
+      {{ icon.repeat(size=12) }}
+      <span>{% if hide_transfers %}Showing transfers{% else %}Hide transfers{% endif %}</span>
+      <span class="rsg-toggle-count num">{{ transfer_count }}</span>
+    </a>
+    {% endif %}
+
+    {# Sort selector. Three buckets — group size (default), amount, date. #}
+    <div class="rsg-sort">
+      <span class="rsg-sort-label">Sort</span>
+      <a class="rsg-sort-opt {% if sort == 'groups' %}is-active{% endif %}"
+         href="/review{{ _qs({'sort': 'groups'}) }}"
+         hx-get="/review{{ _qs({'sort': 'groups'}) }}"
+         hx-target="#staged-list" hx-swap="outerHTML" hx-push-url="true"
+         title="Largest groups first — confirm one and the rest auto-classify.">Groups</a>
+      <a class="rsg-sort-opt {% if sort == 'amount' %}is-active{% endif %}"
+         href="/review{{ _qs({'sort': 'amount'}) }}"
+         hx-get="/review{{ _qs({'sort': 'amount'}) }}"
+         hx-target="#staged-list" hx-swap="outerHTML" hx-push-url="true"
+         title="Largest dollar amount first.">Amount</a>
+      <a class="rsg-sort-opt {% if sort == 'date' %}is-active{% endif %}"
+         href="/review{{ _qs({'sort': 'date'}) }}"
+         hx-get="/review{{ _qs({'sort': 'date'}) }}"
+         hx-target="#staged-list" hx-swap="outerHTML" hx-push-url="true"
+         title="Most recent first.">Date</a>
+    </div>
+  </div>
+</div>
+
+{% if not items %}
+{{ F.empty_state(
+     'Nothing pending' ~ (' for source ' ~ filter_source if filter_source else '') ~ ' — the staging queue is clear.',
+     cta_text='Open dashboard', cta_href='/'
+) }}
+{% else %}
+{# NOTE: the <datalist id="accounts-datalist"> lives in the host
+   page (staging_review.html), NOT here — this partial swaps in via
+   HTMX, and an empty datalist in the swap payload would clobber the
+   populated one on every refresh. #}
+
+{# Suggestion strip — observed-state nudges (payout sources, etc.).
+   Placed BELOW the filterbar and ABOVE the row groups so it sits
+   adjacent to the content that triggered it, not at the very top
+   of the page. Renders nothing when empty. (Inline-per-group
+   attribution — show the eBay card directly within the eBay rows'
+   group — is a follow-up redesign tracked separately.) #}
+{% if suggestion_cards %}
+<div style="margin: 0.5rem 0 0.85rem">
+  {{ C.suggestion_strip(suggestion_cards) }}
+</div>
+{% endif %}
+
+{# Bulk Ask AI — fires one job that asks the classifier on every
+   visible group's prototype. After completion the page reloads
+   and each row's Proposed band carries the new suggestion; the
+   user Accepts the confident ones in one click. Capped server-
+   side at 25 refs per call. #}
+{%- set _bulk_refs = groups[:25] -%}
+{%- set _back = '/review' ~ _qs() -%}
+<form method="post" action="/api/txn-bulk/ask-ai"
+      hx-post="/api/txn-bulk/ask-ai"
+      hx-target="body" hx-swap="beforeend"
+      class="rsg-bulk-ask"
+      style="margin-bottom:0.85rem; display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; padding:0.6rem 0.85rem; background:var(--panel); border:1px solid var(--border); border-radius:8px">
+  {% for g in _bulk_refs %}
+    <input type="hidden" name="refs" value="staged:{{ g.prototype.staged_id }}">
+  {% endfor %}
+  <input type="hidden" name="return_url" value="{{ _back }}">
+  <span style="font-size:0.85rem; color:var(--muted)">
+    {{ icon.robot(size=14) }}
+    Bulk classify — run AI on the {{ _bulk_refs|length }} group prototype{{ 's' if _bulk_refs|length != 1 else '' }} on this page. Each result lands as a Proposed band you can Accept in one click.
+  </span>
+  <span style="margin-left:auto"></span>
+  {{ B.btn('Ask AI on all ' ~ _bulk_refs|length, type='submit', size='sm', icon=icon.robot(size=12), class='btn-ai') }}
+</form>
+
+<div class="rsg-groups">
+{% for group in groups %}
+{% set group_idx = loop.index %}
+{% set proto = group.prototype %}
+{% set proto_extras = extras.get(proto.staged_id, {}) %}
+
+{# Header bits assembled for the group title bar. #}
+{%- set _group_total = (group.items | sum(attribute='amount')) | float -%}
+{%- set _group_currency = proto.currency or 'USD' -%}
+{%- set _group_payee = proto.payee or proto.description or 'Unlabeled' -%}
+{%- set group_proposal = (group_proposals.get(proto.staged_id) if group_proposals is defined else None) -%}
+{%- set group_transfer = (group_transfer_suspect.get(proto.staged_id) if group_transfer_suspect is defined else None) -%}
+{# Pre-compute a confirm prompt that fires before any one-click
+   classification of a transfer-suspect group into Expenses. Per
+   user feedback: "It should not allow you to just one click
+   accept ... without a confirmation warning". Empty string when
+   no confirm is needed (template uses falsy-string check).
+
+   ADR-0046 Phase 1: the prompt now also mentions the synthetic-
+   replaceable behavior — when the user picks an Assets:/Liab:
+   target, Lamella creates both legs and replaces the destination
+   leg automatically when a real bank import later brings in the
+   genuine other half. #}
+{%- set _transfer_confirm = '' -%}
+{%- if group_transfer -%}
+  {%- set _transfer_confirm = (
+    'These ' ~ group_transfer.flagged ~ ' of ' ~ group_transfer.total ~
+    ' rows look like transfers (narration mentions transfer, or the '
+    'source account is a credit card / loan getting a payment). '
+    'Classifying them as Expenses is probably wrong — the matcher '
+    'auto-pairs transfers when the other leg arrives. '
+    'If you classify to Assets:/Liabilities:, Lamella will create '
+    'both legs of this transfer; if a real bank import later brings '
+    'in the destination side, Lamella will replace the synthetic '
+    'leg automatically. Continue anyway?'
+  ) -%}
+{%- endif -%}
+
+{# Group-first layout. The header (prototype + count + total +
+   group-level AI band + classify-group form) is always visible.
+   Child rows live inside a <details> expander — collapsed by
+   default so 25 groups × 50–100 rows aren't a wall. #}
+{# Stable per-staged-id data attribute lets the AI modal's classify
+   response find this group via `[data-rsg-staged-ids~="<id>"]` and
+   replace it in place with the "Classified" tile — same UX as the
+   inline row Classify button, just routed through OOB swap because
+   the modal lives outside the staged-list DOM. #}
+{%- set _member_ids = group.members|map(attribute='id')|join(' ') -%}
+<section class="rsg-group rsg-group--card"
+         id="rsg-group-{{ group_idx }}"
+         data-rsg-staged-ids="{{ _member_ids }}">
+
+  <header class="rsg-group-head">
+    <div class="rsg-group-head-main">
+      <div class="rsg-group-count" aria-hidden="true">
+        <span class="num">{{ group.size }}</span>
+        <span class="rsg-group-count-label">row{% if group.size != 1 %}s{% endif %}</span>
+      </div>
+      <div class="rsg-group-titleblock">
+        <h3 class="rsg-group-title" title="{{ _group_payee }}">{{ _group_payee }}</h3>
+        <div class="rsg-group-meta">
+          {# Prototype date + amount — gives the user enough at a
+             glance to decide without expanding the children. #}
+          {%- set _proto_a = proto.amount|float -%}
+          {%- set _proto_flow = 'in' if _proto_a > 0 else ('out' if _proto_a < 0 else 'flat') -%}
+          <span class="rsg-group-meta-item">
+            <time class="num" datetime="{{ proto.posting_date }}">{{ proto.posting_date[:10] }}</time>
+            <span class="subtle">·</span>
+            <span class="num txns-amount txns-amount--{{ _proto_flow }}">
+              {%- if _proto_flow == 'in' -%}+{%- elif _proto_flow == 'out' -%}−{%- endif -%}
+              {{ "%.2f"|format(_proto_a if _proto_a >= 0 else -_proto_a) }}
+              {{ _group_currency }}
+            </span>
+          </span>
+          {% if proto_extras.card_display %}
+            <span class="rsg-group-meta-item">
+              {{ icon.creditcard(size=14) }}
+              <strong>{{ proto_extras.card_display }}</strong>
+              {% if proto_extras.card_secondary %}<span class="subtle">· {{ proto_extras.card_secondary }}</span>{% endif %}
+            </span>
+          {% endif %}
+          {% if proto_extras.entity_display %}
+            <span class="rsg-group-meta-item">
+              {{ icon.briefcase(size=14) }}
+              <strong>{{ proto_extras.entity_display }}</strong>
+            </span>
+          {% endif %}
+          <span class="rsg-group-meta-item">
+            {{ D.badge(proto.source, tone='muted') }}
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="rsg-group-head-totals">
+      {%- set _gt = _group_total|float -%}
+      {%- set _gt_flow = 'in' if _gt > 0 else ('out' if _gt < 0 else 'flat') -%}
+      <div class="rsg-group-head-total-label">Group total</div>
+      <div class="rsg-group-head-total-value txns-amount txns-amount--{{ _gt_flow }}">
+        {%- if _gt_flow == 'in' -%}+{%- elif _gt_flow == 'out' -%}−{%- endif -%}
+        {{ D.money(_gt if _gt >= 0 else -_gt, currency=_group_currency, signed=false, abs_value=true) }}
+      </div>
+    </div>
+  </header>
+
+  {# Group-level AI proposal band. Surfaces when the group has a
+     coherent suggestion across its rows — either consensus (every
+     row that has a proposal agrees) or conflict (rows split between
+     2+ targets). The consensus path wires the existing
+     classify-group form's target_account to the suggested account
+     so "Apply to all" is a one-click commit. The conflict path is
+     a warning band only — the user has to pick. #}
+  {# Group-level transfer warning band — surfaces the same "Looks
+     like a transfer" signal the per-row hint shows, but at the
+     group level so the user notices before they scroll into
+     children. Per user feedback: "while each transaction says
+     'looks like a transfer' the group should also have the
+     notice saying these look like transfers". #}
+  {% if group_transfer %}
+  <div class="rsg-group-band rsg-group-band--transfer">
+    <div class="rsg-group-band-head">
+      {{ icon.repeat(size=14) }}
+      <strong>Looks like transfers</strong>
+      <span class="rsg-group-band-meta">{{ group_transfer.flagged }}/{{ group_transfer.total }} row{% if group_transfer.total != 1 %}s{% endif %} flagged</span>
+    </div>
+    <p class="rsg-group-band-foot">
+      The matcher auto-pairs transfers when the other leg arrives —
+      classifying these as <code>Expenses:</code> is usually wrong.
+      Wait for the matcher, or classify manually to <code>Assets:</code> /
+      <code>Liabilities:</code> if you know the receiving account.
+    </p>
+  </div>
+  {% endif %}
+
+  {# Hide stale Expenses-rooted AI proposals on positive-amount
+     (deposit) groups. Deposits now skip AI per the architectural
+     directive — but legacy staged_decisions rows from before the
+     skip landed still carry an Expenses suggestion that's almost
+     certainly wrong (Income or transfer is the real answer).
+     Suppressing the band prompts the user to re-classify deliberately
+     instead of one-click-accepting a stale wrong proposal. #}
+  {%- set _is_deposit_group = (_group_total|float) > 0 -%}
+  {%- set _proposal_is_expenses = group_proposal and group_proposal.kind == 'consensus' and group_proposal.account.startswith('Expenses:') -%}
+  {%- set _suppress_stale_deposit_proposal = _is_deposit_group and _proposal_is_expenses -%}
+  {% if group_proposal and group_proposal.kind == 'consensus' and not _suppress_stale_deposit_proposal %}
+  {%- set _consensus_is_expenses = group_proposal.account.startswith('Expenses:') -%}
+  {%- set _band_confirm = (_transfer_confirm if (_consensus_is_expenses and group_transfer) else '') -%}
+  <div class="rsg-group-band rsg-group-band--ai">
+    <div class="rsg-group-band-head">
+      {{ icon.robot(size=14) }}
+      <strong>AI proposed</strong>
+      <code title="{{ group_proposal.account }}">{{ group_proposal.account | alias }}</code>
+      {%- if group_proposal.confidence -%}
+        {{ Txn.confidence_pill(bucket=group_proposal.confidence) }}
+      {%- endif -%}
+      <span class="rsg-group-band-meta">for {{ group_proposal.covers }}/{{ group_proposal.total }} row{% if group_proposal.total != 1 %}s{% endif %}</span>
+      {%- if group_proposal.rationale -%}
+      <details class="rsg-group-band-why">
+        <summary>why</summary>
+        <p>{{ group_proposal.rationale }}</p>
+      </details>
+      {%- endif -%}
+    </div>
+    {% if group.size > 1 %}
+    {# Apply-to-all uses the same /review/staged/classify-group
+       endpoint as the manual form, but submits every staged_id in
+       the group with the AI's target. ONE rule is learned (the
+       endpoint dedups by prototype) — no per-row LLM calls.
+       Confirm prompt fires when the target is Expenses AND the
+       group is transfer-suspect. #}
+    <form method="post" action="/review/staged/classify-group"
+          class="rsg-group-band-cta"
+          hx-post="/review/staged/classify-group"
+          hx-target="closest section.rsg-group"
+          hx-swap="outerHTML">
+      {% for item in group.items %}
+        <input type="hidden" name="staged_ids" value="{{ item.staged_id }}">
+      {% endfor %}
+      <input type="hidden" name="target_account" value="{{ group_proposal.account }}">
+      <input type="hidden" name="source" value="{{ filter_source or '' }}">
+      {{ B.btn('Apply to all ' ~ group.size, type='submit', variant='primary', size='sm', icon=icon.check(size=12), confirm=_band_confirm, confirm_button='Classify anyway') }}
+    </form>
+    {% else %}
+    {# Single-row group → reuse the per-row accept-proposed path
+       (the row's staged_decision already carries the suggestion). #}
+    <form method="post" action="/review/staged/classify"
+          class="rsg-group-band-cta"
+          hx-post="/review/staged/classify"
+          hx-target="closest section.rsg-group"
+          hx-swap="outerHTML">
+      <input type="hidden" name="staged_id" value="{{ proto.staged_id }}">
+      <input type="hidden" name="accept_proposed" value="1">
+      <input type="hidden" name="source" value="{{ filter_source or '' }}">
+      {{ B.btn('Accept', type='submit', variant='primary', size='sm', icon=icon.check(size=12), confirm=_band_confirm, confirm_button='Classify anyway') }}
+    </form>
+    {% endif %}
+  </div>
+  {% elif group_proposal and group_proposal.kind == 'conflict' and not _is_deposit_group %}
+  <div class="rsg-group-band rsg-group-band--conflict">
+    <div class="rsg-group-band-head">
+      {{ icon.alerttriangle(size=14) }}
+      <strong>AI proposals conflict</strong>
+      <span class="rsg-group-band-meta">{{ group_proposal.covers }}/{{ group_proposal.total }} rows have proposals, but they disagree</span>
+    </div>
+    <ul class="rsg-group-band-options">
+      {% for opt in group_proposal.options %}
+        <li>
+          {%- if opt is mapping -%}
+          <code title="{{ opt.account }}">{{ opt.account | alias }}</code>
+          {%- if opt.confidence -%}{{ Txn.confidence_pill(bucket=opt.confidence) }}{%- endif -%}
+          <span class="subtle">· {{ opt.count }} row{% if opt.count != 1 %}s{% endif %}</span>
+          {%- if opt.rationale -%}
+          <details class="rsg-group-band-why" style="display:inline-block; margin-left:0.4rem">
+            <summary>why</summary>
+            <p>{{ opt.rationale }}</p>
+          </details>
+          {%- endif -%}
+          {%- else -%}
+          {# Backward-compat — older route shape passed a list of strings #}
+          <code title="{{ opt }}">{{ opt | alias }}</code>
+          <span class="subtle">· {{ group_proposal.counts[opt] }} row{% if group_proposal.counts[opt] != 1 %}s{% endif %}</span>
+          {%- endif -%}
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="rsg-group-band-foot">Expand the group to pick per row, or use the form below to override every row with the same target.</p>
+  </div>
+  {% endif %}
+
+  {# Manual classify-group form. The natural Apply-to-all CTA — a
+     target_account picker + Apply button that fires the existing
+     /review/staged/classify-group endpoint with every staged_id in
+     the group. Always visible at the group level so the user
+     doesn't have to expand to act. #}
+  {% if group.size > 1 %}
+  <form method="post" action="/review/staged/classify-group"
+        class="rsg-group-bulk"
+        hx-post="/review/staged/classify-group"
+        hx-target="closest section.rsg-group"
+        hx-swap="outerHTML">
+    {% for item in group.items %}
+      <input type="hidden" name="staged_ids" value="{{ item.staged_id }}">
+    {% endfor %}
+    <input type="hidden" name="source" value="{{ filter_source or '' }}" />
+    <span class="rsg-group-bulk-hint">
+      Confirm one — applies to all {{ group.size }} row{% if group.size != 1 %}s{% endif %}. The pattern is learned; future siblings auto-classify.
+    </span>
+    <div class="rsg-group-bulk-action">
+      {# Pre-fill priority:
+           1. Consensus AI proposal — exact account, user just hits Apply.
+           2a. Transfer-suspect group: Assets:<entity>: prefix — the
+               group's narration looks like a transfer, so the
+               receiving account is more likely Assets:/Liabilities:
+               than an Expenses: category. Per user feedback: "We
+               should probably identify it is likely a transfer and
+               show a slightly different assignment system."
+           2b. Otherwise: Expenses:<entity>: prefix — the default
+               classify shape.
+           3. Blank — fallback when neither signal is available. #}
+      {%- set _consensus = (group_proposal.account if (group_proposal and group_proposal.kind == 'consensus') else '') -%}
+      {%- set _entity = (proto_extras.entity_slug if proto_extras else None) -%}
+      {%- if _consensus -%}
+        {%- set _prefill = _consensus -%}
+        {%- set _placeholder = 'Apply target — ' ~ (_entity or 'Expenses') ~ ':…' -%}
+      {%- elif group_transfer and _entity -%}
+        {%- set _prefill = 'Assets:' ~ _entity ~ ':' -%}
+        {%- set _placeholder = 'Receiving account — Assets: or Liabilities:…' -%}
+      {%- elif _entity -%}
+        {%- set _prefill = 'Expenses:' ~ _entity ~ ':' -%}
+        {%- set _placeholder = 'Apply target — Expenses:…' -%}
+      {%- else -%}
+        {%- set _prefill = '' -%}
+        {%- set _placeholder = 'Apply target — Expenses:…' -%}
+      {%- endif -%}
+      {{ Txn.account_picker(extra_class='rsg-group-bulk-input', placeholder=_placeholder, value=_prefill) }}
+      {# Manual Apply gets the same confirm guard. The button can't
+         know at template-render time what the user will type into
+         the input, so the guard fires whenever the group is
+         transfer-suspect — even if the user picks Assets:/Liab:
+         the confirm prompt is harmless overhead. False positives
+         on a literal-transfer group are still better than a silent
+         classify-as-Expenses mistake. #}
+      {{ B.btn('Apply to all', type='submit', variant='primary', size='sm', confirm=_transfer_confirm, confirm_button='Classify anyway') }}
+    </div>
+    {%- if group_transfer -%}
+    {# ADR-0046 Phase 1 caption: surface the synthetic-replaceable
+       behavior next to the picker so the user understands what a
+       balance-sheet target produces. The picker doesn't know what
+       the user will type, so the caption stays general. #}
+    <div class="rsg-group-bulk-caption subtle"
+         style="margin-top:0.35rem; font-size:0.8rem">
+      {{ icon.repeat(size=11) }}
+      This will write a balanced transfer to that account, marked
+      synthetic so a future import can replace it.
+    </div>
+    {%- endif -%}
+    {%- if group_transfer -%}
+    {# Escape hatch when the user disagrees with the transfer
+       heuristic. Sets the input's value to the Expenses prefix so
+       the next click works as a normal classify. The confirm
+       prompt still fires (transfer-suspect group), giving them
+       a final chance to back out. #}
+    <div class="rsg-group-bulk-escape">
+      <button type="button" class="link-as-button"
+              onclick="(function(b){var inp=b.closest('form').querySelector('.rsg-group-bulk-input'); if(inp){inp.value='Expenses:{{ _entity or "" }}:'; inp.focus();}})(this)">
+        No, classify as an expense instead →
+      </button>
+    </div>
+    {%- endif -%}
+  </form>
+  {% else %}
+  {# Single-row group: surface a one-row classify form at the
+     header level so the user doesn't need to expand at all. #}
+  <form method="post" action="/review/staged/classify"
+        class="rsg-group-bulk"
+        hx-post="/review/staged/classify"
+        hx-target="closest section.rsg-group"
+        hx-swap="outerHTML">
+    <input type="hidden" name="staged_id" value="{{ proto.staged_id }}">
+    <input type="hidden" name="source" value="{{ filter_source or '' }}" />
+    <span class="rsg-group-bulk-hint">Classify this single row.</span>
+    <div class="rsg-group-bulk-action">
+      {%- set _consensus_single = (group_proposal.account if (group_proposal and group_proposal.kind == 'consensus') else '') -%}
+      {%- set _entity_single = (proto_extras.entity_slug if proto_extras else None) -%}
+      {%- set _prefill_single = _consensus_single or (('Expenses:' ~ _entity_single ~ ':') if _entity_single else '') -%}
+      {{ Txn.account_picker(extra_class='rsg-group-bulk-input', placeholder='Classify as: Expenses:…', value=_prefill_single) }}
+      {{ B.btn('Classify', type='submit', variant='primary', size='sm') }}
+    </div>
+  </form>
+  {% endif %}
+
+  {# Children — collapsed by default. The native <details> element
+     gives us progressive disclosure with zero JS; HTMX swap target
+     remains #staged-list above so per-row actions still refresh
+     the whole list (correct, since classifying a row often
+     re-orders or re-aggregates other groups). #}
+  {% if group.size > 0 %}
+  <details class="rsg-group-children">
+    <summary class="rsg-group-children-summary">
+      <span class="rsg-group-children-summary-label">View {{ group.size }} transaction{% if group.size != 1 %}s{% endif %}</span>
+      <span class="rsg-group-children-summary-hint subtle">click to expand · classify, ignore, or ask AI per row</span>
+    </summary>
+    <table class="rsg-child-table">
+      <thead>
+        <tr>
+          <th class="rsg-child-th rsg-child-th--date">Date</th>
+          <th class="rsg-child-th rsg-child-th--amount">Amount</th>
+          <th class="rsg-child-th rsg-child-th--label">Payee / narration</th>
+          <th class="rsg-child-th rsg-child-th--proposal">AI proposal</th>
+          <th class="rsg-child-th rsg-child-th--actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in group.items %}
+        {% set ex = extras.get(item.staged_id, {}) %}
+        {%- set _payee_lc = (item.payee or '')|lower -%}
+        {%- set _descr_lc = (item.description or '')|lower -%}
+        {%- set _liab_kinds = ['credit_card', 'line_of_credit', 'loan', 'mortgage'] -%}
+        {%- set _is_liab_payment = (
+             ex.card_kind in _liab_kinds and (item.amount or 0) > 0
+        ) -%}
+        {%- set _looks_like_transfer = (
+             item.pair_id is none
+             and (
+                  'transfer' in _payee_lc or 'xfer' in _payee_lc
+                  or 'transfer' in _descr_lc or 'xfer' in _descr_lc
+                  or _is_liab_payment
+             )
+        ) -%}
+        <tr class="rsg-child-row {% if _looks_like_transfer %}rsg-child-row--transfer-hint{% endif %}" id="rsg-row-{{ item.staged_id }}">
+          <td class="rsg-child-td rsg-child-td--date">
+            <time class="num" datetime="{{ item.posting_date }}">{{ item.posting_date[:10] }}</time>
+          </td>
+          <td class="rsg-child-td rsg-child-td--amount num">
+            {# Sign-aware display: positive = money in (deposit/refund/
+               credit), shown green with + prefix; negative = money
+               out (charge/withdrawal), shown red with − prefix. The
+               raw item.amount carries the SimpleFIN convention so the
+               sign IS the indicator. Without this distinction the
+               user can't visually tell a refund from a charge. #}
+            {%- set _a = item.amount|float -%}
+            {%- set _flow = 'in' if _a > 0 else ('out' if _a < 0 else 'flat') -%}
+            <span class="txns-amount txns-amount--{{ _flow }}">
+              {%- if _flow == 'in' -%}+{%- elif _flow == 'out' -%}−{%- endif -%}
+              {{ "%.2f"|format(_a if _a >= 0 else -_a) }}
+            </span>
+            <span class="subtle">{{ item.currency or 'USD' }}</span>
+          </td>
+          <td class="rsg-child-td rsg-child-td--label">
+            {%- set _label = item.payee or item.description or '(no label)' -%}
+            {% if ex.txn_link %}
+              <a href="{{ ex.txn_link }}" class="txn-row-link" title="Open transaction detail">{{ _label }}</a>
+            {% else %}
+              <span title="{{ _label }}">{{ _label }}</span>
+            {% endif %}
+            {% if item.description and item.description != item.payee %}
+              <div class="rsg-child-td-narration subtle">{{ item.description }}</div>
+            {% endif %}
+            {% if _looks_like_transfer %}
+              <div class="rsg-child-td-flag">
+                {{ icon.repeat(size=12) }} <span>looks like a transfer</span>
+              </div>
+            {% endif %}
+          </td>
+          <td class="rsg-child-td rsg-child-td--proposal">
+            {% if item.proposed_account %}
+              {%- set _is_unresolved = ('FIXME' in item.proposed_account|upper) or ('Uncategorized' in item.proposed_account) -%}
+              <span class="rsg-child-proposal {% if _is_unresolved %}rsg-child-proposal--unresolved{% endif %}"
+                    title="{{ item.proposed_account }}{% if item.proposed_rationale %} — {{ item.proposed_rationale }}{% endif %}">
+                <code>{{ item.proposed_account | alias }}</code>
+                {% if item.proposed_confidence %}
+                  {{ Txn.confidence_pill(bucket=item.proposed_confidence) }}
+                {% endif %}
+              </span>
+            {% else %}
+              <span class="subtle">—</span>
+            {% endif %}
+          </td>
+          <td class="rsg-child-td rsg-child-td--actions">
+            {# compact=false so the action buttons show their text labels
+               ("Accept", "Classify", "Ask AI", "Ignore") next to the
+               icon. compact=true was hiding the labels in the child
+               table; user feedback: "The classify / ai / ignore
+               buttons are not obvious." Labels make the affordance
+               clear at a small size cost. #}
+            {# ADR-0046 Phase 4b: classified staged rows surface an
+               Undo button that reverse-classifies via the unified
+               /api/txn/{lamella_txn_id}/reverse-classify endpoint.
+               Only "classified" rows have an override block to roll
+               back; "new" rows haven't been written to the ledger
+               yet, "matched" rows are paired (different undo path),
+               "promoted" rows have left the staged list entirely. #}
+            {%- set _undo_id = item.lamella_txn_id if item.status == 'classified' else None -%}
+            {{ T.actions(ref='staged:' ~ item.staged_id, compact=false, return_url=_back, undoable_txn_id=_undo_id) }}
+          </td>
+        </tr>
+        {# ADR-0046 Phase 3b — wrong-account synthetic-match banner.
+           Renders when ingest's loose match fired and stored the
+           marker on this row. Two buttons: rewrite the synthetic
+           leg's account in place (and absorb this row), or clear
+           the marker and classify normally. #}
+        {% if item.synthetic_match_meta %}
+        {%- set _smm = item.synthetic_match_meta -%}
+        <tr class="rsg-child-row rsg-child-row--synth-confirm" id="rsg-synth-{{ item.staged_id }}">
+          <td colspan="5" class="rsg-child-td">
+            <div class="rsg-synth-banner" role="status">
+              <div class="rsg-synth-banner-text">
+                <strong>Looks like the wrong-account half of an existing transfer.</strong>
+                We previously authored a synthetic counterpart on
+                <code>{{ _smm.wrong_account | alias }}</code>; this row landed on
+                <code>{{ _smm.right_account | alias }}</code> with a matching date and amount.
+                Confirm to rewrite the synthetic leg to <code>{{ _smm.right_account | alias }}</code>
+                and absorb this row into the existing transaction.
+              </div>
+              <div class="rsg-synth-banner-actions">
+                <form method="post"
+                      action="/review/staged/{{ item.staged_id }}/promote-synthetic"
+                      hx-post="/review/staged/{{ item.staged_id }}/promote-synthetic"
+                      hx-target="#staged-list"
+                      hx-swap="outerHTML"
+                      style="display:inline">
+                  <input type="hidden" name="next_path" value="/review">
+                  <button type="submit" class="btn btn--primary btn--sm">
+                    Yes, rewrite to <code>{{ _smm.right_account | alias }}</code>
+                  </button>
+                </form>
+                <form method="post"
+                      action="/review/staged/{{ item.staged_id }}/clear-synthetic-marker"
+                      hx-post="/review/staged/{{ item.staged_id }}/clear-synthetic-marker"
+                      hx-target="#staged-list"
+                      hx-swap="outerHTML"
+                      style="display:inline">
+                  <input type="hidden" name="next_path" value="/review">
+                  <button type="submit" class="btn btn--ghost btn--sm">
+                    No, classify normally
+                  </button>
+                </form>
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% endif %}
+</section>
+{% endfor %}
+</div>{# /.rsg-groups #}
+
+{# ─── Paginator ───────────────────────────────────────────────── #}
+{% if total_pages > 1 %}
+<nav class="rsg-pager" aria-label="Pagination">
+  {% if page > 1 %}
+  <a class="rsg-pager-btn"
+     href="/review{{ _qs({'page': page - 1}) }}"
+     hx-get="/review{{ _qs({'page': page - 1}) }}"
+     hx-target="#staged-list" hx-swap="outerHTML" hx-push-url="true">
+    {{ icon.arrowleft(size=12) }} Prev
+  </a>
+  {% else %}
+  <span class="rsg-pager-btn is-disabled" aria-disabled="true">{{ icon.arrowleft(size=12) }} Prev</span>
+  {% endif %}
+
+  <span class="rsg-pager-stat">
+    Page <strong>{{ page }}</strong> of <strong>{{ total_pages }}</strong>
+    <span class="rsg-pager-stat-sep">·</span>
+    {{ groups_per_page }} groups / page
+  </span>
+
+  {% if page < total_pages %}
+  <a class="rsg-pager-btn"
+     href="/review{{ _qs({'page': page + 1}) }}"
+     hx-get="/review{{ _qs({'page': page + 1}) }}"
+     hx-target="#staged-list" hx-swap="outerHTML" hx-push-url="true">
+    Next {{ icon.arrowright(size=12) }}
+  </a>
+  {% else %}
+  <span class="rsg-pager-btn is-disabled" aria-disabled="true">Next {{ icon.arrowright(size=12) }}</span>
+  {% endif %}
+</nav>
+{% endif %}
+
+{% endif %}
+
+</div>{# /#staged-list — HTMX swap target #}

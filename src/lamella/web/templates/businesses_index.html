@@ -1,0 +1,63 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}{{ page_title or 'Businesses' }} — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}{{ page_title or 'Businesses' }}{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title=(page_title or 'Businesses'),
+     subtitle=(page_subtitle or 'Each card is an entity in your ledger — pick one for transactions, accounts, loans, vehicles, and properties in one place. Entities with the most uncategorized activity float to the top.'),
+     kicker='Records'
+) %}
+  {{ B.btn(new_label or '+ New business', href=(new_url or '/entities/new'), variant='primary') }}
+  {{ B.btn('Manage entities', href='/entities', icon=icon.settings()) }}
+{% endcall %}
+
+{% if cards %}
+<div class="record-grid">
+  {% for c in cards %}
+  <a class="record-card" href="{{ card_prefix or '/businesses' }}/{{ c.slug }}">
+    <div class="record-card-head">
+      <span class="record-card-title">{{ c.display_name }}</span>
+      {% if c.tax_schedule %}{{ D.badge('Schedule ' + c.tax_schedule, tone='accent') }}{% endif %}
+    </div>
+    <div class="record-card-meta">
+      {% if c.entity_type %}{{ c.entity_type | humanize }}{% endif %}
+    </div>
+    <div class="record-card-stats">
+      {% if c.fixme_count %}<span style="color:var(--warn)">⚠ {{ c.fixme_count }} uncategorized</span>{% endif %}
+      {% if c.recent_tx_count %}<span>{{ c.recent_tx_count }} txns · 90d</span>{% endif %}
+      {% if c.loan_count %}<span>{{ c.loan_count }} loan{{ '' if c.loan_count == 1 else 's' }}</span>{% endif %}
+      {% if c.vehicle_count %}<span>{{ c.vehicle_count }} vehicle{{ '' if c.vehicle_count == 1 else 's' }}</span>{% endif %}
+      {% if c.property_count %}<span>{{ c.property_count }} propert{{ 'y' if c.property_count == 1 else 'ies' }}</span>{% endif %}
+    </div>
+    <div class="record-card-foot">
+      <span><span class="label">Net (1mo)</span><span class="num">{{ c.net_1mo | money }}</span></span>
+      <span><span class="label">Cash</span><span class="num">{{ c.cash | money }}</span></span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+{{ F.empty_state(
+    'No ' + (empty_label or 'entities') + ' yet.',
+    'Add an entity in Settings',
+    '/settings/entities',
+    icon=icon.briefcase(28)
+) }}
+{% endif %}
+{% endblock %}

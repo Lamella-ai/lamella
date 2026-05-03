@@ -1,0 +1,133 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Backfill {{ loan.display_name or loan.slug }} — Loan{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Backfill payments{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Backfill historical payments',
+     subtitle=loan.display_name or loan.slug,
+     kicker='Settings · Loans'
+) %}
+  {{ B.btn('Back to loan detail', href='/settings/loans/' ~ loan.slug, variant='ghost') }}
+{% endcall %}
+
+{% call L.section(title='Paste CSV', subtitle='Each row = one payment. The server derives principal/interest/escrow from the amortization schedule for that payment date and verifies the row’s total matches the model within $0.02.') %}
+
+{% call L.form_split() %}
+
+{% call L.form_col() %}
+<form method="post" action="/settings/loans/{{ loan.slug }}/backfill/preview"
+      class="form-split-form--paired">
+
+  {% call C.card(title='CSV') %}
+  <p style="margin:0 0 1rem">
+    <a href="/settings/loans/{{ loan.slug }}/backfill/sample.csv">Download sample CSV</a> — pre-filled for this loan.
+  </p>
+  <div class="form-grid" style="max-width:none">
+    <div class="field">
+      <label class="field-label">Paste rows</label>
+      <textarea class="field-textarea" name="csv_text" rows="14" required style="font-family:var(--font-mono); font-size:0.88rem"
+                placeholder="date,amount,offset_account,narration&#10;2023-01-01,3500.00,Assets:Personal:Checking:1234,January payment">{{ csv_text or "" }}</textarea>
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Format</h3>
+    <p>One row per payment. Required columns: <code>date</code>, <code>amount</code>. Optional: <code>offset_account</code>, <code>narration</code>.</p>
+    <p><strong>Date</strong> must align with a scheduled payment date the model knows about — the server uses it to look up the amortization split for that month (principal / interest / escrow).</p>
+    <p><strong>Amount</strong> must match the modeled total within $0.02. Larger drift means the row is rejected — usually the result of a partial payment, an extra principal contribution, or a servicer fee that needs special handling.</p>
+    <h3>Offset account</h3>
+    <p>The asset account the payment was drawn from. Per-row override beats the fallback you’ll set on the next step.</p>
+  </div>
+  {% endcall %}
+
+  <div class="form-actions" style="margin-top:1.5rem">
+    <span class="spacer"></span>{{ B.btn('Preview splits', type='submit', variant='primary') }}
+  </div>
+</form>
+{% endcall %}
+
+{% call L.help_col() %}{% endcall %}
+
+{% endcall %}
+{% endcall %}
+
+{% if preview_rows is not none %}
+{% call L.section(title='Preview', subtitle='%d valid · %d invalid' % (valid_count, invalid_count)) %}
+
+{% if invalid_count > 0 %}
+{% call F.banner(tone='warn', title='%d row(s) carry errors' % invalid_count) %}
+  Fix them in the CSV and re-preview, or proceed to write only the valid rows.
+{% endcall %}
+{% endif %}
+
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>line</th><th>date</th><th class="num">amount</th><th class="num">n</th>
+      <th class="num">principal</th><th class="num">interest</th><th class="num">escrow</th>
+      <th class="num">tax</th><th class="num">insurance</th><th>offset</th><th>status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in preview_rows %}
+    <tr>
+      <td>{{ r.line_no }}</td>
+      <td>{{ r.txn_date or "" }}</td>
+      <td class="num">{{ r.total_amount or "" }}</td>
+      <td class="num">{{ r.expected_n or "" }}</td>
+      <td class="num">{{ r.principal }}</td>
+      <td class="num">{{ r.interest }}</td>
+      <td class="num">{{ r.escrow }}</td>
+      <td class="num">{{ r.tax }}</td>
+      <td class="num">{{ r.insurance }}</td>
+      <td><code style="font-size:0.82rem">{{ r.offset_account or "" }}</code></td>
+      <td>
+        {% if r.error %}{{ D.badge(r.error, tone='err') }}{% else %}{{ D.badge('ok', tone='ok') }}{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+
+{% if valid_count > 0 %}
+<form method="post"
+      action="/settings/loans/{{ loan.slug }}/backfill/run"
+      hx-post="/settings/loans/{{ loan.slug }}/backfill/run"
+      hx-target="body" hx-swap="beforeend"
+      style="margin-top:1rem">
+  {% call C.card() %}
+  <input type="hidden" name="csv_text" value="{{ csv_text }}" />
+  <div class="form-grid" style="max-width:none">
+    <div class="field">
+      <label class="field-label">Fallback offset account</label>
+      <input class="field-input" type="text" name="offset_account" list="account-options" placeholder="Assets:Personal:Checking:1234" />
+      <p class="subtle" style="margin:6px 0 0">Used for rows without an <code>offset_account</code> column. Leave blank if every row already specifies its own.</p>
+    </div>
+    <div class="form-actions"><span class="spacer"></span>{{ B.btn('Write %d payments to ledger' % valid_count, type='submit', variant='primary') }}</div>
+  </div>
+  {% endcall %}
+</form>
+{% endif %}
+{% endcall %}
+{% endif %}
+{% endblock %}

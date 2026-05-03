@@ -1,0 +1,103 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# ===========================================================
+   Wizard layout — first-run onboarding.
+
+   Standalone document. Deliberately does NOT extend base.html:
+   the main app shell ships globals (job-dock polling, search
+   palette mutation observer, toast region, confirm modal,
+   sidebar, topbar, hotkeys) that have no place during onboarding
+   AND that actively misbehave under the setup gate. In particular
+   base.html's #job-dock polls /jobs/active/dock every 5s — on a
+   fresh-install state the gate redirects that to /setup/wizard,
+   HTMX follows, and the entire wizard HTML gets swapped into
+   #job-dock, which contains another #job-dock, which polls
+   again ... infinite DOM duplication.
+
+   This layout is therefore self-contained: the only JS loaded
+   is the per-step inline behavior (add-row buttons, intent radio
+   transitions). No HTMX, no palette, no global polling.
+
+   Spec: FIRST-RUN.md §"Layout & Visual Requirements".
+
+   Each step fills:
+     {% block step_heading %}     — large welcome heading
+     {% block step_subheading %}  — supportive line under heading
+     {% block step_body %}        — main content (forms, cards, etc.)
+     {% block step_actions %}     — primary/secondary buttons row
+   =========================================================== #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{% block title %}Set up — Lamella{% endblock %}</title>
+
+  {% include "setup_shared/_theme_init.html" %}
+
+  {# We pull in app.css for the design tokens (colors, spacing, typography
+     custom properties) but explicitly NOT shell.css / mobile.css /
+     components.css — those are the main app's chrome stylesheets. The
+     wizard-specific styles cover everything else. #}
+  <link rel="stylesheet" href="{{ request.url_for('static', path='app.css') }}?v={{ static_version }}" />
+  <link rel="stylesheet" href="{{ request.url_for('static', path='wizard.css') }}?v={{ static_version }}" />
+  <link rel="icon" type="image/svg+xml" href="{{ request.url_for('static', path='img/favicon.svg') }}" />
+  <link rel="apple-touch-icon" href="{{ request.url_for('static', path='img/favicon.svg') }}" />
+</head>
+<body data-layout="wizard">
+
+{# Per-shell vars consumed by the shared header / step-rail / theme-
+   toggle partials. Set once at the top of the layout so partials
+   can read them via Jinja's default-context inheritance. #}
+{% set brand_href = "/setup/wizard" %}
+{% set brand_aria = "Lamella home" %}
+{% set theme_btn_id = "wizThemeBtn" %}
+{% set aria_label = "Setup progress" %}
+
+<div class="wiz">
+  {% include "setup_shared/_brand_header.html" %}
+
+  {# ------- Progress steps — each step is one pill containing
+     the number AND the label, with rails between pills. Matches
+     mockups/base-shell.html setup-mode design. ------- #}
+  {% include "setup_shared/_step_pill_rail.html" %}
+
+  {# ------- Centered content column ------- #}
+  <main class="wiz-main" id="wiz-content">
+    <header class="wiz-header">
+      <h1 class="wiz-h1">{% block step_heading %}{% endblock %}</h1>
+      {% set sub %}{% block step_subheading %}{% endblock %}{% endset %}
+      {% if sub | trim %}<p class="wiz-sub">{{ sub | safe }}</p>{% endif %}
+    </header>
+
+    <div class="wiz-body-content">
+      {% block step_body %}{% endblock %}
+    </div>
+
+    {% set actions %}{% block step_actions %}{% endblock %}{% endset %}
+    {% if actions | trim %}
+    <footer class="wiz-actions">{{ actions | safe }}</footer>
+    {% endif %}
+  </main>
+
+  <footer class="wiz-foot">
+    <span>v{{ app_version }}</span>
+  </footer>
+</div>
+
+{# Modal slot — rendered as a sibling of .wiz, not a descendant.
+   .wiz-main has a slide-in transform animation that creates a
+   containing block for position:fixed children, which would
+   reposition the modal during the animation. Hoisting it here
+   keeps it anchored to the viewport. #}
+{% block modal %}{% endblock %}
+
+{% include "setup_shared/_theme_toggle_script.html" %}
+</body>
+</html>

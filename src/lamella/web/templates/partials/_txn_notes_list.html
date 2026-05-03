@@ -1,0 +1,35 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Notes list for a single transaction — matches the markup used
+   inline in txn_detail.html so an in-place HTMX refresh seamlessly
+   replaces the list without a page reload. Swapped into
+   #txn-notes-list whenever a new note is saved for this txn. #}
+{% if active_notes %}
+  <ul class="note-list">
+    {% for n in active_notes %}
+      <li class="note-row">
+        <div class="small muted">
+          <time>{{ n.captured_at }}</time>
+          {% if n.txn_hash and n.txn_hash == target_hash %}
+            &middot; <span class="badge preferred">memo for this txn</span>
+          {% elif n.txn_hash %}
+            &middot; pinned to <code>{{ n.txn_hash[:12] }}…</code>
+          {% endif %}
+          {% if n.entity_scope %}&middot; entity <code>{{ n.entity_scope }}</code>{% endif %}
+          {% if n.card_scope %}&middot; card <code>{{ n.card_scope }}</code>{% endif %}
+          {% if n.active_from and n.active_to %}&middot; window {{ n.active_from }}..{{ n.active_to }}{% endif %}
+          {% if n.card_override %}&middot; <span class="badge preferred">card-override</span>{% endif %}
+        </div>
+        <div class="note-body">{{ n.body }}</div>
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="muted small">No active notes around {{ date }}.</p>
+{% endif %}

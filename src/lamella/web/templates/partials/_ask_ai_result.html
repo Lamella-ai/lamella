@@ -1,0 +1,381 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Terminal-state HTML rendered inside the job-modal once the
+   /api/txn/{ref}/ask-ai worker finishes. Substituted into
+   `job.result.terminal_html` and unwrapped by _job_progress.html.
+
+   The same partial serves both txn flavors. ``mode`` is the
+   discriminator:
+     * "staged"  — Accept/Manual post to /review/staged/classify
+                   with staged_id; Reject re-opens the staged Ask-AI
+                   modal flow
+     * "ledger"  — Accept/Manual post to /txn/{hash}/apply with
+                   mode=categorize; Reject re-opens the unified
+                   /api/txn/{ref}/ask-ai endpoint with attempt+1
+
+   Inputs:
+     mode         str             — "staged" or "ledger"
+     ref          str             — "staged:<id>" or "ledger:<hash>"
+     staged_id    int | None      — set when mode=staged
+     txn_hash     str | None      — set when mode=ledger
+     proposal     dict | None     — {target, confidence, score, rationale}
+     attempt      int             — 1 on first run, 2/3 after rejections
+     reason       str | None      — last rejection reason (echoed back)
+     blocked      bool            — True after 2 failed attempts
+     return_url   str | None      — where to land the user after Accept/Close
+     source       str | None      — current /review staged source filter
+                                    (legacy — preserved when mode=staged)
+#}
+{%- set _classify_url = '/api/txn/' ~ ref ~ '/classify' -%}
+<div class="ask-ai-result" data-attempt="{{ attempt }}">
+
+  {# ── Proposal panel (success) ── #}
+  {% if proposal and not blocked %}
+  <div class="ask-ai-result__proposal">
+    <div class="ask-ai-result__head">
+      <span class="ask-ai-result__label">Proposed account</span>
+      {% if proposal.confidence %}
+      <span class="ask-ai-result__conf ask-ai-result__conf--{{ proposal.confidence }}">{{ proposal.confidence }} confidence</span>
+      {% endif %}
+      {% if attempt > 1 %}
+      <span class="ask-ai-result__attempt">attempt {{ attempt }}</span>
+      {% endif %}
+    </div>
+    <div class="ask-ai-result__account">
+      <strong>{{ proposal.target }}</strong>
+    </div>
+    {% if proposal.rationale %}
+    <details class="ask-ai-result__why">
+      <summary>why</summary>
+      <p>{{ proposal.rationale }}</p>
+    </details>
+    {% endif %}
+    {% if reason %}
+    <p class="ask-ai-result__last-reason">
+      <strong>Your last rejection:</strong> <em>{{ reason }}</em>
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {# ── No-proposal panel ──
+       Branches on `ai_skip_reason`. When the AI was deliberately
+       skipped (deposits / transfers / refunds — none of which need
+       AI inference per the user directive), show a deposit-specific
+       message that points at the right action surface. Otherwise
+       the generic "AI couldn't decide" copy. #}
+  {% if not proposal and not blocked %}
+    {% if ai_skip_reason == 'deposit' %}
+    <div class="ask-ai-result__noproposal">
+      <h3>Deposit — pick a category yourself</h3>
+      <p>This row is money <em>in</em>. The AI doesn’t classify deposits because the destination is deterministic — pick an <code>Income:{Entity}:*</code> subcategory below, or recognize it as a transfer between your own accounts.{% if not refund_candidates %} If this is a refund, search for the original charge on <a href="/search">/search</a> and route it to the same expense account by hand.{% endif %}</p>
+    </div>
+    {# Refund-of-expense matches: each candidate is a one-click button
+       that classifies this row to the candidate's target_account AND
+       stamps lamella-refund-of pointing at the original's lineage.
+       The bidirectional /txn-page link is rebuilt from that meta. #}
+    {% if refund_candidates %}
+    <div class="ask-ai-result__refunds">
+      <h4>Possible refund of an existing expense</h4>
+      <p class="ask-ai-result__refunds-hint">One click routes this refund to the original expense's category and links the two transactions.</p>
+      <ul class="ask-ai-result__refunds-list">
+        {% for c in refund_candidates %}
+        <li>
+          <form method="post" action="{{ _classify_url }}"
+                hx-post="{{ _classify_url }}"
+                hx-swap="none"
+                hx-on::after-request="if(event.detail.successful){window.__lamellaAfterClassify('{{ ref }}');}">
+            <input type="hidden" name="target_account" value="{{ c.target_account }}">
+            <input type="hidden" name="refund_of_txn_id" value="{{ c.lamella_txn_id }}">
+            {% if return_url %}<input type="hidden" name="return_url" value="{{ return_url }}">{% endif %}
+            {% if mode == 'staged' %}
+              <input type="hidden" name="source" value="{{ source or '' }}">
+            {% endif %}
+            <button type="submit" class="btn btn-primary ask-ai-result__refund-btn"
+                    title="Score: {{ '%.2f' % c.score }} — {{ c.match_reasons | join('; ') }}">
+              <span class="ask-ai-result__refund-icon">↩</span>
+              <span class="ask-ai-result__refund-label">
+                Refund of <strong>{{ c.merchant or 'unknown merchant' }}</strong>
+                · {{ c.date }}
+                · {{ '%.2f' % (-c.amount if c.amount < 0 else c.amount) }}
+                → <code title="{{ c.target_account }}">{{ c.target_account_display or c.target_account }}</code>
+              </span>
+            </button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="ask-ai-result__noproposal">
+      <h3>No confident proposal</h3>
+      <p>The classifier didn’t find a target it could stand behind. Tell it what it’s missing — a category it should know about, an entity binding, or just more context — and it will try once more.</p>
+    </div>
+    {% endif %}
+  {% endif %}
+
+  {# ── Blocked panel (after 2 failed attempts) ── #}
+  {% if blocked %}
+  <div class="ask-ai-result__blocked">
+    <h3>The AI can’t classify this — yet</h3>
+    <p>Two attempts in and it’s not landing on a target. That usually means the categories the classifier sees don’t cover this charge’s shape. Two paths forward:</p>
+    <ul>
+      <li>Add a category that fits — open <a href="/accounts">Accounts</a> and create the path you’d want this charge to land on, then come back and pick it manually below.</li>
+      <li>Classify it manually here and now. The classifier learns from your decision and the next similar row will lean toward it.</li>
+    </ul>
+  </div>
+  {% endif %}
+
+  {# ── Action zone ──
+     Accept and Manual post to the unified /api/txn/{ref}/classify
+     endpoint regardless of mode — the server dispatches by ref. After
+     a successful POST, the partial closes the modal and dispatches a
+     ``lamella:txn-classified`` custom event before falling back to a
+     full-page reload. Pages that want in-place updates (e.g. /review,
+     which knows how to re-render its #staged-list) listen for the
+     event and call event.preventDefault() — the fallback reload is
+     skipped. Pages without a listener still get the safe full reload
+     so behavior is unchanged outside /review. #}
+  <script>
+  (function () {
+    if (window.__lamellaAfterClassify) return;
+    window.__lamellaAfterClassify = function (ref) {
+      var modal = document.getElementById('job-modal-root');
+      if (modal) modal.remove();
+      var ev = new CustomEvent('lamella:txn-classified', {
+        detail: { ref: ref }, cancelable: true, bubbles: true,
+      });
+      var handled = !window.dispatchEvent(ev);
+      if (!handled) window.location.reload();
+    };
+  })();
+  </script>
+  <div class="ask-ai-result__actions">
+    {# Accept is only offered for medium/high-confidence proposals.
+       At low confidence the AI's own rationale typically says
+       "send to review" — don't put a one-click button next to that
+       rationale that writes the proposal anyway. The user can still
+       reach the same target via "Pick the account myself" + the
+       account_picker (the proposal's target is visible above and
+       autocompletes from the datalist). #}
+    {% if proposal and not blocked and proposal.confidence != 'low' %}
+    <form method="post" action="{{ _classify_url }}"
+          class="ask-ai-result__accept-form"
+          hx-post="{{ _classify_url }}"
+          hx-swap="none"
+          hx-on::after-request="if(event.detail.successful){window.__lamellaAfterClassify('{{ ref }}');}">
+      <input type="hidden" name="target_account" value="{{ proposal.target }}">
+      {% if return_url %}<input type="hidden" name="return_url" value="{{ return_url }}">{% endif %}
+      {% if mode == 'staged' %}
+        <input type="hidden" name="source" value="{{ source or '' }}">
+      {% endif %}
+      <button type="submit" class="btn btn-primary ask-ai-result__accept-btn">
+        ✓ Accept — write {{ proposal.target }}
+      </button>
+    </form>
+    {% elif proposal and not blocked and proposal.confidence == 'low' %}
+    <div class="ask-ai-result__low-conf-banner">
+      <strong>Low confidence — the classifier recommends reviewing this manually.</strong>
+      <p>The AI couldn’t find direct evidence for its proposal. Either reject &amp; retry with more context, or pick an account yourself below.</p>
+    </div>
+    {% endif %}
+
+    {# Hide the AI-retry path entirely when the AI was deliberately
+       skipped (deposits) — there's no AI proposal to reject and
+       re-running the AI on a deposit just routes back to the same
+       skip. Manual classify is the only useful action here. #}
+    {% if not blocked and ai_skip_reason != 'deposit' %}
+    {# Reject + reason — re-runs the AI with the rejection in the
+       prompt context. Posts to the unified ask-ai endpoint; server
+       dispatches by ref. #}
+    <details class="ask-ai-result__reject">
+      <summary>{% if proposal %}Reject — try again{% else %}Tell the AI what it’s missing{% endif %}</summary>
+      <form method="post" action="/api/txn/{{ ref }}/ask-ai"
+            hx-post="/api/txn/{{ ref }}/ask-ai"
+            hx-target="#job-modal-root"
+            hx-swap="outerHTML">
+        <input type="hidden" name="attempt" value="{{ attempt + 1 }}">
+        {% if return_url %}<input type="hidden" name="return_url" value="{{ return_url }}">{% endif %}
+        <textarea name="rejection_reason" rows="2" required
+                  placeholder="What’s wrong with that guess? (e.g. ‘that account is for the other entity’, ‘this is a project expense for the kitchen reno’, ‘this should be travel not meals’)"></textarea>
+        <button type="submit" class="btn btn-warn">Try again</button>
+      </form>
+    </details>
+    {% endif %}
+
+    {# Manual — classify directly without going through AI again. #}
+    <details class="ask-ai-result__manual">
+      <summary>Pick the account myself</summary>
+      <form method="post" action="{{ _classify_url }}"
+            hx-post="{{ _classify_url }}"
+            hx-swap="none"
+            hx-on::after-request="if(event.detail.successful){window.__lamellaAfterClassify('{{ ref }}');}">
+        {% if return_url %}<input type="hidden" name="return_url" value="{{ return_url }}">{% endif %}
+        {% if mode == 'staged' %}
+          <input type="hidden" name="source" value="{{ source or '' }}">
+        {% endif %}
+        {%- import "_components/_txn.html" as Txn -%}
+        {{ Txn.account_picker() }}
+        <button type="submit" class="btn btn-primary">Classify</button>
+      </form>
+    </details>
+
+    <button type="button" class="btn btn-ghost ask-ai-result__close"
+            onclick="(function(){var r=document.getElementById('job-modal-root');if(r)r.remove();})();">
+      Close
+    </button>
+  </div>
+</div>
+
+<style>
+  .ask-ai-result {
+    display: flex; flex-direction: column; gap: 0.85rem;
+    padding: 0.5rem 0.2rem;
+  }
+  .ask-ai-result__proposal,
+  .ask-ai-result__noproposal,
+  .ask-ai-result__blocked {
+    padding: 0.85rem 1rem;
+    background: var(--bg-elev);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+  }
+  .ask-ai-result__noproposal { border-left-color: var(--warn); }
+  .ask-ai-result__blocked { border-left-color: var(--err); }
+  .ask-ai-result__noproposal h3,
+  .ask-ai-result__blocked h3 {
+    margin: 0 0 0.35rem; font-size: 1.02rem;
+  }
+  .ask-ai-result__blocked p,
+  .ask-ai-result__blocked ul,
+  .ask-ai-result__noproposal p {
+    margin: 0.35rem 0;
+    font-size: 0.88rem; line-height: 1.5; color: var(--muted);
+  }
+  .ask-ai-result__blocked ul { padding-left: 1.2rem; }
+  .ask-ai-result__blocked li { margin-bottom: 0.35rem; }
+  .ask-ai-result__head {
+    display: flex; align-items: center; gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .ask-ai-result__label {
+    font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--muted); font-weight: 600;
+  }
+  .ask-ai-result__conf {
+    font-size: 0.72rem; padding: 0.05rem 0.45rem;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 999px; text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .ask-ai-result__conf--high   { color: var(--ok);   border-color: var(--ok); }
+  .ask-ai-result__conf--medium { color: var(--warn); border-color: var(--warn); }
+  .ask-ai-result__conf--low    { color: var(--muted); }
+  .ask-ai-result__attempt {
+    font-size: 0.72rem; color: var(--muted);
+    margin-left: auto;
+  }
+  .ask-ai-result__account {
+    margin-top: 0.35rem; font-size: 1.05rem;
+    word-break: break-all;
+  }
+  .ask-ai-result__why { margin-top: 0.4rem; }
+  .ask-ai-result__why summary {
+    cursor: pointer; font-size: 0.82rem; color: var(--muted);
+  }
+  .ask-ai-result__why p {
+    font-size: 0.85rem; color: var(--muted);
+    margin: 0.3rem 0 0; line-height: 1.5;
+  }
+  .ask-ai-result__last-reason {
+    margin: 0.5rem 0 0; padding: 0.4rem 0.55rem;
+    background: rgba(180,83,9,0.07);
+    border-left: 2px solid var(--warn);
+    border-radius: 3px;
+    font-size: 0.82rem; color: var(--muted);
+  }
+  .ask-ai-result__last-reason strong { color: var(--warn); }
+
+  .ask-ai-result__actions {
+    display: flex; flex-direction: column; gap: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px dashed var(--border);
+  }
+  .ask-ai-result__accept-btn { width: 100%; justify-content: flex-start; }
+  .ask-ai-result__reject summary,
+  .ask-ai-result__manual summary {
+    cursor: pointer; font-size: 0.85rem;
+    padding: 0.45rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--fg);
+    list-style: none;
+  }
+  .ask-ai-result__reject summary::-webkit-details-marker,
+  .ask-ai-result__manual summary::-webkit-details-marker { display: none; }
+  .ask-ai-result__reject summary:hover,
+  .ask-ai-result__manual summary:hover { background: var(--bg-elev); }
+  .ask-ai-result__reject[open] summary,
+  .ask-ai-result__manual[open] summary {
+    background: var(--bg-elev); border-color: var(--accent);
+  }
+  .ask-ai-result__reject form,
+  .ask-ai-result__manual form {
+    margin: 0.5rem 0 0;
+    display: flex; flex-direction: column; gap: 0.4rem;
+  }
+  .ask-ai-result__reject textarea,
+  .ask-ai-result__manual input[type="text"] {
+    width: 100%; padding: 0.5rem 0.6rem;
+    border: 1px solid var(--border); border-radius: 4px;
+    font-family: inherit; font-size: 0.88rem;
+    background: var(--panel); color: var(--fg);
+  }
+  .ask-ai-result__close {
+    align-self: flex-end;
+    margin-top: 0.4rem;
+  }
+  .ask-ai-result__refunds {
+    padding: 0.85rem 1rem;
+    background: var(--bg-elev);
+    border-left: 3px solid var(--ok);
+    border-radius: 4px;
+  }
+  .ask-ai-result__refunds h4 {
+    margin: 0 0 0.35rem; font-size: 0.95rem;
+  }
+  .ask-ai-result__refunds-hint {
+    margin: 0 0 0.65rem; font-size: 0.82rem; color: var(--muted);
+    line-height: 1.45;
+  }
+  .ask-ai-result__refunds-list {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-direction: column; gap: 0.4rem;
+  }
+  .ask-ai-result__refunds-list form { margin: 0; }
+  .ask-ai-result__refund-btn {
+    width: 100%;
+    text-align: left;
+    display: flex; align-items: center; gap: 0.55rem;
+    padding: 0.5rem 0.7rem;
+    line-height: 1.4;
+  }
+  .ask-ai-result__refund-icon {
+    font-size: 1.1rem; flex: 0 0 auto;
+  }
+  .ask-ai-result__refund-label {
+    flex: 1 1 auto;
+    font-size: 0.86rem;
+    word-break: break-word;
+  }
+  .ask-ai-result__refund-label code {
+    font-size: 0.78rem; padding: 0 0.25rem;
+  }
+</style>

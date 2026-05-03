@@ -1,0 +1,19 @@
+{
+  "id": "gen-test-classify-conf",
+  "model": "anthropic/claude-haiku-4.5",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"target_account\": \"Expenses:Acme:Supplies\", \"confidence\": 0.97, \"reasoning\": \"Hardware Store purchase for workshop supplies matches prior decisions.\"}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 420,
+    "completion_tokens": 48,
+    "total_tokens": 468
+  }
+}

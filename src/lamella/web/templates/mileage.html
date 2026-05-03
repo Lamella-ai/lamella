@@ -1,0 +1,301 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Log a trip — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Log a trip{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Log a trip',
+     subtitle='Enter the current odometer reading when you park. Auto-fills the start from your last recorded trip — so the log stays continuous. Backdate via the date field if you are filling in a gap.',
+     kicker='Daily'
+) %}
+  {{ B.btn('Quick log', href='/mileage/quick', icon=icon.car()) }}
+  {{ B.btn('All trips', href='/mileage/all') }}
+  {{ B.btn('Import', href='/mileage/import', icon=icon.upload()) }}
+{% endcall %}
+
+{% if error %}
+{% call F.banner(tone='err', title='Error') %}{{ error }}{% endcall %}
+{% endif %}
+
+{% call C.card(title='New trip') %}
+<form method="post" action="/mileage"
+      hx-post="/mileage" hx-target="#toast-area" hx-swap="innerHTML"
+      class="form-grid" style="max-width:none">
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Date</label>
+      <input class="field-input" type="date" name="entry_date" value="{{ today }}" required />
+    </div>
+    <div class="field">
+      <label class="field-label">Vehicle</label>
+      {# Replace native <select> with autocomplete <input list>; HTMX still
+         fires on change to fetch the vehicle's last odometer. The data-entity-map
+         is consumed by the script below to auto-select the owning entity. #}
+      <input class="field-input" id="trip-vehicle" type="text" name="vehicle"
+             list="trip-vehicle-datalist" required
+             placeholder="{% if not vehicles %}(add a vehicle in Vehicles → New){% else %}select a vehicle{% endif %}"
+             data-entity-map='{% for v in vehicles %}{% if v.entity_slug %}"{{ v.name }}":"{{ v.entity_slug }}"{% if not loop.last %},{% endif %}{% endif %}{% endfor %}' />
+      <datalist id="trip-vehicle-datalist">
+        {% for v in vehicles %}
+        <option value="{{ v.name }}" label="{{ v.name }}{% if v.entity_slug %} · {{ v.entity_display_name or v.entity_slug }}{% endif %}">
+        {% endfor %}
+      </datalist>
+    </div>
+  </div>
+
+  <div id="odometer-last-slot" class="subtle" style="margin-top:-8px">
+    <span>Pick a vehicle to see its last recorded odometer.</span>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Start odometer</label>
+      <input class="field-input" id="trip-odometer-start" type="number" name="odometer_start"
+             min="0" step="1" inputmode="numeric"
+             placeholder="your odometer when you got in"
+             title="Pre-fills from your last trip's end odometer. Override if there's been a gap." />
+    </div>
+    <div class="field">
+      <label class="field-label">End odometer (when you parked)</label>
+      <input class="field-input" id="trip-odometer-end" type="number" name="odometer_end"
+             min="0" step="1" inputmode="numeric" required placeholder="e.g. 84320" />
+    </div>
+  </div>
+  <div class="subtle" id="computed-miles-hint" style="margin-top:-8px"></div>
+
+  <div class="field">
+    <label class="field-label">Where / what did you do?</label>
+    <textarea class="field-textarea" name="purpose" rows="2"
+              autocapitalize="sentences"
+              placeholder="e.g. Home → client site → back home. Dropped off samples."
+              required></textarea>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">From <span class="subtle">(optional — IRS substantiation)</span></label>
+      <input class="field-input" type="text" name="from_loc" placeholder="from" autocapitalize="words" />
+    </div>
+    <div class="field">
+      <label class="field-label">To <span class="subtle">(optional)</span></label>
+      <input class="field-input" type="text" name="to_loc" placeholder="to" autocapitalize="words" />
+    </div>
+  </div>
+
+  <fieldset class="field" id="trip-category-fieldset" style="border:0; padding:0; margin:0">
+    <legend class="field-label">Purpose</legend>
+    <div style="display:flex; gap:14px; flex-wrap:wrap; padding-top:4px">
+      <label style="display:inline-flex; gap:6px; align-items:center"><input type="radio" name="category" value="business" /> Business</label>
+      <label style="display:inline-flex; gap:6px; align-items:center"><input type="radio" name="category" value="commuting" /> Commuting</label>
+      <label style="display:inline-flex; gap:6px; align-items:center"><input type="radio" name="category" value="personal" /> Personal</label>
+      <label style="display:inline-flex; gap:6px; align-items:center"><input type="radio" name="category" value="mixed" id="trip-cat-mixed" /> Mixed</label>
+    </div>
+    <span class="field-hint">
+      Commuting miles aren't deductible — Schedule C Part IV line 44b still
+      wants the total. Pick <em>Mixed</em> if this trip splits across categories.
+    </span>
+  </fieldset>
+
+  <div id="mixed-split" hidden>
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label">Business mi</label>
+        <input class="field-input" type="number" name="business_miles" min="0" step="0.1" inputmode="decimal" />
+      </div>
+      <div class="field">
+        <label class="field-label">Commuting mi</label>
+        <input class="field-input" type="number" name="commuting_miles" min="0" step="0.1" inputmode="decimal" />
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">Personal mi</label>
+      <input class="field-input" type="number" name="personal_miles" min="0" step="0.1" inputmode="decimal" />
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="field-label">Entity</label>
+    <input class="field-input" id="trip-entity" type="text" name="entity"
+           list="trip-entity-datalist" value="Personal" required />
+    <datalist id="trip-entity-datalist">
+      <option value="Personal" label="Personal (non-business)">
+      {% for e in entities %}<option value="{{ e }}">{% endfor %}
+    </datalist>
+  </div>
+
+  <div class="form-actions">
+    <span class="spacer"></span>
+    {{ B.btn('Save trip', type='submit', variant='primary', icon=icon.car()) }}
+  </div>
+</form>
+{% endcall %}
+
+<p class="subtle" style="margin-top:1rem">
+  Reimbursement rate: <strong>${{ "%.3f"|format(mileage_rate) }}/mi</strong> (fallback).
+  <a href="/settings/mileage-rates">Manage IRS rates →</a>
+  · <a href="/vehicle-templates">Trip templates →</a>
+</p>
+
+{# ─── Recent trips ─── #}
+<div style="margin-top:2rem">
+{% call L.section(title='Recent trips') %}
+  {% if recent %}
+  {% call C.card(flush=true) %}
+    <ul class="phone-list" style="margin:0; padding:0">
+      {% for r in recent %}
+        {% include "partials/mileage_entry.html" %}
+      {% endfor %}
+    </ul>
+  {% endcall %}
+  {% else %}
+    {{ F.empty_state('No trips logged yet.') }}
+  {% endif %}
+{% endcall %}
+</div>
+
+{# ─── Yearly summary ─── #}
+{% if summary_year or summary_rows %}
+<div style="margin-top:2rem">
+{% call L.section(title='Yearly summary' + (' — ' + summary_year|string if summary_year else '')) %}
+  {% if summary_error %}
+  {% call F.banner(tone='err', title='Error') %}{{ summary_error }}{% endcall %}
+  {% endif %}
+
+  {% if summary_result %}
+  {% call F.banner(tone='ok', title='Wrote ' + summary_result.rows_written|string + ' entries') %}
+    {{ '$%.2f'|format(summary_result.deduction_total_usd) }}
+    to <code>{{ summary_result.path }}</code>
+    {% if summary_result.replaced %}(replaced existing block){% endif %}.
+  {% endcall %}
+  {% endif %}
+
+  {% if summary_rows %}
+  {% call C.card(flush=true) %}
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Vehicle</th>
+          <th>Entity</th>
+          <th class="num">Miles</th>
+          <th class="num">Deduction</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in summary_rows %}
+        <tr>
+          <td>{{ s.vehicle }}</td>
+          <td>{{ s.entity | entity }}</td>
+          <td class="num">{{ "%.1f"|format(s.miles) }}</td>
+          <td class="num">${{ "%.2f"|format(s.deduction_usd) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endcall %}
+  <form method="post" action="/mileage/summary/generate?year={{ summary_year }}"
+        hx-post="/mileage/summary/generate?year={{ summary_year }}"
+        hx-target="body" hx-swap="beforeend"
+        style="margin-top:0.75rem">
+    {{ B.btn('Generate Beancount summary for ' + summary_year|string, type='submit', variant='primary') }}
+  </form>
+  {% else %}
+  <p class="subtle">Pick a year via <code>?year=YYYY</code>.</p>
+  {% endif %}
+{% endcall %}
+</div>
+{% endif %}
+
+<script>
+  /* Live computed-miles hint as the user types start/end odometer. */
+  (function() {
+    var s = document.getElementById("trip-odometer-start");
+    var e = document.getElementById("trip-odometer-end");
+    var h = document.getElementById("computed-miles-hint");
+    if (!s || !e || !h) return;
+    function update() {
+      var sv = parseFloat(s.value);
+      var ev = parseFloat(e.value);
+      if (!isFinite(sv) || !isFinite(ev)) { h.textContent = ""; h.style.color = ""; return; }
+      var d = ev - sv;
+      if (d > 0) {
+        h.textContent = "→ this trip: " + d.toLocaleString() + " mi";
+        h.style.color = "";
+      } else if (d === 0) {
+        h.textContent = "→ 0 mi (same reading — non-driving activity)";
+        h.style.color = "";
+      } else {
+        h.textContent = "⚠ end odometer is less than start — check values";
+        h.style.color = "var(--err)";
+      }
+    }
+    s.addEventListener("input", update);
+    e.addEventListener("input", update);
+    window.addEventListener("trip-odometer-changed", update);
+  })();
+
+  /* Reveal the Mixed split inputs only when Mixed is selected. */
+  (function() {
+    var mixed = document.getElementById('trip-cat-mixed');
+    var box = document.getElementById('mixed-split');
+    if (!mixed || !box) return;
+    var radios = document.querySelectorAll('input[name="category"]');
+    for (var i = 0; i < radios.length; i++) {
+      radios[i].addEventListener('change', function() {
+        box.hidden = !mixed.checked;
+      });
+    }
+  })();
+
+  /* When the user picks a vehicle, fetch its last odometer via HTMX
+     and auto-select the owning entity. The vehicle field is now an
+     <input list> rather than a <select>, so we hand-wire the events. */
+  (function() {
+    var vinput = document.getElementById('trip-vehicle');
+    var einput = document.getElementById('trip-entity');
+    var slot = document.getElementById('odometer-last-slot');
+    if (!vinput || !slot) return;
+
+    var entityMap = {};
+    try {
+      var raw = vinput.getAttribute('data-entity-map') || '';
+      if (raw) entityMap = JSON.parse('{' + raw + '}');
+    } catch (e) { /* malformed map → no auto-entity-select */ }
+
+    function onVehicleChange() {
+      var v = (vinput.value || '').trim();
+      if (!v) return;
+      // Sync entity if we know who owns this vehicle.
+      if (einput && entityMap[v]) {
+        einput.value = entityMap[v];
+      }
+      // Fetch last-odometer hint.
+      if (window.htmx) {
+        var url = '/mileage/last-odometer/' + encodeURIComponent(v);
+        fetch(url, { credentials: 'same-origin' })
+          .then(function (r) { return r.ok ? r.text() : ''; })
+          .then(function (html) { slot.innerHTML = html; window.dispatchEvent(new Event('trip-odometer-changed')); })
+          .catch(function () { /* ignore */ });
+      }
+    }
+    vinput.addEventListener('change', onVehicleChange);
+    vinput.addEventListener('blur', onVehicleChange);
+  })();
+</script>
+{% endblock %}

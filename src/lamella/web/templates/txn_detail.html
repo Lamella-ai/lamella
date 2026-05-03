@@ -1,0 +1,624 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+{% import "_components/_txn.html" as Txn %}
+{% import "_components/_txn_actions.html" as T %}
+
+{% block title %}Transaction {{ target_hash[:8] }} — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Transaction{% endblock %}
+
+{% block content %}
+{% set _subtitle_bits = [] %}
+{% if payee %}{% set _ = _subtitle_bits.append(payee) %}{% endif %}
+{% if narration and narration != payee %}{% set _ = _subtitle_bits.append(narration) %}{% endif %}
+
+{% call L.page_head(
+     title=date|string,
+     subtitle=' · '.join(_subtitle_bits) if _subtitle_bits else '',
+     kicker='Transaction'
+) %}
+{% endcall %}
+
+<p class="subtle" style="margin:-8px 0 1rem; font-size:0.85rem">
+  <code title="full hash">hash {{ target_hash[:16] }}…</code>
+  {% if filename %} · <code>{{ filename }}{% if lineno %}:{{ lineno }}{% endif %}</code>{% endif %}
+</p>
+
+{% if request.query_params.get('ask_ai_proposed') %}
+{% call F.banner(tone='ok', title='AI proposed') %}
+  <code>{{ request.query_params.get('ask_ai_proposed') }}</code>
+  {% if request.query_params.get('conf') %}(confidence {{ request.query_params.get('conf') }}){% endif %}
+  — see the new row in the AI history table below for the full prompt + reasoning.
+{% endcall %}
+{% elif request.query_params.get('ask_ai_error') %}
+{% call F.banner(tone='err', title='Ask AI failed') %}{{ request.query_params.get('ask_ai_error') }}{% endcall %}
+{% endif %}
+
+{% call C.kpi_grid() %}
+  {% if from_amount is not none %}
+    {{ C.kpi_tile(label='Amount', value=D.money(from_amount, currency=currency, signed=true)) }}
+  {% endif %}
+  {% if overrides %}
+    {{ C.kpi_tile(label='Status', value='Categorized', meta=('1 leg' if overrides|length == 1 else (overrides|length|string ~ ' splits')), tone='ok') }}
+  {% else %}
+    {% set _has_fixme = postings | selectattr('is_fixme') | list %}
+    {{ C.kpi_tile(label='Status', value=('Uncategorized' if _has_fixme else 'Posted'), tone=('warn' if _has_fixme else '')) }}
+  {% endif %}
+  {{ C.kpi_tile(label='Receipts', value=(receipts|length if receipts else 0)) }}
+  {{ C.kpi_tile(label='AI runs', value=(ai_history|length if ai_history else 0)) }}
+{% endcall %}
+
+{% call L.detail_split() %}
+{% call L.main_col() %}
+
+{% call C.card(title='Actions') %}
+<div hx-get="/txn/{{ target_hash }}/panel" hx-trigger="load" hx-swap="innerHTML">
+  <p class="subtle" style="margin:0">Loading action panel…</p>
+</div>
+{% endcall %}
+
+{% if overrides %}
+{% call C.card(title='Categorized', subtitle=('Effective category' if overrides|length == 1 else 'Effective category split across ' ~ overrides|length ~ ' postings'), tone='ok') %}
+{% for ov in overrides %}
+<table class="tbl" style="margin-top:{% if loop.first %}0{% else %}0.75rem{% endif %}">
+  <tbody>
+    {% for leg in ov.legs %}
+    <tr>
+      <td title="{{ leg.account }}"><strong>→ {{ leg.account | alias }}</strong></td>
+      <td class="num">{{ D.money(leg.amount, currency=leg.currency, signed=true) }}</td>
+      <td class="subtle" style="font-size:0.82rem">written {{ ov.modified_at or ov.date }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endfor %}
+<form method="post" action="/txn/{{ target_hash }}/revert-override"
+      hx-post="/txn/{{ target_hash }}/revert-override"
+      hx-swap="none"
+      hx-on::after-request="if(event.detail.successful){window.__lamellaAfterClassify('ledger:{{ target_hash }}');}"
+      style="margin-top:0.75rem; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+  {{ B.btn('Undo categorization', type='submit', variant='ghost', size='sm') }}
+  <span class="subtle" style="font-size:0.82rem">Reverts to uncategorized so you can pick a different target.</span>
+</form>
+{% endcall %}
+{% endif %}
+
+{% call C.card(title='Postings', subtitle=('raw — see override above for effective state' if overrides else None), flush=true) %}
+<table class="tbl">
+  <thead><tr><th>Account</th><th class="num">Amount</th><th>Metadata</th></tr></thead>
+  <tbody>
+    {% for p in postings %}
+    <tr>
+      <td title="{{ p.account }}">
+        {{ p.account | alias }}
+        {% if p.is_fixme %} {{ D.badge('Uncategorized', tone='warn') }}{% endif %}
+      </td>
+      <td class="num">
+        {% if p.amount is not none %}{{ D.money(p.amount, currency=p.currency, signed=true) }}
+        {% else %}<span class="subtle">—</span>{% endif %}
+      </td>
+      <td>
+        {% if p.meta %}
+          {% for k, v in p.meta.items() %}<div style="font-size:0.82rem"><code class="subtle">{{ k }}</code>: {{ v }}</div>{% endfor %}
+        {% else %}<span class="subtle">—</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+
+{% if pair %}
+{% call C.card(title='Transfer pair', tone='info') %}
+<p style="margin:0">
+  This transaction looks like one side of a transfer
+  {% if pair.ref %}(matched on REF <code>{{ pair.ref }}</code>){% else %}(matched on amount + date){% endif %}.
+  Partner:
+  <a href="/txn/{{ partner_token or pair.partner_hash }}">
+    {% if partner_txn %}{{ partner_txn.date }} · {{ partner_txn.payee or partner_txn.narration[:40] }}
+    {% else %}{{ pair.partner_hash[:8] }}…{% endif %}
+  </a>
+  → <code title="{{ pair.partner_account }}">{{ pair.partner_account | alias }}</code>
+</p>
+{% endcall %}
+{% endif %}
+
+{# ── Refund-of-expense bidirectional link ──
+   The link is metadata-only: the refund txn carries
+   ``lamella-refund-of: "<original-lamella-txn-id>"`` at the txn-meta
+   level. Both directions are resolved by walking the in-memory
+   entries; SQLite plays no role. #}
+{% if refund_of %}
+{% call C.card(title='Refund of', tone='info') %}
+<p style="margin:0">
+  This transaction is the refund of an earlier expense:
+  <a href="/txn/{{ refund_of.token }}">
+    {{ refund_of.date }} · {{ refund_of.merchant or '(unknown merchant)' }}
+  </a>.
+</p>
+{% endcall %}
+{% endif %}
+
+{% if refunded_by %}
+{% call C.card(title=('Refunded by' ~ ('' if refunded_by|length == 1 else (' (' ~ (refunded_by|length|string) ~ ')'))), tone='ok') %}
+{% for r in refunded_by %}
+<p style="margin:{% if loop.first %}0{% else %}0.35rem 0 0{% endif %}">
+  <a href="/txn/{{ r.token }}">
+    {{ r.date }} · {{ r.merchant or '(unknown merchant)' }}
+  </a>
+</p>
+{% endfor %}
+{% endcall %}
+{% endif %}
+
+{% call C.card(title='Mark as transfer pair (different dates)') %}
+<details>
+  <summary class="subtle" style="cursor:pointer; font-size:0.85rem">
+    Not seeing a partner above? The same transfer sometimes hits the two accounts on different statement dates (ACH float, wire lag).
+  </summary>
+  <p class="subtle" style="margin:0.5rem 0; font-size:0.85rem">
+    Searches every ledger txn within ±14 days for an opposite-sign uncategorized leg with matching amount.
+    Both sides get routed through the entity-scoped <code>Assets:{entity}:Transfers:InFlight</code> clearing account.
+  </p>
+  <button type="button" id="load-pair-candidates" onclick="loadPairCandidates()" class="btn btn-ghost btn-sm">
+    <span>Find pair candidates</span>
+  </button>
+  <div id="pair-candidates-list" style="margin-top:0.75rem"></div>
+</details>
+{% endcall %}
+
+{% endcall %}
+
+{% call L.aside_col() %}
+
+{% call C.card(title='Receipts', subtitle=((receipts|length|string) if receipts else None)) %}
+{% if receipts %}
+  {% for r in receipts %}
+  <article id="receipt-{{ r.paperless_id }}" style="display:flex; gap:14px; padding:0.75rem 0; border-top:{% if not loop.first %}1px solid var(--border){% else %}0{% endif %}">
+    <a href="/paperless/preview/{{ r.paperless_id }}" target="_blank" rel="noopener" style="flex:0 0 96px">
+      <img src="/paperless/thumb/{{ r.paperless_id }}" loading="lazy"
+           alt="Paperless #{{ r.paperless_id }}"
+           style="width:96px; height:auto; border:1px solid var(--border); border-radius:4px; display:block" />
+    </a>
+    <div style="flex:1 1 auto; min-width:0">
+      <div style="font-weight:600">
+        {{ r.title or "(untitled)" }}
+        {% if r.document_type_name %}<span class="subtle" style="font-size:0.82rem">· {{ r.document_type_name }}</span>{% endif %}
+      </div>
+      <div style="font-size:0.82rem; margin:4px 0">
+        <a href="/paperless/preview/{{ r.paperless_id }}" target="_blank" rel="noopener">File preview</a>
+        {% if r.paperless_deep_link %}· <a href="{{ r.paperless_deep_link }}" target="_blank" rel="noopener">Open in Paperless ↗</a>{% endif %}
+      </div>
+      <dl style="display:grid; grid-template-columns:auto 1fr; gap:4px 10px; margin:0.5rem 0; font-size:0.85rem">
+        <dt class="subtle">Vendor</dt><dd>{{ r.vendor or r.correspondent_name or "(not set)" }}</dd>
+        {% if r.correspondent_name and r.correspondent_name != r.vendor %}
+          <dt class="subtle">Correspondent</dt><dd>{{ r.correspondent_name }}</dd>
+        {% endif %}
+        <dt class="subtle">Document date</dt><dd>{{ r.document_date or r.created_date or "(not set)" }}</dd>
+        <dt class="subtle">Total</dt><dd>{{ r.total_amount or "(not set)" }}</dd>
+        {% if r.subtotal_amount %}<dt class="subtle">Subtotal</dt><dd>{{ r.subtotal_amount }}</dd>{% endif %}
+        {% if r.tax_amount %}<dt class="subtle">Tax</dt><dd>{{ r.tax_amount }}</dd>{% endif %}
+        {# payment_last_four intentionally not rendered: the txn this
+           receipt is linked to already knows which card was used,
+           so re-displaying the receipt-side mask adds no info.
+           Per ADR-0044 / ADR-0064 the field is also superseded by Lamella:Account. #}
+        {% if r.tags %}
+          <dt class="subtle">Tags</dt>
+          <dd>{% for t in r.tags %}{{ D.badge(t, tone='muted') }} {% endfor %}</dd>
+        {% endif %}
+        <dt class="subtle">Link</dt>
+        <dd class="subtle">
+          via <code>{{ r.match_method or "manual" }}</code>
+          {% if r.match_confidence is not none %}· conf {{ "%.2f"|format(r.match_confidence) }}{% endif %}
+          · {{ r.linked_at }}
+        </dd>
+      </dl>
+
+      {# Wrong receipt? Unlink it. Removes the connector_links.bean
+         block + DB row, and best-effort clears the auto-stamped
+         Lamella:* custom fields on the Paperless side. The Paperless
+         document itself is not touched. #}
+      <form method="post"
+            action="/api/paperless/{{ r.paperless_id }}/unlink-mismatched"
+            hx-post="/api/paperless/{{ r.paperless_id }}/unlink-mismatched"
+            hx-confirm="Unlink Paperless #{{ r.paperless_id }} from this transaction? Removes the link + clears the auto-stamped Lamella:* custom fields. The Paperless document itself is not touched."
+            hx-swap="none"
+            style="margin-top:0.5rem">
+        <button type="submit" class="btn btn--sm" style="background:var(--err); color:#fff; border-color:var(--err);">
+          Unlink — wrong receipt
+        </button>
+        <span class="subtle" style="margin-left:0.5rem; font-size:0.78rem;">
+          Use this when the linked document doesn't match the transaction.
+        </span>
+      </form>
+      {% if r.content_excerpt %}
+        <details>
+          <summary class="subtle" style="font-size:0.82rem; cursor:pointer">OCR excerpt</summary>
+          <pre style="white-space:pre-wrap; font-size:0.82rem; margin:0.4rem 0 0; font-family:var(--font-mono); max-height:240px; overflow-y:auto; background:var(--bg-elev); padding:0.5rem; border-radius:4px">{{ r.content_excerpt[:1500] }}{% if r.content_excerpt|length > 1500 %}…{% endif %}</pre>
+        </details>
+      {% endif %}
+
+      <details style="margin-top:0.75rem">
+        <summary style="cursor:pointer; font-weight:600; font-size:0.9rem">Send to AI to fix / enrich</summary>
+
+        <form hx-post="/documents/{{ r.paperless_id }}/verify"
+              hx-target="body" hx-swap="beforeend"
+              class="form-grid" style="max-width:none; margin-top:0.75rem">
+          <p class="subtle" style="margin:0; font-size:0.82rem">
+            Re-extracts structured fields (Tier 1: OCR-text via Haiku; Tier 2: vision against the image if needed)
+            and PATCHes confident corrections back to Paperless. Stamps with <strong>Lamella Fixed</strong>.
+          </p>
+          {# Pre-fill the hypothesis from txn fields. The model needs
+             the merchant name to catch wrong-receipt-attached cases:
+             without it the prompt only ships date+total and the AI
+             can't tell whether the OCR'd vendor matches what we
+             think this txn is. #}
+          <input type="hidden" name="suspected_date" value="{{ date }}" />
+          {% if amount %}<input type="hidden" name="suspected_total" value="{{ amount }}" />{% endif %}
+          {%- set _v = payee or narration -%}
+          {% if _v %}<input type="hidden" name="suspected_vendor" value="{{ _v }}" />{% endif %}
+          <p class="subtle" style="margin:0.4rem 0 0; font-size:0.82rem">
+            Hypothesis: {{ date }}{% if _v %}, {{ _v }}{% endif %}{% if amount %}, {{ amount }}{% endif %}.
+          </p>
+          <div class="field"><label class="field-label">Reason (optional)</label><input class="field-input" type="text" name="reason" placeholder="e.g. correspondent looks wrong" /></div>
+          <div class="form-actions"><span class="spacer"></span>{{ B.btn('Verify this receipt', type='submit', variant='primary', size='sm') }}</div>
+        </form>
+
+        <form hx-post="/documents/{{ r.paperless_id }}/enrich"
+              hx-target="#paperless-enrich-{{ r.paperless_id }}" hx-swap="innerHTML"
+              hx-indicator="find .hx-busy"
+              class="form-grid" style="max-width:none; margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid var(--border)">
+          <span class="hx-busy subtle" style="font-size:0.82rem">Posting to Paperless…</span>
+          <p class="subtle" style="margin:0; font-size:0.82rem">
+            Push derived context (vehicle / entity / project / note body) back to Paperless. Writes a note + <strong>Lamella Enriched</strong> tag.
+          </p>
+          <div class="field"><label class="field-label">Vehicle</label><input class="field-input" type="text" name="vehicle" list="vehicles-datalist" autocomplete="off" placeholder="e.g. a mid-size SUV" /></div>
+          <div class="field"><label class="field-label">Entity</label><input class="field-input" type="text" name="entity" list="entities-datalist" autocomplete="off" placeholder="Personal / Acme / …" /></div>
+          <div class="field"><label class="field-label">Note body</label><input class="field-input" type="text" name="note_body" placeholder="Gas for the SUV" /></div>
+          <div class="form-actions"><span class="spacer"></span>{{ B.btn('Enrich with context', type='submit', variant='ghost', size='sm') }}</div>
+        </form>
+        <div id="paperless-enrich-{{ r.paperless_id }}"></div>
+      </details>
+
+      {% if r.ai_decisions %}
+        <details style="margin-top:0.5rem">
+          <summary class="subtle" style="font-size:0.82rem; cursor:pointer">Recent AI runs ({{ r.ai_decisions|length }})</summary>
+          <ul style="font-size:0.82rem; margin:0.4rem 0 0; padding-left:1.2rem">
+            {% for d in r.ai_decisions %}
+              <li>
+                <time>{{ d.decided_at }}</time> · <code>{{ d.decision_type }}</code> · <code class="subtle">{{ d.model }}</code>
+                {% if d.result and d.result.error %}· {{ D.badge('error', tone='err') }}
+                {% elif d.result %}· ok{% endif %}
+                ·
+                <form method="post" action="/ai/retry/{{ d.id }}"
+                      hx-post="/ai/retry/{{ d.id }}" hx-target="#retry-result-{{ d.id }}" hx-swap="innerHTML"
+                      style="display:inline">
+                  {{ B.btn('Retry', type='submit', variant='ghost', size='sm') }}
+                  <span id="retry-result-{{ d.id }}" class="subtle" style="font-size:0.82rem"></span>
+                </form>
+              </li>
+            {% endfor %}
+          </ul>
+        </details>
+      {% endif %}
+    </div>
+  </article>
+  {% endfor %}
+
+  <details style="margin-top:0.75rem">
+    <summary class="subtle" style="font-size:0.85rem; cursor:pointer">Link another receipt</summary>
+    <form onsubmit="return txnDetailLink(this, '{{ target_hash }}', '{{ date }}', '{{ from_amount if from_amount is not none else '' }}')"
+          class="form-grid" style="max-width:none; margin-top:0.5rem">
+      <div class="field"><label class="field-label">Paperless document id</label><input class="field-input" type="number" name="paperless_id" required placeholder="e.g. 17140" /></div>
+      <div class="form-actions"><span class="spacer"></span>{{ B.btn('Link', type='submit', variant='primary', size='sm') }}</div>
+    </form>
+  </details>
+
+{% else %}
+  <p class="subtle" style="margin:0">No receipt linked yet.</p>
+  {% if candidates %}
+    <p class="subtle" style="margin-top:0.75rem; font-size:0.85rem"><strong>Possible matches in Paperless:</strong></p>
+    <ul style="margin:0.4rem 0; padding-left:1.2rem">
+      {% for c in candidates %}
+        {% if c.paperless_id is defined and c.paperless_id %}
+        <li style="margin-bottom:0.4rem; font-size:0.85rem">
+          <a href="/paperless/preview/{{ c.paperless_id }}" target="_blank" rel="noopener">
+            <img src="/paperless/thumb/{{ c.paperless_id }}" loading="lazy" alt="#{{ c.paperless_id }}" style="width:32px; height:32px; vertical-align:middle; border-radius:4px; border:1px solid var(--border)" />
+            #{{ c.paperless_id }}
+          </a>
+          {% if c.vendor %}· {{ c.vendor }}{% endif %}
+          {% if c.document_date %}· {{ c.document_date }}{% endif %}
+          {% if c.total is not none %}· ${{ "%.2f"|format(c.total) }}{% endif %}
+          <form method="post" action="/documents/{{ c.paperless_id }}/link"
+                hx-post="/documents/{{ c.paperless_id }}/link" hx-target="closest li" hx-swap="outerHTML"
+                style="display:inline">
+            <input type="hidden" name="txn_hash" value="{{ target_hash }}" />
+            <input type="hidden" name="txn_date" value="{{ date }}" />
+            <input type="hidden" name="txn_amount" value="{{ from_amount if from_amount is not none else '' }}" />
+            {{ B.btn('Link', type='submit', variant='ghost', size='sm') }}
+          </form>
+        </li>
+        {% endif %}
+      {% endfor %}
+    </ul>
+  {% endif %}
+  <details style="margin-top:0.75rem">
+    <summary class="subtle" style="font-size:0.85rem; cursor:pointer">Manually link a receipt</summary>
+    <form onsubmit="return txnDetailLink(this, '{{ target_hash }}', '{{ date }}', '{{ from_amount if from_amount is not none else '' }}')"
+          class="form-grid" style="max-width:none; margin-top:0.5rem">
+      <div class="field"><label class="field-label">Paperless document id</label><input class="field-input" type="number" name="paperless_id" required placeholder="e.g. 17140" /></div>
+      <div class="form-actions"><span class="spacer"></span>{{ B.btn('Link', type='submit', variant='primary', size='sm') }}</div>
+    </form>
+  </details>
+{% endif %}
+{% endcall %}
+
+{% if mileage_day %}
+{% call C.card(title='Mileage on ' ~ date|string, subtitle=(mileage_day|length|string ~ (' trip' if mileage_day|length == 1 else ' trips'))) %}
+<ul style="margin:0; padding:0; list-style:none">
+  {% for m in mileage_day %}
+  <li style="padding:0.5rem 0; border-top:{% if not loop.first %}1px solid var(--border){% else %}0{% endif %}">
+    <div class="subtle" style="font-size:0.85rem">
+      {% if m.entry_time %}<strong>{{ m.entry_time }}</strong> · {% endif %}
+      {{ m.vehicle or '(no vehicle)' }}
+      {% if m.entity %} · {{ m.entity | entity }}{% endif %}
+      · <strong>{{ '%.1f'|format(m.miles) }} mi</strong>
+      · <a href="/mileage/{{ m.id }}/edit">edit</a>
+    </div>
+    {% if m.purpose %}
+      <div style="font-size:0.9rem; margin-top:4px">
+        {{ m.purpose }}
+        {% if m.from_loc or m.to_loc %}
+          <span class="subtle" style="font-size:0.82rem">({{ m.from_loc or '?' }} → {{ m.to_loc or '?' }})</span>
+        {% endif %}
+      </div>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endcall %}
+{% endif %}
+
+{% call C.card(title='Notes', subtitle=((active_notes|length|string ~ ' active around this date') if active_notes else None)) %}
+<div id="txn-notes-list"
+     hx-get="/txn/{{ target_hash }}/notes-partial"
+     hx-trigger="note-saved-for-txn from:body"
+     hx-swap="innerHTML">
+  {% include "partials/_txn_notes_list.html" %}
+</div>
+
+<details open style="margin-top:0.75rem">
+  <summary style="cursor:pointer; font-weight:600; font-size:0.9rem">Add a note</summary>
+  <form method="post" action="/notes"
+        hx-post="/notes" hx-swap="none"
+        hx-on::after-request="if (event.detail.successful) { this.querySelector('textarea[name=body]').value = ''; htmx.trigger(document.body, 'note-saved-for-txn'); }"
+        class="form-grid" style="max-width:none; margin-top:0.5rem">
+    <input type="hidden" name="captured_at" value="{{ date }}" />
+    <div class="field">
+      <label class="field-label">Note body</label>
+      <textarea class="field-textarea" name="body" rows="3" required
+                placeholder="e.g. Bought this for the Acme prototype — bill Acme."></textarea>
+    </div>
+    <div class="field">
+      <label style="display:flex; gap:8px; align-items:flex-start; font-size:0.9rem">
+        <input type="checkbox" name="txn_hash" value="{{ target_hash }}" checked />
+        <span>Pin to <strong>this transaction</strong> (acts as a memo — the classifier sees it specifically for this txn).</span>
+      </label>
+      <p class="subtle" style="margin:6px 0 0; font-size:0.82rem">Uncheck to save a date-scoped note that shows up for every transaction on {{ date }} instead.</p>
+    </div>
+    <div class="form-actions"><span class="spacer"></span>{{ B.btn('Save note', type='submit', variant='primary', size='sm') }}</div>
+  </form>
+</details>
+{% endcall %}
+
+{% endcall %}
+{% endcall %}
+
+{% call L.section(title='Classify this transaction') %}
+{% set has_fixme = postings | selectattr('is_fixme') | list %}
+{# Unified action bar — same buttons used on /review, /search,
+   /transactions, /ai/suggestions etc. so the user sees one
+   classify/Ask-AI flow no matter which surface they came from. #}
+{% call C.card() %}
+<div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap">
+  {% if has_fixme %}
+    <span class="subtle">Pick a target inline, run the AI, or accept any AI proposal in the history table below.</span>
+  {% else %}
+    <span class="subtle">Already categorized. Use these to re-classify or rerun the AI on the existing posting.</span>
+  {% endif %}
+  <span style="margin-left:auto">
+    {# ADR-0046 Phase 4b: classified ledger txns get an Undo here so
+       the user can roll the override back without leaving the page.
+       target_hash on this surface is the lamella-txn-id (UUIDv7) per
+       the immutable-URL invariant (see project_immutable_txn_url). #}
+    {%- set _undo_id = target_hash if not has_fixme else None -%}
+    {{ T.actions(ref="ledger:" ~ target_hash, return_url=("/txn/" ~ target_hash), undoable_txn_id=_undo_id) }}
+  </span>
+</div>
+{% endcall %}
+{% endcall %}
+
+{% call L.section(title='AI history', subtitle=((ai_history|length|string) if ai_history else None)) %}
+
+{% if ai_history %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead><tr><th>When</th><th>Type</th><th>Model</th><th class="num">Tokens</th><th>Outcome</th><th>Actions</th></tr></thead>
+  <tbody>
+    {% for d in ai_history %}
+      {% set status_label = "" %}
+      {% set status_tone = "muted" %}
+      {% if d.result and d.result.error %}{% set status_label = "error" %}{% set status_tone = "err" %}
+      {% elif d.user_corrected %}
+        {% set _uc = (d.user_correction or "") | lower %}
+        {% if _uc.startswith("rejected") %}{% set status_label = "rejected" %}{% set status_tone = "warn" %}
+        {% elif _uc.startswith("approved") %}{% set status_label = "approved" %}{% set status_tone = "ok" %}
+        {% elif _uc.startswith("corrected") %}{% set status_label = "corrected" %}{% set status_tone = "info" %}
+        {% else %}{% set status_label = "user-edited" %}{% set status_tone = "info" %}{% endif %}
+      {% elif d.result and d.result.target_account %}{% set status_label = "proposed" %}{% set status_tone = "accent" %}
+      {% endif %}
+      <tr>
+        <td><time>{{ d.decided_at }}</time></td>
+        <td><code>{{ d.decision_type }}</code></td>
+        <td class="subtle">{{ d.model }}</td>
+        <td class="num">{{ d.prompt_tokens }}/{{ d.completion_tokens }}</td>
+        <td>
+          {% if status_label %}{{ D.badge(status_label, tone=status_tone) }}
+            {% if d.result and d.result.confidence is not none and not d.user_corrected and not (d.result and d.result.error) %}
+              <span class="subtle" style="font-size:0.82rem">{{ "%.2f"|format(d.result.confidence) }}</span>
+            {% endif %}
+          {% else %}<span class="subtle">—</span>{% endif %}
+        </td>
+        <td><a href="/ai/decisions/{{ d.id }}" style="font-size:0.85rem">prompt →</a></td>
+      </tr>
+      {% if d.result and (d.result.target_account or d.result.reasoning or d.result.error) or d.user_correction %}
+      <tr>
+        <td colspan="6" style="background:var(--bg-elev); font-size:0.85rem; padding:0.5rem 0.75rem">
+          {% if d.result and d.result.target_account %}
+            <div><strong>AI target:</strong> <code>{{ d.result.target_account }}</code>
+              {% if d.result.confidence is not none %}<span class="subtle">· confidence {{ "%.2f"|format(d.result.confidence) }}</span>{% endif %}
+              {% if d.result.intercompany_flag %} · {{ D.badge('intercompany', tone='accent') }}
+                {% if d.result.owning_entity %}→ <code>{{ d.result.owning_entity }}</code>{% endif %}
+              {% endif %}
+            </div>
+          {% endif %}
+          {% if d.result and d.result.reasoning %}<div style="margin-top:4px"><strong>Reasoning:</strong> {{ d.result.reasoning }}</div>{% endif %}
+          {% if d.result and d.result.error %}<div style="margin-top:4px"><strong style="color:var(--err)">Error:</strong> {{ d.result.error }}</div>{% endif %}
+          {% if d.user_correction %}<div style="margin-top:4px"><strong>Your decision:</strong> {{ d.user_correction }}</div>{% endif %}
+        </td>
+      </tr>
+      {% endif %}
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% else %}
+<p class="subtle" style="font-size:0.85rem">No AI decisions recorded for this transaction yet.</p>
+{% endif %}
+{% endcall %}
+
+{% if txn_meta %}
+{% call L.section(title='Source metadata') %}
+{% call C.card() %}
+<dl style="display:grid; grid-template-columns:max-content 1fr; gap:6px 16px; margin:0; font-size:0.85rem">
+  {% for k, v in txn_meta.items() %}
+    <dt><code>{{ k }}</code></dt><dd>{{ v }}</dd>
+  {% endfor %}
+</dl>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+<datalist id="accounts-datalist"></datalist>
+<datalist id="vehicles-datalist">{% for v in vehicles_list %}<option value="{{ v }}">{% endfor %}</datalist>
+<datalist id="entities-datalist">{% for e in entities_list %}<option value="{{ e }}">{% endfor %}</datalist>
+
+<script>
+  function loadPairCandidates() {
+    const btn = document.getElementById('load-pair-candidates');
+    const list = document.getElementById('pair-candidates-list');
+    btn.disabled = true;
+    btn.querySelector('span').textContent = 'Loading…';
+    fetch('/txn/{{ target_hash }}/pair-candidates', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.statusText)))
+      .then((data) => {
+        btn.disabled = false;
+        btn.querySelector('span').textContent = 'Find pair candidates';
+        if (!data.candidates || data.candidates.length === 0) {
+          list.innerHTML = '<p class="subtle" style="font-size:0.85rem">No opposite-sign matches within ±14 days.</p>';
+          return;
+        }
+        const rows = data.candidates.map((c) => {
+          const payee = c.payee ? '<strong>' + escapeHtml(c.payee) + '</strong> · ' : '';
+          const src = c.source_account
+            ? '<code class="subtle" style="font-size:0.82rem">' + escapeHtml(c.source_account) + '</code>'
+            : '<span class="subtle">—</span>';
+          return '<div style="display:flex; align-items:center; gap:8px; padding:0.4rem 0; border-bottom:1px solid var(--border)">'
+            + '<div style="flex:1">'
+            + '<div>' + c.date + ' (' + (c.days_diff >= 0 ? '+' : '') + c.days_diff + 'd) · <strong>$' + c.amount + '</strong> · ' + src + '</div>'
+            + '<div class="subtle" style="font-size:0.82rem">' + payee + escapeHtml(c.narration) + '</div>'
+            + '</div>'
+            + '<button type="button" class="btn btn-primary btn-sm" onclick="pairWith(\'' + c.txn_hash + '\')"><span>Pair</span></button>'
+            + '</div>';
+        }).join('');
+        list.innerHTML = rows;
+      })
+      .catch((err) => {
+        btn.disabled = false;
+        btn.querySelector('span').textContent = 'Find pair candidates';
+        list.innerHTML = '<p class="subtle" style="color:var(--err); font-size:0.85rem">Lookup failed: ' + err + '</p>';
+      });
+  }
+
+  function pairWith(partnerHash) {
+    const fd = new FormData();
+    fd.append('txn_hash', '{{ target_hash }}');
+    fd.append('txn_hash', partnerHash);
+    fetch('/search/mark-transfer-pair', { method: 'POST', credentials: 'same-origin', body: fd })
+      .then((r) => {
+        const redir = r.headers.get('HX-Redirect');
+        if (redir) { window.location = redir; return; }
+        if (r.ok) { window.__lamellaAfterClassify('ledger:{{ target_hash }}'); return; }
+        return r.text().then((t) => {
+          let msg = t;
+          try { const j = JSON.parse(t); if (j && j.detail) msg = j.detail; } catch (e) {}
+          alert('Could not pair: ' + msg);
+        });
+      })
+      .catch((e) => { alert('Request failed: ' + e); });
+  }
+
+  function escapeHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  (function () {
+    const dl = document.getElementById('accounts-datalist');
+    if (!dl) return;
+    fetch('/api/accounts', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data || !Array.isArray(data.all)) return;
+        const labels = (data.labels && typeof data.labels === 'object') ? data.labels : {};
+        window.__acctLabels = labels;
+        const frag = document.createDocumentFragment();
+        for (const name of data.all) {
+          const opt = document.createElement('option');
+          opt.value = name;
+          if (labels[name] && labels[name] !== name) opt.label = labels[name];
+          frag.appendChild(opt);
+        }
+        dl.appendChild(frag);
+      })
+      .catch(() => undefined);
+  })();
+
+  function txnDetailLink(form, txnHash, txnDate, txnAmount) {
+    const pid = form.querySelector('input[name="paperless_id"]').value;
+    if (!pid) return false;
+    const fd = new FormData();
+    fd.append('txn_hash', txnHash);
+    fd.append('txn_date', txnDate);
+    if (txnAmount) fd.append('txn_amount', txnAmount);
+    fetch('/documents/' + encodeURIComponent(pid) + '/link', {
+      method: 'POST', body: fd, credentials: 'same-origin',
+    }).then(() => window.__lamellaAfterClassify('ledger:' + txnHash))
+      .catch(() => alert('Link failed — see server logs.'));
+    return false;
+  }
+</script>
+{% endblock %}

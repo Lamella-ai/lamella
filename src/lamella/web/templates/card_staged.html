@@ -1,0 +1,473 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Categorize — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Categorize{% endblock %}
+
+{% block content %}
+{# /card surfaces ONE pending staged row at a time. The chosen row is
+   the prototype of the largest pending group — classifying it has the
+   biggest blast radius, since the same user-rule that the action
+   creates will auto-resolve every sibling on the next FixmeScanner
+   sweep. The user can also Skip → next without classifying.
+
+   Everything action-bearing lives inside #card-pane so HTMX can
+   refetch /card after each action and swap a fresh card in place. #}
+
+{# Per-item locals (`group_size`, `_payee`, `_looks_like_transfer`) are
+   set inside partials/_card_pane.html so the partial works whether
+   it's rendered standalone (HX-Request) or included from this
+   wrapping template. We re-derive `group.size` here just for the
+   page_head subtitle since the partial's `{% set %}` block hasn't
+   run yet at this point. #}
+{%- set _gsize = group.size -%}
+
+{% call L.page_head(
+     title='What is this charge?',
+     subtitle=(
+       'One row at a time — pick a category, accept the proposal, ask the AI, or skip ahead. '
+       ~ ('Classifying this also resolves the ' ~ (_gsize - 1)|string ~ ' similar row' ~ ('s' if (_gsize - 1) != 1 else '') ~ ' on the next sweep.' if _gsize > 1 else 'This row has no obvious siblings.')
+     ),
+     kicker='Triage'
+) %}
+  <a class="btn btn-ghost" href="/review">{{ icon.inbox(size=14) }} See full queue ({{ total_pending }})</a>
+{% endcall %}
+
+{# Banner — friendly translation of the redirect's `message=` code,
+   the same vocabulary /review uses. #}
+{%- set _msg = message or request.query_params.get('message') -%}
+{%- if _msg -%}
+  {%- if _msg.startswith('classified_') -%}
+    {%- set _parts = _msg[11:].split('_to_', 1) -%}
+    {% call F.banner(tone='ok', title='Classified') %}
+      Wrote a clean entry{% if _parts|length == 2 %} to <code>{{ _parts[1] }}</code>{% endif %}.
+    {% endcall %}
+  {%- elif _msg.startswith('classify_group_') -%}
+    {%- set _parts = _msg[15:].split('_to_', 1) -%}
+    {%- if _parts|length == 2 -%}
+      {% call F.banner(tone='ok', title='Group classified') %}
+        Wrote {{ _parts[0] }} row{% if _parts[0] != '1' %}s{% endif %} to <code>{{ _parts[1] }}</code>.
+        The pattern was learned — future siblings will auto-classify.
+      {% endcall %}
+    {%- endif -%}
+  {%- elif _msg.startswith('ask_ai_proposed_') -%}
+    {%- set _tgt = _msg[16:] -%}
+    {% call F.banner(tone='info', title='AI proposal ready') %}
+      Suggested <code>{{ _tgt }}</code> — accept it, or pick something else.
+    {% endcall %}
+  {%- elif _msg.startswith('dismissed_') or _msg.startswith('ignored_') -%}
+    {% call F.banner(tone='info', title='Ignored') %}
+      Hidden from the pending list. Find it (and restore it) under <a href="/review/ignored">Ignored</a>.
+    {% endcall %}
+  {%- elif _msg.startswith('restored_') -%}
+    {% call F.banner(tone='ok', title='Restored') %}Back in the pending queue.{% endcall %}
+  {%- elif _msg == 'skipped' -%}
+    {% call F.banner(tone='info', title='Skipped') %}Showing the next row.{% endcall %}
+  {%- endif -%}
+{%- endif -%}
+
+<datalist id="accounts-datalist"></datalist>
+
+{% include "partials/_card_pane.html" %}
+
+
+<script>
+  fetch('/api/accounts', { credentials: 'same-origin' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      if (!d || !Array.isArray(d.all)) return;
+      const dl = document.getElementById('accounts-datalist');
+      if (!dl) return;
+      const labels = d.labels || {};
+      for (const name of d.all) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        if (labels[name] && labels[name] !== name) {
+          opt.label = labels[name];
+          opt.textContent = labels[name];
+        }
+        dl.appendChild(opt);
+      }
+    })
+    .catch(() => undefined);
+</script>
+
+<style>
+  .card-staged-pane {
+    max-width: 56rem;
+    margin: 0 auto;
+  }
+
+  .card-staged {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem 1.6rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  }
+
+  .card-staged-impact {
+    display: flex; align-items: center; gap: 0.85rem;
+    margin: -0.4rem 0 1rem;
+    padding: 0.65rem 0.85rem;
+    background: linear-gradient(180deg, rgba(37,99,235,0.06), transparent);
+    border: 1px solid rgba(37,99,235,0.15);
+    border-radius: 8px;
+  }
+  .card-staged-impact-stat {
+    flex: 0 0 auto;
+    display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+    min-width: 3.4rem; padding: 0.25rem 0.4rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    line-height: 1;
+  }
+  .card-staged-impact-stat .num { font-size: 1.4rem; font-weight: 700; }
+  .card-staged-impact-stat-label {
+    font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--muted); margin-top: 2px;
+  }
+  .card-staged-impact-msg {
+    margin: 0; font-size: 0.88rem; line-height: 1.4;
+    color: var(--fg); flex: 1 1 auto;
+    display: inline-flex; align-items: flex-start; gap: 0.45rem;
+  }
+
+  /* Headline fact band: amount on the left, date+payee on the right. */
+  .card-staged-fact {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    gap: 1rem;
+    align-items: start;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .card-staged-fact-amount {
+    font-size: 2.2rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .card-staged-fact-amount-ccy {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--muted);
+    margin-left: 0.3rem;
+    letter-spacing: 0;
+  }
+  .card-staged-fact-meta { min-width: 0; }
+  .card-staged-fact-date {
+    display: inline-block;
+    font-size: 0.82rem; color: var(--muted);
+    padding: 0.1rem 0.45rem;
+    background: var(--bg-elev); border-radius: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .card-staged-fact-payee {
+    margin: 0.35rem 0 0;
+    font-size: 1.3rem; font-weight: 600;
+    line-height: 1.25;
+    word-wrap: break-word;
+  }
+  .card-staged-fact-narration {
+    margin: 0.25rem 0 0;
+    font-size: 0.9rem; color: var(--muted);
+    line-height: 1.4;
+  }
+
+  /* Tag strip — content rendered by Txn.context_tags. The wrapper
+     class just controls outer spacing on this surface. */
+  .card-staged-tags { margin: 0.85rem 0 0.4rem; }
+
+  /* Transfer hint band. */
+  .card-staged-transfer-hint {
+    margin-top: 1rem;
+    padding: 0.7rem 0.85rem;
+    background: linear-gradient(180deg, rgba(180,83,9,0.07), transparent);
+    border: 1px solid rgba(180,83,9,0.22);
+    border-left: 3px solid var(--warn);
+    border-radius: 4px;
+  }
+  .card-staged-transfer-hint-head {
+    display: flex; align-items: center; gap: 0.4rem;
+    font-size: 0.92rem;
+    color: var(--warn);
+    font-weight: 600;
+  }
+  .card-staged-transfer-hint-head strong { color: var(--fg); }
+  .card-staged-transfer-hint-msg {
+    margin: 0.35rem 0 0;
+    font-size: 0.88rem; color: var(--muted);
+    line-height: 1.5;
+  }
+  .card-staged-transfer-hint-msg code {
+    background: var(--bg-elev); padding: 0 0.3rem; border-radius: 3px;
+    font-size: 0.82rem;
+  }
+
+  /* Proposed band — fully migrated to Txn.proposed; styles live
+     in components.css §10. */
+
+  /* Action zone. */
+  .card-staged-actions {
+    margin-top: 1.1rem;
+    display: flex; flex-direction: column; gap: 0.85rem;
+  }
+  .card-staged-accept-form { margin: 0; }
+  .card-staged-accept-btn {
+    width: 100%;
+    display: inline-flex; align-items: center; justify-content: flex-start;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    text-align: left;
+  }
+  .card-staged-accept-label { font-weight: 600; flex: 0 0 auto; }
+  .card-staged-accept-target {
+    flex: 1 1 auto;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-weight: 500;
+  }
+  .card-staged-accept-count {
+    flex: 0 0 auto;
+    font-size: 0.78rem;
+    padding: 0.15rem 0.5rem;
+    background: rgba(255,255,255,0.18);
+    border-radius: 999px;
+  }
+
+  .card-staged-classify-form { margin: 0; }
+  .card-staged-classify-label {
+    display: block;
+    font-size: 0.85rem; color: var(--muted);
+    margin-bottom: 0.4rem;
+  }
+  .card-staged-classify-row {
+    display: flex; gap: 0.4rem; align-items: center;
+  }
+  .card-staged-classify-input { flex: 1 1 auto; min-width: 0; }
+
+  .card-staged-secondary {
+    display: flex; flex-wrap: wrap; gap: 0.4rem;
+    align-items: center;
+    margin-top: 0.4rem;
+    padding-top: 0.85rem;
+    border-top: 1px dashed var(--border);
+  }
+  .card-staged-disclosure { margin: 0; }
+  .card-staged-disclosure summary {
+    cursor: pointer;
+    font-size: 0.82rem; color: var(--muted);
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 0.35rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .card-staged-disclosure summary:hover { background: var(--bg-elev); color: var(--fg); }
+  .card-staged-disclosure[open] summary {
+    background: var(--bg-elev); color: var(--fg);
+  }
+  .card-staged-disclosure form {
+    margin: 0.5rem 0 0;
+    display: flex; flex-direction: column; gap: 0.4rem;
+  }
+  .card-staged-disclosure-foot {
+    margin: 0; font-size: 0.78rem; color: var(--muted);
+  }
+  .card-staged-skip {
+    margin-left: auto;
+  }
+
+  .card-staged-counter {
+    margin: 1.25rem 0 0;
+    text-align: center;
+    font-size: 0.82rem; color: var(--muted);
+  }
+
+  /* ─── Sibling preview ─── */
+  .card-staged-siblings {
+    margin: 1.5rem 0 0;
+    padding: 1rem 1.1rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .card-staged-siblings-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 0.75rem; margin-bottom: 0.6rem;
+  }
+  .card-staged-siblings-title {
+    margin: 0; font-size: 0.85rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--muted);
+    display: inline-flex; align-items: center; gap: 0.4rem;
+  }
+  .card-staged-siblings-count {
+    font-size: 0.78rem; color: var(--muted);
+    padding: 0.1rem 0.5rem;
+    background: var(--bg-elev); border-radius: 999px;
+  }
+  .card-staged-siblings-list {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-direction: column; gap: 0;
+  }
+  .card-staged-sibling {
+    display: grid;
+    grid-template-columns: 6.5rem 5.5rem minmax(0, 1fr) auto;
+    gap: 0.75rem;
+    align-items: baseline;
+    padding: 0.45rem 0;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+  }
+  .card-staged-sibling:first-child { border-top: 0; }
+  .card-staged-sibling-date {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .card-staged-sibling-amount {
+    font-weight: 600;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .card-staged-sibling-payee {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    min-width: 0;
+  }
+  .card-staged-sibling-card {
+    display: inline-flex; align-items: center; gap: 0.2rem;
+    font-size: 0.78rem; color: var(--muted);
+  }
+
+  /* ─── Up-next carousel ─── */
+  .card-staged-upnext {
+    margin: 1.5rem 0 0;
+    /* Allow the rail to bleed slightly past the card-pane width on
+       wide screens — feels more like a real carousel that hints at
+       overflow. Capped at a sensible width via the parent. */
+  }
+  .card-staged-upnext-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 0.75rem; margin-bottom: 0.6rem;
+  }
+  .card-staged-upnext-title {
+    margin: 0; font-size: 0.85rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--muted);
+    display: inline-flex; align-items: center; gap: 0.4rem;
+  }
+  .card-staged-upnext-meta {
+    font-size: 0.78rem; color: var(--muted);
+  }
+  .card-staged-upnext-rail {
+    display: flex; gap: 0.6rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x proximity;
+    /* Soft fade on both ends so the user understands it scrolls. */
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+            mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+    padding: 0.4rem 0.2rem 0.6rem;
+    scrollbar-width: thin;
+  }
+  .card-staged-upnext-rail::-webkit-scrollbar { height: 6px; }
+  .card-staged-upnext-rail::-webkit-scrollbar-track { background: transparent; }
+  .card-staged-upnext-rail::-webkit-scrollbar-thumb {
+    background: var(--border); border-radius: 999px;
+  }
+  .card-staged-upnext-tile {
+    flex: 0 0 13.5rem;
+    scroll-snap-align: start;
+    display: flex; flex-direction: column; gap: 0.3rem;
+    padding: 0.7rem 0.85rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--fg);
+    text-decoration: none;
+    transition: border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+    min-width: 0;
+  }
+  .card-staged-upnext-tile:hover {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+  }
+  .card-staged-upnext-tile--group {
+    background: linear-gradient(180deg, rgba(37,99,235,0.04), var(--panel));
+    border-color: rgba(37,99,235,0.25);
+  }
+  .card-staged-upnext-tile-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .card-staged-upnext-size {
+    font-size: 0.85rem; font-weight: 700;
+    padding: 0.05rem 0.4rem;
+    background: var(--accent); color: var(--accent-fg);
+    border-radius: 999px;
+    line-height: 1.4;
+  }
+  .card-staged-upnext-size--single {
+    background: var(--bg-elev); color: var(--muted);
+    font-weight: 500;
+  }
+  .card-staged-upnext-source {
+    font-size: 0.7rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .card-staged-upnext-tile-payee {
+    font-size: 0.92rem; font-weight: 500;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .card-staged-upnext-tile-amount {
+    font-size: 1.05rem; font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .card-staged-upnext-tile-ccy {
+    font-size: 0.7rem; font-weight: 500;
+    color: var(--muted);
+    margin-left: 0.2rem;
+  }
+  .card-staged-upnext-tile-meta {
+    display: flex; flex-wrap: wrap; gap: 0.3rem 0.55rem;
+    font-size: 0.75rem; color: var(--muted);
+  }
+  .card-staged-upnext-tile-card,
+  .card-staged-upnext-tile-entity {
+    display: inline-flex; align-items: center; gap: 0.2rem;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 100%;
+  }
+
+  /* HTMX swap fade. */
+  #card-pane.htmx-swapping { opacity: 0.55; transition: opacity 100ms ease; }
+  #card-pane.htmx-settling { opacity: 1; transition: opacity 180ms ease; }
+
+  @media (max-width: 720px) {
+    .card-staged-fact {
+      grid-template-columns: 1fr;
+    }
+    .card-staged-fact-amount { font-size: 1.85rem; }
+    .card-staged-secondary { flex-direction: column; align-items: stretch; }
+    .card-staged-skip { margin-left: 0; text-align: center; }
+  }
+</style>
+{% endblock %}

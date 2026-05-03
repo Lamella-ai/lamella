@@ -1,0 +1,158 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Period selector + KPI strip + expense composition + top payees.
+   Rendered in-place on first load and HTMX-swapped on period change.
+   Period-independent widgets (charts, recent txns, related grids) live
+   in the parent template and don't move. #}
+
+{% set period_label_map = {
+  "30d": "30 days",
+  "mtd": "Month to date",
+  "1mo": "1 month",
+  "ytd": "Year to date",
+  "1yr": "1 year",
+  "all": "All time",
+} %}
+
+<section class="business-section period-strip">
+  <div class="period-selector" role="tablist" aria-label="Period">
+    {% for p in period_options %}
+      <a class="period-pill{% if p == period.label %} active{% endif %}"
+         hx-get="{{ entity_url(entity, '/period?period=' ~ p) }}"
+         hx-target="#period-block"
+         hx-swap="innerHTML"
+         hx-push-url="{{ entity_url(entity, '?period=' ~ p) }}"
+         href="{{ entity_url(entity, '?period=' ~ p) }}">
+        {{ period_label_map.get(p, p) }}
+      </a>
+    {% endfor %}
+  </div>
+  <div class="period-window muted small">
+    {% if period.is_all_time %}
+      All time
+    {% else %}
+      {{ period.current_start }} — {{ period.current_end }}
+      <span class="muted">vs.</span>
+      {{ period.prior_start }} — {{ period.prior_end }}
+    {% endif %}
+  </div>
+</section>
+
+<section class="business-section business-kpi-row">
+  {% set net_cur = kpis.net_current | float %}
+  {% set net_prev = kpis.net_prior | float %}
+  {% set rev_cur = kpis.revenue_current | float %}
+  {% set rev_prev = kpis.revenue_prior | float %}
+  {% set exp_cur = kpis.expenses_current | float %}
+  {% set exp_prev = kpis.expenses_prior | float %}
+  {% set cash = kpis.cash | float %}
+
+  <a class="kpi-tile" href="/reports?entity={{ entity.slug }}&amp;type=pnl">
+    <div class="kpi-label">Net income</div>
+    <div class="kpi-value">{{ kpis.net_current | money }}</div>
+    {% if not period.is_all_time %}
+    <div class="kpi-delta {% if net_cur >= net_prev %}up{% else %}down{% endif %}">
+      {% if net_prev != 0 %}
+        {{ "%+.1f"|format((net_cur - net_prev) / (net_prev if net_prev > 0 else -net_prev) * 100) }}%
+      {% else %}
+        {% if net_cur > 0 %}new{% else %}—{% endif %}
+      {% endif %}
+      <span class="muted">vs. prior</span>
+    </div>
+    {% endif %}
+  </a>
+
+  <a class="kpi-tile" href="/reports?entity={{ entity.slug }}&amp;type=income">
+    <div class="kpi-label">Revenue</div>
+    <div class="kpi-value">{{ kpis.revenue_current | money }}</div>
+    {% if not period.is_all_time %}
+    <div class="kpi-delta {% if rev_cur >= rev_prev %}up{% else %}down{% endif %}">
+      {% if rev_prev > 0 %}
+        {{ "%+.1f"|format((rev_cur - rev_prev) / rev_prev * 100) }}%
+      {% else %}
+        {% if rev_cur > 0 %}new{% else %}—{% endif %}
+      {% endif %}
+      <span class="muted">vs. prior</span>
+    </div>
+    {% endif %}
+  </a>
+
+  <a class="kpi-tile" href="/reports?entity={{ entity.slug }}&amp;type=expenses">
+    <div class="kpi-label">Expenses</div>
+    <div class="kpi-value">{{ kpis.expenses_current | money }}</div>
+    {% if not period.is_all_time %}
+    <div class="kpi-delta {% if exp_cur <= exp_prev %}up{% else %}down{% endif %}">
+      {% if exp_prev > 0 %}
+        {{ "%+.1f"|format((exp_cur - exp_prev) / exp_prev * 100) }}%
+      {% else %}
+        {% if exp_cur > 0 %}new{% else %}—{% endif %}
+      {% endif %}
+      <span class="muted">vs. prior</span>
+    </div>
+    {% endif %}
+  </a>
+
+  <a class="kpi-tile" href="/settings/accounts?entity={{ entity.slug }}">
+    <div class="kpi-label">Cash on hand <span class="muted small">(all time)</span></div>
+    <div class="kpi-value">{{ kpis.cash | money }}</div>
+  </a>
+</section>
+
+<section class="business-section business-grid-2col">
+  <div>
+    <h2>Top expenses ({{ period_label_map.get(period.label, period.label) }})</h2>
+    {% if composition.rows %}
+    <table class="field-map expense-composition">
+      <thead><tr><th>Category</th><th>Amount</th><th>vs. prior</th></tr></thead>
+      <tbody>
+        {% for row in composition.rows %}
+        <tr>
+          <td title="{{ row.account }}">
+            <a href="/search?q={{ row.account | urlencode }}&amp;lookback_days=365">{{ row.account | alias }}</a>
+          </td>
+          <td class="num">{{ row.amount | money }}</td>
+          <td class="num">
+            {% if row.delta_pct is none %}
+              <span class="muted">new</span>
+            {% elif row.delta_pct > 0 %}
+              <span class="badge warn">+{{ "%.0f"|format(row.delta_pct) }}%</span>
+            {% elif row.delta_pct < 0 %}
+              <span class="badge preferred">{{ "%.0f"|format(row.delta_pct) }}%</span>
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No expenses in this window.</p>
+    {% endif %}
+  </div>
+  <div>
+    <h2>Top payees</h2>
+    {% if payees.rows %}
+    <table class="field-map">
+      <thead><tr><th>Payee</th><th>Amount</th><th>Txns</th></tr></thead>
+      <tbody>
+        {% for row in payees.rows %}
+        <tr>
+          <td><strong>{{ row.payee }}</strong></td>
+          <td class="num">{{ row.amount | money }}</td>
+          <td class="num muted">{{ row.txn_count }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No payees in this window.</p>
+    {% endif %}
+  </div>
+</section>

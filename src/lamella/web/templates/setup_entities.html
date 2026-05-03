@@ -1,0 +1,257 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "setup_recovery/_layout.html" %}
+{% block title %}Entities — Setup — Lamella{% endblock %}
+
+{% block step_heading %}Entities{% endblock %}
+{% block step_subheading %}
+  Every active entity needs <strong>entity_type</strong> set before
+  the AI classifier can decide whether a cross-entity charge is a
+  2-leg commingle (Personal &harr; Sole-Prop) or a 4-leg
+  intercompany. Tax schedule + display name are optional but help
+  reports and scaffolding.
+{% endblock %}
+
+{% block step_body %}
+{% set q = request.query_params %}
+
+{# Banner: result of the most recent action. #}
+{% if q.get('added') %}
+<div class="wiz-banner wiz-banner-ok" style="margin-bottom:1.2em;">
+  <strong style="color:var(--ok);">✓ Added <code>{{ q.get('added') }}</code>.</strong>
+  Set entity_type on the row below if it isn&rsquo;t already filled in.
+</div>
+{% endif %}
+{% if q.get('skipped') %}
+<div class="wiz-banner wiz-banner-ok" style="margin-bottom:1.2em;">
+  <strong style="color:var(--ok);">✓ Marked <code>{{ q.get('skipped') }}</code> as skipped.</strong>
+</div>
+{% endif %}
+{% if q.get('deactivated') %}
+<div class="wiz-banner wiz-banner-ok" style="margin-bottom:1.2em;">
+  <strong>⊘ Deactivated <code>{{ q.get('deactivated') }}</code>.</strong>
+  Reversible from the Inactive section below.
+</div>
+{% endif %}
+{% if q.get('reactivated') %}
+<div class="wiz-banner wiz-banner-ok" style="margin-bottom:1.2em;">
+  ↺ Reactivated <code>{{ q.get('reactivated') }}</code>.
+</div>
+{% endif %}
+{% if q.get('deleted') %}
+<div class="wiz-banner wiz-banner-ok" style="margin-bottom:1.2em;">
+  ✗ Deleted <code>{{ q.get('deleted') }}</code>.
+</div>
+{% endif %}
+{% if q.get('error') %}
+<div class="wiz-banner wiz-banner-warn" style="margin-bottom:1.2em;">
+  <strong style="color:var(--warn);">⚠ {{ q.get('error') }}</strong>
+</div>
+{% endif %}
+
+{# Status banner — "X of Y need entity_type". #}
+<section id="setup-entities-banner"
+         style="margin:0 0 1.2em; padding:0.8em 1em; background:{% if all_labeled %}var(--ok-soft){% else %}var(--warn-soft){% endif %}; border-left:4px solid {% if all_labeled %}var(--ok){% else %}var(--warn){% endif %}; border-radius:4px;">
+  {% include "partials/_setup_entities_banner_body.html" %}
+</section>
+
+{# Add-row buttons — open inline modals. #}
+<div style="display:flex; gap:0.6em; margin:0 0 1.2em; flex-wrap:wrap;">
+  <a href="/setup/entities?add=person" class="wiz-btn wiz-btn-primary">
+    + Add person
+  </a>
+  <a href="/setup/entities?add=business" class="wiz-btn wiz-btn-primary">
+    + Add business
+  </a>
+</div>
+
+{% if entities %}
+<h2 style="margin:0.5em 0 0.6em; font-size:1.05em; font-weight:600;">Active entities</h2>
+<table class="field-map" style="width:100%; max-width:none;">
+  <thead>
+    <tr>
+      <th style="width:14em;">Slug</th>
+      <th>Setup</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for e in entities %}
+      {% with e=e, entity_types=entity_types, tax_schedules=tax_schedules %}
+        {% include "partials/_setup_entity_row.html" %}
+      {% endwith %}
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<section class="wiz-card" style="padding:1.5em; text-align:center;">
+  <strong>No entities yet.</strong>
+  <p class="wiz-sub" style="margin:0.4em 0 0;">
+    Use the buttons above to add a person (yourself / household) or a business.
+  </p>
+</section>
+{% endif %}
+
+{% if inactive_entities %}
+<h2 style="margin:1.5em 0 0.6em; font-size:1.05em; font-weight:600;">Inactive entities ({{ inactive_entities | length }})</h2>
+<p class="wiz-sub small">
+  Hidden from the classifier and account pickers. Reactivate to bring
+  back, or delete when no accounts reference the slug.
+</p>
+<table class="field-map" style="width:100%; max-width:none;">
+  <thead>
+    <tr>
+      <th style="width:14em;">Slug</th>
+      <th>Setup</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for e in inactive_entities %}
+      {% with e=e, entity_types=entity_types, tax_schedules=tax_schedules %}
+        {% include "partials/_setup_entity_row.html" %}
+      {% endwith %}
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<style>
+  .setup-entity-complete { background: var(--ok-soft); }
+  .setup-entity-skipped  { background: #f5f3ff; }
+  .setup-entity-inactive { background: var(--bg-elev); opacity: 0.85; }
+  .setup-entity-row td { vertical-align: top; padding:0.7em 0.6em; }
+  button.danger {
+    background:var(--err-soft); color:var(--err); border:1px solid var(--err-soft);
+    padding:0.25em 0.6em; border-radius:3px; cursor:pointer;
+  }
+  button.danger:hover { background:var(--err-soft); }
+</style>
+{% endblock %}
+
+{% block step_actions %}
+<a href="/setup/recovery" class="wiz-btn wiz-btn-secondary">← Back to checklist</a>
+{% if all_labeled %}
+<form method="post" action="/setup/refresh-progress" style="display:inline-block;">
+  <button type="submit" class="wiz-btn wiz-btn-primary">Done — return to checklist</button>
+</form>
+{% endif %}
+{% endblock %}
+
+{# ----- Modal block. Phase 4 of /setup/recovery. Mirrors the
+   wizard's templates/wizard/entities.html:149+ shape verbatim
+   (form_values + field_errors preserve typing on validation
+   failure). Cancel = navigate back to /setup/entities. ----- #}
+{% block modal %}
+{% if open_modal in ('person', 'business') %}
+{% set fv = form_values or {} %}
+{% set fe = field_errors or {} %}
+{% set is_business = open_modal == 'business' %}
+{% import "wizard/_modal.html" as M %}
+{% set _title %}
+  {%- if is_business -%}Add a business{%- else -%}Add a person{%- endif -%}
+{% endset %}
+{% set _action %}
+  {%- if is_business -%}Add business{%- else -%}Add person{%- endif -%}
+{% endset %}
+{% call M.modal(
+    title=_title | trim,
+    submit_form_id="entity-modal-form",
+    action_label=_action | trim,
+    cancel_href="/setup/entities"
+) %}
+<form method="post"
+      action="/setup/entities/add-{{ 'business' if is_business else 'person' }}"
+      id="entity-modal-form"
+      class="wiz-modal-form">
+
+  <div class="wiz-field">
+    <label class="wiz-label">Display name</label>
+    <input
+      class="wiz-input {% if fe.get('display_name') %}is-invalid{% endif %}"
+      type="text"
+      name="display_name"
+      value="{{ fv.get('display_name', '') }}"
+      maxlength="80"
+      required
+      autofocus
+      placeholder="{{ 'Acme Co.' if is_business else 'Jane Doe' }}"
+    />
+    <span class="wiz-help">
+      {% if is_business %}
+        Your business&rsquo;s legal name or DBA.
+      {% else %}
+        A name or nickname. Display names can include spaces, periods, and apostrophes.
+      {% endif %}
+    </span>
+    {% if fe.get('display_name') %}
+      <span class="wiz-error">{{ fe['display_name'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Slug</label>
+    <input
+      class="wiz-input wiz-input--slug {% if fe.get('slug') %}is-invalid{% endif %}"
+      type="text"
+      name="slug"
+      value="{{ fv.get('slug', '') }}"
+      maxlength="40"
+      pattern="[A-Z][A-Za-z0-9-]*"
+      placeholder="{{ 'AcmeCo' if is_business else 'JaneDoe' }}"
+    />
+    <span class="wiz-help">
+      A short identifier used internally. Must start with an uppercase A&ndash;Z.
+      Leave blank to auto-derive from the display name.
+    </span>
+    {% if fe.get('slug') %}
+      <span class="wiz-error">{{ fe['slug'] }}</span>
+    {% endif %}
+  </div>
+
+  {% if is_business %}
+  <div class="wiz-field">
+    <label class="wiz-label">Business type</label>
+    <span class="wiz-help">What kind of legal entity is this?</span>
+    <select name="entity_type" class="wiz-input {% if fe.get('entity_type') %}is-invalid{% endif %}" required>
+      {% set sel_etype = fv.get('entity_type', '') %}
+      <option value="" disabled {% if not sel_etype %}selected{% endif %}>— pick a type —</option>
+      {% for value, label in entity_types %}
+        {% if value not in ('', 'personal', 'skip') %}
+        <option value="{{ value }}" {% if sel_etype == value %}selected{% endif %}>{{ label }}</option>
+        {% endif %}
+      {% endfor %}
+    </select>
+    {% if fe.get('entity_type') %}
+      <span class="wiz-error">{{ fe['entity_type'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Tax schedule (optional)</label>
+    <span class="wiz-help">Auto-fills based on business type when blank. Schedule C is the default for sole-prop / LLC; Schedule F for farms.</span>
+    <select name="tax_schedule" class="wiz-input">
+      {% set sel_sched = fv.get('tax_schedule', '') %}
+      {% for value, label in tax_schedules %}
+        <option value="{{ value }}" {% if sel_sched == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+
+  <div class="wiz-field">
+    <label class="wiz-label">Notes (optional)</label>
+    <textarea
+      class="wiz-input"
+      name="notes"
+      rows="2"
+      maxlength="500">{{ fv.get('notes', '') }}</textarea>
+  </div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

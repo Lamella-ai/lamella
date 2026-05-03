@@ -1,0 +1,63 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+-->
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Paperless settings — Lamella{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block page_title %}Paperless settings{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Paperless (Connector ↔ Paperless-ngx)',
+     subtitle='Base URL + API token for the Paperless instance Lamella reads from. Per ADR-0047 each settings area lives at its own focused route.',
+     kicker='Settings'
+) %}
+  {{ B.btn('← Back to settings', href='/settings', variant='ghost') }}
+{% endcall %}
+
+{% if saved %}{% call F.banner(tone='ok', title='Saved') %}{% endcall %}{% endif %}
+
+{% call C.card() %}
+<form method="post" action="/settings/paperless" class="form-grid" style="max-width:none">
+  <div class="field">
+    <label class="field-label">Paperless URL</label>
+    <input class="field-input" type="url" name="paperless_url" value="{{ settings.paperless_url or '' }}" placeholder="https://paperless.example" />
+  </div>
+  <div class="field">
+    <label class="field-label">Paperless API token</label>
+    <input class="field-input" type="password" name="paperless_api_token" placeholder="{{ masked_token or '(not set)' }}" autocomplete="off" />
+    <span class="field-hint">Leave blank to keep the existing token.</span>
+  </div>
+
+  <fieldset style="border:1px solid var(--border); border-radius:8px; padding:0.75rem 1rem; margin-top:0.75rem">
+    <legend style="padding:0 6px; font-weight:600">Writeback</legend>
+    <p class="field-hint" style="margin:0 0 6px">
+      The master gate for PATCHing data back to Paperless. When ON, the
+      AI verify cascade pushes confident OCR corrections (vendor /
+      total / subtotal / tax / receipt date / title) onto a document
+      and tags it <code>Lamella Fixed</code>. The matcher always
+      populates the four <code>Lamella:*</code> custom fields on
+      receipt-link regardless of this gate, since per ADR-0044 those
+      fields ARE the Lamella↔Paperless link.
+    </p>
+    <label style="display:flex; gap:8px; align-items:center; font-size:0.92rem; margin:8px 0">
+      <input type="checkbox" name="paperless_writeback_enabled" value="1" {% if paperless_writeback_enabled %}checked{% endif %} />
+      <span><strong>Enable Paperless writeback</strong></span>
+    </label>
+    <p class="field-hint" style="margin:6px 0 0">
+      Activity log: <a href="/documents/writebacks">/documents/writebacks</a> ·
+      Custom-field map: <a href="/settings/paperless-fields">/settings/paperless-fields</a>
+    </p>
+  </fieldset>
+
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Save', type='submit', variant='primary') }}</div>
+</form>
+{% endcall %}
+{% endblock %}

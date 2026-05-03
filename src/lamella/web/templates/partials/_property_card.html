@@ -1,0 +1,41 @@
+{# One property card. Card body is a link to the detail page; a small
+   "Edit" button in the head triggers the quick-edit modal. Stable id
+   so the modal POST can target it for in-place swap on save. #}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/data.html" as D %}
+<div class="record-card{% if not c.is_active %} record-card--quiet{% endif %}"
+     id="property-card-{{ c.slug }}">
+  <div class="record-card-head">
+    <a href="/settings/properties/{{ c.slug }}" class="record-card-title-link">
+      <span class="record-card-title">{{ c.display_name or c.slug }}</span>
+    </a>
+    {% if c.is_primary_residence %}{{ D.badge('Primary', tone='info') }}{% endif %}
+    {% if c.is_rental %}{{ D.badge('Rental', tone='accent') }}{% endif %}
+    {% if not c.is_active %}{{ D.badge('Inactive', tone='muted') }}{% endif %}
+    {% if c.sale_date %}{{ D.badge('Sold ' + c.sale_date|string, tone='muted') }}{% endif %}
+    <button type="button" class="record-card-edit-btn"
+            title="Quick edit"
+            aria-label="Quick edit"
+            hx-get="/properties/{{ c.slug }}/edit-modal"
+            hx-target="body"
+            hx-swap="beforeend">
+      {{ icon.edit(14) }}
+    </button>
+  </div>
+  <a href="/settings/properties/{{ c.slug }}" class="record-card-body-link">
+    <div class="record-card-meta">
+      {% if c.property_type %}{{ c.property_type }}{% endif %}
+      {% if c.entity_slug %} · {{ c.entity_slug }}{% endif %}
+      {% if c.address or c.city or c.state %}
+        <br>
+        {{ c.address or '' }}{% if c.address and (c.city or c.state) %}, {% endif %}{{ c.city or '' }}{% if c.city and c.state %}, {% endif %}{{ c.state or '' }}
+      {% endif %}
+    </div>
+    {% if c.purchase_price or c.purchase_date %}
+    <div class="record-card-stats">
+      {% if c.purchase_price %}<span>Purchase {{ c.purchase_price | money }}</span>{% endif %}
+      {% if c.purchase_date %}<span>{{ c.purchase_date }}</span>{% endif %}
+    </div>
+    {% endif %}
+  </a>
+</div>

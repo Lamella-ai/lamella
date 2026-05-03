@@ -1,0 +1,61 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Merge {{ slug }} → {{ into }} — preview{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Merge entity{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Merge ' ~ slug ~ ' → ' ~ into,
+     subtitle='Cross-file rewrite preview. No files have been touched yet.',
+     kicker='Settings · Entities'
+) %}
+{% endcall %}
+
+{% if not preview.lines %}
+{% call F.banner(tone='info', title='Nothing matches') %}
+  The slug <code>{{ slug }}</code> isn't used at the entity position in any <code>.bean</code> file.
+{% endcall %}
+<p class="subtle"><a href="/settings/entities">← back</a></p>
+{% else %}
+<p><strong>{{ preview.file_count }} file(s), {{ preview.line_count }} line(s)</strong> will change.</p>
+
+<form method="post" action="/settings/entities/{{ slug }}/merge" style="margin:1rem 0">
+  <input type="hidden" name="into" value="{{ into }}" />
+  <input type="hidden" name="confirm" value="yes" />
+  {{ B.btn('Apply merge (%d lines)' % preview.line_count, type='submit', variant='danger') }}
+  {{ B.btn('Cancel', href='/settings/entities', variant='ghost') }}
+</form>
+
+{% call L.section(title='Preview diff') %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead><tr><th>File</th><th class="num">Line</th><th>Before</th><th>After</th></tr></thead>
+  <tbody>
+  {% for line in preview.lines %}
+  <tr>
+    <td><code>{{ line.file }}</code></td>
+    <td class="num">{{ line.line_number }}</td>
+    <td><code>{{ line.before }}</code></td>
+    <td><code style="color:var(--ok)">{{ line.after }}</code></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+{% endif %}
+{% endblock %}

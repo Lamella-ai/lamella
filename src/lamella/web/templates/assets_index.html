@@ -1,0 +1,95 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Assets — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Assets{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Assets',
+     subtitle='Real property and vehicles you own. Click for purchase price, equity, and expense history.',
+     kicker='Records'
+) %}
+  {{ B.btn('Add vehicle', href='/vehicles/new', icon=icon.plus(), variant='primary') }}
+{% endcall %}
+
+{% call L.section(title='Properties', subtitle='%d total' % properties|length) %}
+  {% if properties %}
+  <div class="record-grid">
+    {% for p in properties %}
+    <a class="record-card" href="/settings/properties/{{ p.slug }}">
+      <div class="record-card-head">
+        <span class="record-card-title">{{ p.display_name or p.slug }}</span>
+        {% if p.is_primary_residence %}{{ D.badge('Primary', tone='info') }}{% endif %}
+        {% if p.is_rental %}{{ D.badge('Rental', tone='accent') }}{% endif %}
+        {% if not p.is_active %}{{ D.badge('Inactive', tone='muted') }}{% endif %}
+      </div>
+      <div class="record-card-meta">
+        {% if p.property_type %}{{ p.property_type }}{% endif %}
+        {% if p.entity_display_name %}<br>Owned by {{ p.entity_display_name }}{% endif %}
+        {% if p.address %}<br>{{ p.address }}{% endif %}
+        {% if p.city %}{{ p.city }}{% if p.state %}, {{ p.state }}{% endif %}{% endif %}
+      </div>
+      {% if p.purchase_price %}
+      <div class="record-card-foot">
+        <span><span class="label">Purchase</span><span class="num">{{ D.money(p.purchase_price, signed=false) }}</span></span>
+        {% if p.purchase_date %}<span class="muted-text">{{ p.purchase_date }}</span>{% endif %}
+      </div>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  {{ F.empty_state(
+      'No properties yet.',
+      'Add a property in Settings',
+      '/settings/properties'
+  ) }}
+  {% endif %}
+{% endcall %}
+
+{% call L.section(title='Vehicles', subtitle='%d total' % vehicles|length) %}
+  {% if vehicles %}
+  <div class="record-grid">
+    {% for v in vehicles %}
+    <a class="record-card" href="/vehicles/{{ v.slug }}">
+      <div class="record-card-head">
+        <span class="record-card-title">{{ v.display_name or v.slug }}</span>
+      </div>
+      <div class="record-card-meta">
+        {% if v.entity_display_name %}{{ v.entity_display_name }}{% else %}Personal{% endif %}
+        {% if v.year or v.make or v.model %}<br>{{ v.year or '' }} {{ v.make or '' }} {{ v.model or '' }}{% endif %}
+        {% if v.license_plate %}<br>Plate {{ v.license_plate }}{% endif %}
+      </div>
+      {% if v.purchase_price %}
+      <div class="record-card-foot">
+        <span><span class="label">Purchase</span><span class="num">{{ D.money(v.purchase_price, signed=false) }}</span></span>
+        {% if v.purchase_date %}<span class="muted-text">{{ v.purchase_date }}</span>{% endif %}
+      </div>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  {{ F.empty_state(
+      'No vehicles yet.',
+      'Add your first vehicle',
+      '/vehicles/new'
+  ) }}
+  {% endif %}
+{% endcall %}
+{% endblock %}

@@ -1,0 +1,496 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Data integrity — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Data integrity{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Data integrity',
+     subtitle='Scan the existing Beancount ledger and pull every historical transaction onto the unified staging surface. This lets the transfer matcher and duplicate detector see your historical data — so a pasted statement that was already imported via SimpleFIN years ago gets flagged, not silently double-staged.',
+     kicker='Settings'
+) %}
+{% endcall %}
+
+{% if not reboot_ingest_enabled() %}
+{% call F.banner(tone='warn', title='Reboot ingest is disabled') %}
+  <p>The reboot scan walks every transaction in your ledger and stages
+  it onto the review queue. Two failure modes have hit users:</p>
+  <ul style='margin:.4rem 0 .4rem 1.2rem'>
+    <li><strong>Already-classified transactions duplicated.</strong>
+        The scan stages every ledger txn — including ones already
+        resolved — so they appeared as "pending" alongside the live
+        ledger entry.</li>
+    <li><strong>Reboot apply rewrites .bean files in place.</strong>
+        It's a destructive operation. If anything goes wrong mid-write,
+        the ``.pre-reboot-&lt;timestamp&gt;/`` backup dir is the only
+        rollback. Custom metadata that wasn't preserved on stage will
+        not come back on apply.</li>
+  </ul>
+  <p>The flow ships <em>off</em> until those guarantees are rebuilt.
+  If you understand the trade-off, set
+  <code>LAMELLA_REBOOT_INGEST_ENABLED=1</code> in the environment AFTER
+  taking a manual backup of your ledger directory. The recovery card
+  below lets you undo the "duplicates" bug if you already ran a scan.</p>
+{% endcall %}
+{% endif %}
+
+{% if purge_result is defined and purge_result %}
+  {% if purge_result.scope == 'all' %}
+{% call F.banner(tone='ok', title='Recovery — all reboot rows purged') %}
+  Removed <strong>{{ purge_result.deleted }}</strong> reboot-source
+  staged row(s) (everything except <code>promoted</code> rows). Your
+  ledger files are untouched and remain the source of truth — re-run
+  the reboot scan to re-stage them.
+{% endcall %}
+  {% else %}
+{% call F.banner(tone='ok', title='Recovery — already-classified reboot rows purged') %}
+  Removed <strong>{{ purge_result.deleted }}</strong> reboot-source
+  staged row(s) that pointed at fully-classified ledger transactions.
+  ({{ purge_result.candidate_pool }} reboot row(s) examined; the rest
+  pointed at unclassified entries and were left alone.)
+{% endcall %}
+  {% endif %}
+{% endif %}
+
+{% if error %}{% call F.banner(tone='err', title='Scan failed') %}{{ error }}{% endcall %}{% endif %}
+
+{% if reboot_apply_result %}
+{% call F.banner(tone='ok', title='Reboot ' ~ ('applied' if reboot_apply_result.files_overwritten else 'rolled back')) %}
+  {% if reboot_apply_result.files_overwritten %}
+    {{ reboot_apply_result.files_overwritten }} file(s) overwritten. Backup: <code>{{ reboot_apply_result.backup_dir.name }}</code>.
+  {% elif reboot_apply_result.files_restored %}
+    {{ reboot_apply_result.files_restored }} file(s) restored from <code>{{ reboot_apply_result.backup_dir.name }}</code>.
+  {% endif %}
+{% endcall %}
+{% endif %}
+
+{% if retrofit_result %}
+{% call F.banner(tone='ok', title='Retrofit complete') %}
+  Stamped <code>lamella-source-ref</code> on <strong>{{ retrofit_result.lines_stamped }}</strong> ledger line(s).
+  {% if retrofit_result.lines_already_tagged %}({{ retrofit_result.lines_already_tagged }} already tagged.){% endif %}
+  {% if retrofit_result.files_touched %}Touched: {% for f in retrofit_result.files_touched %}<code>{{ f.name }}</code>{% if not loop.last %}, {% endif %}{% endfor %}.{% endif %}
+{% endcall %}
+{% endif %}
+
+{% if preflight_report and preflight_report.payees %}
+{% call F.banner(tone='err', title='Pre-flight: %d uncategorized-heavy payee(s) need review' % preflight_report.payees|length) %}
+  <p style="margin:0 0 0.5rem">
+    <strong>{{ preflight_report.total_fixme_txns }}</strong> transaction(s) have been landing in uncategorized accounts for the bulk of their history.
+    Reboot will faithfully reconstruct these as un-classified unless you resolve them first (create rules, promote mined patterns, or adjust the ledger directly).
+  </p>
+  {% if preflight_ack_fresh %}
+    <p style="margin:0; color:var(--ok)"><strong>✓ Acknowledged.</strong> Reboot apply unlocked until new uncategorized patterns accumulate.</p>
+  {% else %}
+    <form method="post" action="/settings/data-integrity/acknowledge-preflight" style="margin:0">
+      {{ B.btn('I’ve reviewed these', type='submit', variant='primary', size='sm') }}
+    </form>
+  {% endif %}
+  <details style="margin-top:0.75rem">
+    <summary style="cursor:pointer">Top uncategorized-heavy payees (ranked by uncategorized count)</summary>
+    <table class="tbl" style="margin-top:0.5rem">
+      <thead>
+        <tr><th>Payee</th><th class="num">Uncategorized count</th><th class="num">Total seen</th><th class="num">Uncategorized share</th><th>Categorized accounts seen</th></tr>
+      </thead>
+      <tbody>
+      {% for p in preflight_report.payees[:50] %}
+        <tr>
+          <td><code>{{ p.normalized_payee }}</code></td>
+          <td class="num">{{ p.fixme_count }}</td>
+          <td class="num">{{ p.total }}</td>
+          <td class="num">{{ (p.fixme_share * 100) | round | int }}%</td>
+          <td>
+            {% if not p.sample_accounts %}<span class="subtle">none — every hit was uncategorized</span>
+            {% else %}
+              {% for acct, count in p.sample_accounts %}<code>{{ acct.split(':')[-1] }}</code> <span class="subtle">({{ count }})</span>{% if not loop.last %}, {% endif %}{% endfor %}
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% if preflight_report.payees|length > 50 %}<p class="subtle">({{ preflight_report.payees|length - 50 }} more not shown.)</p>{% endif %}
+  </details>
+{% endcall %}
+{% elif preflight_report and not preflight_report.payees %}
+{% call F.banner(tone='ok', title='Pre-flight clean') %}
+  No payees are landing predominantly in uncategorized. Reboot apply is unblocked.
+{% endcall %}
+{% endif %}
+
+{% call L.section(title='Tools') %}
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:1rem">
+
+  {% call C.card(title='Find duplicate SimpleFIN transactions', tone='info') %}
+  <p class="subtle" style="margin:0 0 0.75rem">
+    Scan the ledger for groups of transactions that look like the same real-world event but were ingested multiple times with
+    different SimpleFIN ids. Pick which copy to keep per group. Server-side keep-one check + pre-change backup.
+  </p>
+  {{ B.btn('Open duplicate finder →', href='/settings/data-integrity/duplicates', variant='primary') }}
+  {% endcall %}
+
+  {% call C.card(title='Imported files archive', tone='info') %}
+  <p class="subtle" style="margin:0 0 0.75rem">
+    Every CSV, OFX, QIF, IIF, XLSX, ODS, and paste you ingest is
+    archived under <code>&lt;ledger&gt;/imports/</code> with a
+    stable file_id (ADR-0060). Re-open the original, audit which
+    rows came from where, or download bytes verbatim.
+  </p>
+  {{ B.btn('Browse imports →', href='/imports', variant='primary') }}
+  {% endcall %}
+
+  {% set _dup_count = likely_duplicates_count() if likely_duplicates_count is defined else 0 %}
+  {% call C.card(title='Verify multi-source observations' ~ (' (' ~ _dup_count ~ ')' if _dup_count else ''), tone='ok' if not _dup_count else 'warn') %}
+  <p class="subtle" style="margin:0 0 0.75rem">
+    Live cross-source dedup (ADR-0058). Whenever any source's row
+    (date + signed amount + description) matches an existing
+    staged row OR a ledger posting from any other source, it lands
+    here so you can confirm "same event — record this as another
+    observation" or release "actually different." All four sides
+    of a multi-source transfer (e.g. ledger entry + bank-feed leg
+    + payment-processor CSV leg) collapse onto the right event,
+    not "N duplicates."
+  </p>
+  {% if _dup_count %}
+    <p style="margin:0 0 0.75rem"><strong>{{ _dup_count }}</strong> row(s) waiting.</p>
+  {% else %}
+    <p class="subtle" style="margin:0 0 0.75rem">No multi-source matches right now — every staged row looks like its own unique event.</p>
+  {% endif %}
+  {{ B.btn('Open review →', href='/review/duplicates', variant='primary' if _dup_count else 'secondary') }}
+  {% endcall %}
+
+  {% call C.card(title='Review pending AI suggestions', tone='ok') %}
+  <p class="subtle" style="margin:0 0 0.75rem">
+    Every AI-proposed classification below the 0.90 auto-apply threshold waits here. Approve / Reject / Correct each one.
+    Rejections feed back as negative-reinforcement context for the next AI pass.
+  </p>
+  {{ B.btn('Open suggestion review →', href='/ai/suggestions', variant='primary') }}
+  {% endcall %}
+
+  {% call C.card(title='Audit legacy :Fees: paths', tone='info') %}
+  <p class="subtle" style="margin:0 0 0.75rem">
+    Pre-fix scaffolder wrote <code>Expenses:{entity}:Fees:...</code> which doesn’t map to any Schedule C line.
+    Show legacy paths and what their <code>:Bank:</code> replacement would be.
+  </p>
+  {{ B.btn('Audit legacy paths →', href='/settings/data-integrity/legacy-fees-paths', variant='primary') }}
+  {% endcall %}
+
+  {% call C.card(title='Clean up stacked overrides', tone='info') %}
+  <p class="subtle" style="margin:0 0 0.75rem">
+    Find override blocks in <code>connector_overrides.bean</code> where multiple entries point at the same source transaction.
+    Collapses each group to its newest block and backs up the file first.
+  </p>
+  {{ B.btn('Open stacked-override finder →', href='/settings/data-integrity/stacked-overrides', variant='primary') }}
+  {% endcall %}
+
+  {% call C.card(title='Heal legacy account hierarchies', tone='info') %}
+  <p class="subtle" style="margin:0 0 0.75rem">
+    Rewrite outdated entity-first account paths to the current shape (e.g. older
+    <code>Expenses:{Entity}:Fees:{Inst}</code> branches → <code>:Bank:</code>).
+    Lists what would change before applying.
+  </p>
+  {{ B.btn('Open legacy-paths heal →', href='/setup/legacy-paths', variant='primary') }}
+  {% endcall %}
+
+  {% call C.card(title='Recover — purge already-classified reboot rows', tone='warn') %}
+  <p class="subtle" style="margin:0 0 0.75rem">
+    If a previous reboot scan staged fully-classified ledger
+    transactions onto the review queue (the "every classified txn
+    got duplicated" symptom), this action removes those rows from
+    <code>staged_transactions</code>. SQLite-only — no .bean files
+    are touched. Real work-in-progress reboot rows (pointing at
+    unclassified entries) are left alone.
+  </p>
+  <form method="post"
+        action="/settings/data-integrity/purge-reboot-orphans"
+        style="margin:0">
+    {{ B.btn('Purge orphaned reboot rows', type='submit', variant='warn') }}
+  </form>
+  {% endcall %}
+
+  {% call C.card(title='Recover — purge ALL reboot rows (nuclear)', tone='warn') %}
+  <p class="subtle" style="margin:0 0 0.75rem">
+    Wipe every <code>source='reboot'</code> row from
+    <code>staged_transactions</code> regardless of whether the matched
+    ledger entry is classified. Use this if you ran the reboot scan by
+    mistake and want to fully undo the ingest. <strong>Promoted rows
+    are kept</strong> (those represent work you've already accepted).
+    SQLite-only — your .bean files remain authoritative and untouched.
+    Re-run the scan later if you want to retry.
+  </p>
+  <form method="post"
+        action="/settings/data-integrity/purge-all-reboot-rows"
+        style="margin:0"
+        onsubmit="return confirm('Delete EVERY non-promoted reboot row from the staging table? Your ledger files are untouched. OK to continue.');">
+    {{ B.btn('Purge ALL reboot rows', type='submit', variant='warn') }}
+  </form>
+  {% endcall %}
+
+  {% call C.card(title='Heal metadata schema drift', tone='info') %}
+  <p class="subtle" style="margin:0 0 0.75rem">
+    Repair <code>lamella-*</code> metadata keys that are missing, mistyped, or
+    use legacy names. Read-only preview before any write; runs bean-check
+    against a baseline.
+  </p>
+  {{ B.btn('Open schema heal →', href='/setup/recovery/schema', variant='primary') }}
+  {% endcall %}
+
+</div>
+{% endcall %}
+
+{% call L.section(title='Auto-classify uncategorized with AI', subtitle='AI runs on every new SimpleFIN ingest, but pre-existing uncategorized rows never got seen. This iterates them.') %}
+{% call C.card(tone='accent') %}
+<ul style="margin:0 0 0.75rem; padding-left:1.2rem; line-height:1.6; font-size:0.9rem">
+  <li>Confidence ≥ 0.90 → auto-applies an override immediately.</li>
+  <li>Lower confidence → records the proposal for review (doesn’t touch the ledger).</li>
+  <li>Every write goes through bean-check; any failure reverts atomically.</li>
+  <li>Safe to cancel mid-run; already-applied overrides stay.</li>
+  <li><strong>Runaway protection:</strong> aborts after 3 consecutive errors.</li>
+</ul>
+<form method="post" action="/settings/data-integrity/classify-fixmes"
+      hx-post="/settings/data-integrity/classify-fixmes" hx-target="body" hx-swap="beforeend"
+      class="form-grid" style="max-width:none">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Max txns this run</label>
+      <input class="field-input" type="number" name="limit" value="5" min="1" max="10000" />
+      <p class="subtle" style="margin:6px 0 0">(blank = unlimited; keep small for first test)</p>
+    </div>
+    <div class="field">
+      <label class="field-label">Stop after N consecutive errors</label>
+      <input class="field-input" type="number" name="max_consecutive_errors" value="3" min="1" max="50" />
+    </div>
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Run AI over uncategorized →', type='submit', variant='primary') }}</div>
+</form>
+{% endcall %}
+{% endcall %}
+
+{% call L.section(title='Auto-match receipts (backlog sweep)') %}
+{% call C.card(tone='ok') %}
+<p class="subtle" style="margin:0 0 0.75rem">
+  Run the receipt matcher over every unlinked transaction in the last 6 months. High-confidence (≥0.90) Paperless matches are auto-linked;
+  lower-confidence ones stay available via /search/receipt-hunt. Runs as a background job. Also runs after every SimpleFIN fetch automatically — this button sweeps the backlog.
+</p>
+<form method="post" action="/settings/data-integrity/auto-match-receipts"
+      hx-post="/settings/data-integrity/auto-match-receipts" hx-target="body" hx-swap="beforeend">
+  {{ B.btn('Sweep unlinked transactions for receipts →', type='submit', variant='primary') }}
+</form>
+{% endcall %}
+{% endcall %}
+
+{% if integrity_report %}
+{% call L.section(title='Last integrity check') %}
+{% call C.card(tone=('ok' if integrity_report.is_clean else 'warn')) %}
+<p style="margin:0 0 0.5rem">
+  {% if integrity_report.is_clean %}<strong style="color:var(--ok)">✓ No changes needed.</strong>
+  {% else %}<strong style="color:var(--warn)">Needs attention.</strong>{% endif %}
+  <span class="subtle">— {{ integrity_report.summary() }}</span>
+</p>
+<p class="subtle" style="margin:0">
+  {{ integrity_report.total_ledger_txns }} ledger txn(s) scanned across {{ integrity_report.files_covered }} file(s). Last run {{ integrity_report.finished_at }}.
+</p>
+<form method="post" action="/settings/data-integrity/check" style="margin-top:0.75rem">
+  {{ B.btn('Run health check', type='submit', variant='ghost', size='sm') }}
+</form>
+{% endcall %}
+{% endcall %}
+{% else %}
+{% call L.section(title='Integrity check') %}
+{% call C.card() %}
+<p class="subtle" style="margin:0 0 0.75rem">No integrity check has run yet on this DB.</p>
+<form method="post" action="/settings/data-integrity/check">
+  {{ B.btn('Run health check', type='submit', variant='primary', size='sm') }}
+</form>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+{% if reboot_plan %}
+{% call L.section(title='Reboot plan prepared') %}
+{% call C.card(tone='info') %}
+<p class="subtle" style="margin:0 0 0.75rem">
+  Files written to <code>.reboot/</code>. Review the diffs below before applying. Apply creates a <code>.pre-reboot-&lt;timestamp&gt;/</code>
+  backup, overwrites originals, and runs bean-check — any failure rolls back every file.
+</p>
+{% if reboot_plan.has_changes %}
+  {% for d in reboot_plan.diffs if d.changed %}
+    <details style="margin-bottom:0.5rem">
+      <summary><strong>{{ d.path.name }}</strong></summary>
+      <pre style="background:var(--bg-elev); padding:0.75rem; border:1px solid var(--border); border-radius:6px; overflow-x:auto; font-family:var(--font-mono); font-size:0.85rem; margin:0.5rem 0 0">{{ d.unified_diff }}</pre>
+    </details>
+  {% endfor %}
+{% else %}
+  <p style="margin:0"><strong>No changes proposed.</strong> Ledger is already canonical — applying is a no-op.</p>
+{% endif %}
+<form method="post" action="/settings/data-integrity/apply-reboot" style="margin-top:0.75rem">
+  {{ B.btn('Apply reboot', type='submit', variant='primary') }}
+</form>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+{% if mined_rules is defined and mined_rules is not none %}
+{% call L.section(title='Mined directional rules', subtitle='%d patterns observed' % mined_rules|length) %}
+{% call C.card(tone='info') %}
+<p class="subtle" style="margin:0 0 0.75rem">
+  Per the rules-are-directional principle, these are proposals the AI will consume as weighted priors — not hard lookups. Review before adopting.
+</p>
+{% if mined_rules %}
+<table class="tbl">
+  <thead>
+    <tr><th>Payee (normalized)</th><th>Proposed account</th><th class="num">Support</th><th class="num">Confidence</th><th>Alternatives</th></tr>
+  </thead>
+  <tbody>
+    {% for r in mined_rules[:50] %}
+    <tr>
+      <td><code>{{ r.normalized_payee }}</code></td>
+      <td><code>{{ r.proposed_account }}</code></td>
+      <td class="num">{{ r.support }}</td>
+      <td class="num">{{ (r.confidence * 100) | round | int }}%</td>
+      <td>
+        {% for alt_account, alt_count in r.alternatives %}<code>{{ alt_account }}</code> ({{ alt_count }}){% if not loop.last %}, {% endif %}{% endfor %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}<p style="margin:0">No rules met the threshold. Try lowering the minimum support count.</p>{% endif %}
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+{% if result %}
+{% call F.banner(tone='ok', title='Scan complete') %}
+  Parsed <strong>{{ result.total_txns }}</strong> txns across <strong>{{ result.files_covered|length }}</strong> file(s).
+  Staged <strong>{{ result.staged }}</strong>.
+  {% if result.skipped %}Skipped <strong>{{ result.skipped }}</strong>.{% endif %}
+  {% if result.already_reboot %}({{ result.already_reboot }} were already tagged reboot.){% endif %}
+{% endcall %}
+
+{% if result.duplicate_groups %}
+{% call L.section(title='Historical duplicates detected', subtitle='%d group(s), %d row(s)' % (result.duplicate_groups|length, result.duplicates_total)) %}
+<p class="subtle" style="margin:-8px 0 1rem">
+  These rows share a content fingerprint (same date, absolute amount, normalized description). Same algorithm as the paste-intake duplicate detector.
+</p>
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead><tr><th class="num shrink">#</th><th class="num">Members</th><th>Sources</th><th>Fingerprint</th><th class="shrink">Retrofit</th></tr></thead>
+  <tbody>
+    {% for group in result.duplicate_groups[:50] %}
+    <tr>
+      <td class="num">{{ loop.index }}</td>
+      <td class="num">{{ group.members|length }}</td>
+      <td>
+        {% set src_set = [] %}
+        {% for m in group.members %}{% if m[1] not in src_set %}{% set _ = src_set.append(m[1]) %}{% endif %}{% endfor %}
+        {{ src_set|join(', ') }}
+      </td>
+      <td><code>{{ group.fingerprint[:12] }}…</code></td>
+      <td class="shrink">
+        <form method="post" action="/settings/data-integrity/retrofit" style="margin:0">
+          <input type="hidden" name="fingerprint" value="{{ group.fingerprint }}">
+          {{ B.btn('Stamp', type='submit', variant='ghost', size='sm') }}
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+<p class="subtle" style="margin-top:0.75rem; font-size:0.85rem">
+  <strong>Stamp</strong> writes <code>lamella-source-ref: "&lt;fingerprint&gt;"</code> onto every ledger line in the group. Future imports dedup on that key. Idempotent and bean-check-safe.
+</p>
+{% if result.duplicate_groups|length > 50 %}<p class="subtle">({{ result.duplicate_groups|length - 50 }} more groups not shown.)</p>{% endif %}
+{% endcall %}
+{% else %}
+<p class="subtle">No historical duplicates detected.</p>
+{% endif %}
+
+{% if result.errors %}
+{% call F.banner(tone='warn', title='Errors during scan') %}
+<ul style="margin:0; padding-left:1.2rem">
+  {% for e in result.errors[:20] %}<li><code>{{ e }}</code></li>{% endfor %}
+</ul>
+{% endcall %}
+{% endif %}
+{% endif %}
+
+{% call L.section(title='Scan ledger') %}
+{% call C.card() %}
+<form hx-post="/settings/data-integrity/scan" hx-target="body" hx-swap="beforeend">
+  {{ B.btn(('Rescan' if result else 'Scan ledger'), type='submit', variant='primary') }}
+</form>
+<p class="subtle" style="margin:0.75rem 0 0">
+  Pulls every historical transaction onto the unified staging surface so the duplicate detector and transfer matcher can see them.
+</p>
+{% endcall %}
+{% endcall %}
+
+{% call L.section(title='File-side reboot (Phase E2b)') %}
+{% call C.card() %}
+<p class="subtle" style="margin:0 0 0.75rem">
+  Prepare a cleaned copy of every ledger file in <code>.reboot/</code>, review the diff, and apply with automatic backup to
+  <code>.pre-reboot-&lt;timestamp&gt;/</code>. Rollback available as long as the backup exists.
+</p>
+<div style="display:flex; gap:8px; flex-wrap:wrap">
+  <form method="post" action="/settings/data-integrity/prepare-reboot" style="margin:0">
+    {{ B.btn('Prepare reboot', type='submit', variant='ghost', size='sm') }}
+  </form>
+  <form method="post" action="/settings/data-integrity/rollback-reboot" style="margin:0">
+    {{ B.btn('Rollback to last backup', type='submit', variant='ghost', size='sm') }}
+  </form>
+</div>
+{% endcall %}
+{% endcall %}
+
+{% call L.section(title='Rule mining (Phase E3)') %}
+{% call C.card() %}
+<p class="subtle" style="margin:0 0 0.75rem">
+  Scan the ledger for repeating (payee → account) patterns and propose directional rules. The AI consumes these as weighted priors, not hard overrides.
+</p>
+<form method="post" action="/settings/data-integrity/mine-rules"
+      hx-post="/settings/data-integrity/mine-rules" hx-target="body" hx-swap="beforeend">
+  {{ B.btn('Mine rules from ledger', type='submit', variant='ghost', size='sm') }}
+</form>
+{% endcall %}
+{% endcall %}
+
+{% if recent_sessions %}
+{% call L.section(title='Recent scans') %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead><tr><th>Session</th><th>Started</th><th class="num">Rows</th></tr></thead>
+  <tbody>
+    {% for s in recent_sessions %}
+    <tr>
+      <td><code>{{ s.session_id }}</code></td>
+      <td class="subtle">{{ s.started_at }}</td>
+      <td class="num">{{ s.row_count }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+<p class="subtle" style="margin-top:1.5rem">
+  <strong>Non-destructive.</strong> This page doesn’t touch your ledger files unless you explicitly apply a reboot.
+  Scanning only reads the ledger and writes to the staging database.
+</p>
+{% endblock %}

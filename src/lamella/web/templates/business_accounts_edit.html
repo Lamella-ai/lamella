@@ -1,0 +1,76 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Bulk edit accounts — {{ entity.display_name or entity.slug }}{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Bulk edit accounts{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Bulk edit · ' ~ (entity.display_name or entity.slug),
+     subtitle='Quick-edit display names and kinds for every account tied to this entity. For deeper edits (institution, SimpleFIN, notes, closed_on), open the individual account page.',
+     kicker='Settings · Accounts'
+) %}
+  {{ B.btn('Back to accounts', href='/accounts', variant='ghost') }}
+{% endcall %}
+
+{% if request.query_params.get("saved") %}
+{% call F.banner(tone='ok', title='Saved') %}{{ request.query_params["saved"] }} row(s) updated.{% endcall %}
+{% endif %}
+
+<datalist id="bulk-kinds-datalist">
+  {% for k in account_kinds %}<option value="{{ k }}" label="{{ k | humanize }}">{% endfor %}
+</datalist>
+
+<form method="post" action="{{ entity_url(entity, '/accounts/edit') }}">
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th style="width:32%">Account</th>
+      <th style="width:38%">Display name</th>
+      <th style="width:22%">Kind</th>
+      <th class="shrink"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for a in accounts %}
+    <tr>
+      <td>
+        <strong>{{ a.label }}</strong><br>
+        <code style="font-size:0.82rem">{{ a.account_path }}</code>
+      </td>
+      <td>
+        <input class="field-input" type="text" name="display_name[{{ a.account_path }}]" value="{{ a.display_name or '' }}" />
+      </td>
+      <td>
+        <input class="field-input" type="text" name="kind[{{ a.account_path }}]" list="bulk-kinds-datalist" value="{{ a.kind or '' }}" placeholder="(unlabeled)" />
+      </td>
+      <td class="shrink">
+        <a href="/accounts/{{ a.account_path }}" class="subtle" style="font-size:0.85rem">open →</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+<div class="form-actions" style="margin-top:1rem">
+  {{ B.btn('Cancel', href='/accounts', variant='ghost') }}
+  <span class="spacer"></span>
+  {{ B.btn('Save changes', type='submit', variant='primary') }}
+</div>
+</form>
+{% endblock %}

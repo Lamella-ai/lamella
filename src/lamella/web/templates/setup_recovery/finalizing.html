@@ -1,0 +1,251 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "setup_recovery/_layout.html" %}
+
+{% block title %}Applying repairs — Lamella{% endblock %}
+
+{% block step_heading %}Applying repairs&hellip;{% endblock %}
+{% block step_subheading %}
+  Hang tight — running schema, label, and cleanup heals in order.
+  Each group commits independently so a failure later doesn't undo
+  the earlier wins.
+{% endblock %}
+
+{% block step_body %}
+  {# Step list — three groups in locked order. The JS below activates
+     the current group based on `group_started` events from the SSE
+     stream and marks done on `group_committed` / failed on
+     `group_rolled_back`. The whole list renders even when the batch
+     contains no findings for one of the groups; the JS skips
+     activations for those (their group_started never fires). #}
+
+  <div class="wiz-card" style="padding:1.6em 1.8em;">
+
+    <div class="wiz-finalizing-progress" id="recovery-progress" style="margin-bottom:1.4em;">
+      <div class="wiz-finalizing-progress-bar"
+           id="recovery-progress-bar"
+           style="width:0%"></div>
+    </div>
+
+    <ol class="wiz-step-list" id="recovery-steps">
+      <li data-key="schema" data-label="Schema migrations">
+        <span class="wiz-step-dot"></span>
+        <span class="wiz-step-text">Schema migrations</span>
+      </li>
+      <li data-key="labels" data-label="Label corrections">
+        <span class="wiz-step-dot"></span>
+        <span class="wiz-step-text">Label corrections</span>
+      </li>
+      <li data-key="cleanup" data-label="Cleanup">
+        <span class="wiz-step-dot"></span>
+        <span class="wiz-step-text">Cleanup</span>
+      </li>
+    </ol>
+
+    <div class="recovery-counters" id="recovery-counters"
+         style="display:flex; gap:1.4em; margin-top:1.4em; padding-top:1em;
+                border-top:1px solid var(--border); font-size:0.92em;">
+      <div><strong id="recovery-count-applied">0</strong> applied</div>
+      <div><strong id="recovery-count-failed">0</strong> failed</div>
+    </div>
+
+    <div class="wiz-finalizing-log" id="recovery-log"
+         hidden
+         style="margin-top:1em; padding:0.7em 0.9em; background:var(--bg-elev);
+                border-radius:4px; font-family:var(--font-mono); font-size:0.85em;">
+      <div class="wiz-finalizing-log-line" id="recovery-log-line"></div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block step_actions %}
+  {# Empty — the page redirects on terminal status. The user can still
+     manually navigate via the brand link in the header. #}
+{% endblock %}
+
+{% block modal %}
+<script id="recovery-finalize-config" type="application/json">
+{
+  "jobId": {{ job_id | tojson }},
+  "redirectUrl": "/setup/recovery"
+}
+</script>
+
+<script>
+  (function () {
+    var cfg = JSON.parse(document.getElementById("recovery-finalize-config").textContent);
+    var jobId = cfg.jobId || "";
+    var redirectUrl = cfg.redirectUrl || "/setup/recovery";
+
+    var reduceMotion = window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    var steps = Array.prototype.slice.call(
+      document.querySelectorAll("#recovery-steps li")
+    );
+    var stepIndexByKey = {};
+    steps.forEach(function (li, i) { stepIndexByKey[li.dataset.key] = i; });
+
+    var progressBar = document.getElementById("recovery-progress-bar");
+    var logBox = document.getElementById("recovery-log");
+    var logLine = document.getElementById("recovery-log-line");
+    var appliedEl = document.getElementById("recovery-count-applied");
+    var failedEl = document.getElementById("recovery-count-failed");
+
+    var totalFindings = 0;
+    var doneFindings = 0;
+    var appliedCount = 0;
+    var failedCount = 0;
+
+    function setActive(i) {
+      steps.forEach(function (li, idx) {
+        if (idx < i) {
+          li.classList.remove("is-active");
+          li.classList.add("is-done");
+        } else if (idx === i) {
+          li.classList.remove("is-done");
+          li.classList.add("is-active");
+        }
+      });
+    }
+
+    function markGroupDone(key, ok) {
+      var idx = stepIndexByKey[key];
+      if (typeof idx !== "number") return;
+      var li = steps[idx];
+      li.classList.remove("is-active");
+      if (ok) {
+        li.classList.add("is-done");
+      } else {
+        li.classList.add("is-failed");
+      }
+    }
+
+    function showLog(text) {
+      if (!text) { return; }
+      logBox.hidden = false;
+      logLine.textContent = text;
+    }
+
+    function updateProgress() {
+      var pct = totalFindings > 0
+        ? Math.min(100, (doneFindings / totalFindings) * 100)
+        : 0;
+      progressBar.style.width = pct.toFixed(1) + "%";
+    }
+
+    function bumpApplied() {
+      appliedCount += 1;
+      doneFindings += 1;
+      appliedEl.textContent = appliedCount;
+      updateProgress();
+    }
+
+    function bumpFailed() {
+      failedCount += 1;
+      doneFindings += 1;
+      failedEl.textContent = failedCount;
+      updateProgress();
+    }
+
+    function finish() {
+      steps.forEach(function (li) {
+        if (!li.classList.contains("is-failed") &&
+            !li.classList.contains("is-done") &&
+            !li.classList.contains("is-active")) {
+          // Group never ran (no findings for it); leave as pending.
+        }
+      });
+      progressBar.style.width = "100%";
+      setTimeout(function () {
+        document.body.classList.add("is-fading-out");
+      }, reduceMotion ? 100 : 600);
+      setTimeout(function () {
+        window.location.href = redirectUrl;
+      }, reduceMotion ? 350 : 1200);
+    }
+
+    function applyEvent(payload) {
+      var detail = payload && payload.detail;
+      var ev = detail && detail.event;
+      if (!ev) {
+        if (payload && payload.message) showLog(payload.message);
+        return;
+      }
+      if (ev === "batch_started") {
+        totalFindings = detail.total_findings || 0;
+      } else if (ev === "group_started") {
+        var idx = stepIndexByKey[detail.group];
+        if (typeof idx === "number") setActive(idx);
+        showLog("Starting " + detail.group + " (" + detail.findings + " findings)");
+      } else if (ev === "finding_applied") {
+        bumpApplied();
+        showLog("Applied: " + (detail.summary || detail.finding_id));
+      } else if (ev === "finding_failed") {
+        bumpFailed();
+        showLog("Failed: " + (detail.summary || detail.finding_id) +
+                " — " + (detail.message || ""));
+      } else if (ev === "group_committed") {
+        markGroupDone(detail.group, true);
+      } else if (ev === "group_rolled_back") {
+        markGroupDone(detail.group, false);
+        showLog("Group rolled back: " + detail.group + " — " + (detail.reason || ""));
+      } else if (ev === "batch_done") {
+        // Don't redirect here — let the status-event terminal path
+        // handle it so we have a single redirect site.
+      }
+    }
+
+    function applyStatus(status) {
+      if (!status) { return; }
+      if (status.status === "done") {
+        finish();
+      } else if (status.status === "error" ||
+                 status.status === "interrupted" ||
+                 status.status === "cancelled") {
+        showLog(status.error_message ||
+                "Apply pipeline interrupted — check the recovery page for details.");
+        setTimeout(function () { window.location.href = redirectUrl; }, 2200);
+      }
+    }
+
+    if (!jobId) {
+      // Direct hit — no live job to subscribe to. Just bounce back.
+      window.location.href = redirectUrl;
+      return;
+    }
+
+    var src = new EventSource("/jobs/" + encodeURIComponent(jobId) + "/stream");
+
+    src.addEventListener("progress", function (ev) {
+      try { applyEvent(JSON.parse(ev.data)); }
+      catch (e) { /* ignore malformed payloads */ }
+    });
+
+    src.addEventListener("status", function (ev) {
+      try { applyStatus(JSON.parse(ev.data)); }
+      catch (e) { /* ignore */ }
+    });
+
+    src.addEventListener("close", function () {
+      src.close();
+      // Backstop in case the server closes without a "done" status.
+      setTimeout(function () {
+        if (!document.body.classList.contains("is-fading-out")) {
+          finish();
+        }
+      }, 500);
+    });
+
+    src.onerror = function () {
+      // Transient connection blip — let EventSource auto-reconnect.
+    };
+  })();
+</script>
+{% endblock %}

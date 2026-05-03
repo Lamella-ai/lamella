@@ -1,0 +1,162 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Welcome — Lamella{% endblock %}
+{% block layout %}setup{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block page_title %}Welcome{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Welcome to Lamella',
+     subtitle='We see a Beancount ledger at ' ~ ledger_main ~ ' but no evidence that this app has configured anything in it yet.',
+     kicker='Setup'
+) %}
+{% endcall %}
+
+{# ============================================================
+   Data + security disclaimer. Shown on every fresh-ledger first
+   run before the user can proceed. The "I understand" checkbox
+   on the Continue form is required to submit; the acknowledgement
+   timestamp is recorded server-side. Linked from /disclaimer for
+   later reference.
+   ============================================================ #}
+<section class="setup-disclaimer">
+  <header class="setup-disclaimer__head">
+    <h2><span aria-hidden="true">⚠️</span> Read this before continuing</h2>
+    <p class="muted">Lamella is self-hosted financial software that sends transaction data to external AI services when you enable them. Understand the trade-offs before you set it up.</p>
+  </header>
+
+  <div class="setup-disclaimer__cards">
+    <article class="setup-disclaimer__card">
+      <h3>You run it. You secure it.</h3>
+      <p>Self-hosted means you control where this is installed, who can reach it on the network, and how it’s backed up. Lamella ships with safe defaults (binds to <code>127.0.0.1</code>, optional username/password auth) but cannot enforce them through your firewall or your hosting choices. If you expose it to the internet without auth or behind weak credentials and your data leaks, that’s your responsibility.</p>
+      <p class="muted small">Recommended baseline: behind a tunnel that authenticates upstream (Cloudflare Access, Tailscale, VPN), with <code>AUTH_USERNAME</code> + <code>AUTH_PASSWORD</code> set as defense-in-depth, and <code>/data</code> + <code>/ledger</code> on a backup schedule.</p>
+    </article>
+
+    <article class="setup-disclaimer__card">
+      <h3>Your ledger is sensitive financial data.</h3>
+      <p>Beancount holds amounts, account names, card tails, vendor names, dates, narrations, and (with receipts enabled) document images. A compromise of the host filesystem exposes all of it. Treat <code>/ledger</code> like you’d treat the folder where your tax return PDFs live.</p>
+    </article>
+
+    <article class="setup-disclaimer__card setup-disclaimer__card--warn">
+      <h3>Enabling AI sends transaction data to a third party.</h3>
+      <p>When you configure OpenRouter (or any AI provider) and turn on the classify cascade, <strong>every classified transaction is sent to that provider’s API</strong>. The data sent includes:</p>
+      <ul>
+        <li>Transaction date, amount, currency</li>
+        <li>Payee / merchant string and narration</li>
+        <li>The account/card it was charged on (e.g. <code>Liabilities:Chase:CC:4242</code>)</li>
+        <li>Vector-similar historical transactions (more context for the same vendor)</li>
+        <li>Entity descriptions and account descriptions you’ve written</li>
+        <li>For <em>receipt verification</em>: the receipt image plus its OCR text</li>
+      </ul>
+      <p><strong>Choose your provider deliberately.</strong> Different upstream models on the same gateway have different data-handling terms. Look for <em>zero data retention</em>, <em>no training on customer data</em>, or enterprise-tier guarantees in the provider’s policy. If you wouldn’t hand a vendor your tax records on paper, don’t hand them your transaction stream through their API.</p>
+      <p class="muted small">AI is opt-in. Lamella runs without an AI provider — classification falls back to rules-only. You can also turn AI off at any time from <code>/settings</code>.</p>
+    </article>
+
+    <article class="setup-disclaimer__card">
+      <h3>No warranty.</h3>
+      <p>Lamella is provided <strong>AS IS</strong> under the Apache License 2.0 — see <a href="/static/LICENSE" target="_blank" rel="noopener">LICENSE</a> for the full no-warranty terms. Bugs in classification, override-write, or migration could produce incorrect financial records. Treat the system as a tool that proposes work; review what lands. Lamella can be reconstructed from your Beancount files alone — back those up.</p>
+    </article>
+  </div>
+
+  <p class="setup-disclaimer__footer muted small">
+    You can revisit this notice any time at <a href="/disclaimer">/disclaimer</a>.
+    The Apache 2.0 license, the <a href="/trademark">trademark policy</a>, and the
+    <a href="https://github.com/lamella-ai/lamella" target="_blank" rel="noopener">source code</a>
+    are all public.
+  </p>
+</section>
+
+{% call F.banner(tone='info', title='What this means') %}
+Your ledger parses cleanly, but it doesn’t carry any of the <code>lamella-*</code> metadata or
+<code>custom</code> directives that this app uses to store configuration (rules, loans, vehicles,
+notes, projects, Paperless field mappings, etc.). That’s typical when you imported a ledger from
+another Beancount tool (bean-example, Fava, hand-edited), or this is your first time running the
+app against it.
+{% endcall %}
+
+{% call L.section(title='What we can see in your ledger') %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <tbody>
+    <tr><td>Transactions</td><td class="num"><strong>{{ stats.transactions }}</strong></td></tr>
+    <tr><td>Open directives</td><td class="num"><strong>{{ stats.opens }}</strong></td></tr>
+    <tr><td>Distinct accounts touched</td><td class="num"><strong>{{ stats.accounts }}</strong></td></tr>
+    {% if stats.earliest %}
+    <tr><td>Earliest transaction</td><td class="num"><strong>{{ stats.earliest }}</strong></td></tr>
+    <tr><td>Latest transaction</td><td class="num"><strong>{{ stats.latest }}</strong></td></tr>
+    {% endif %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+
+{% call L.section(title='How do you want to proceed?') %}
+
+{% call C.card(title='Continue to the dashboard', tone='ok') %}
+<p style="margin:0 0 0.75rem">
+  The app works against any parseable Beancount ledger. You’ll land on the dashboard with your real
+  data already showing. As you label vehicles, add loans, write rules, set budgets, etc., each edit
+  gets stamped back into the ledger so a future database wipe still knows about them.
+</p>
+<form method="post" action="/setup/welcome/continue" class="setup-welcome-continue-form">
+  <label class="setup-disclaimer-ack">
+    <input type="checkbox" name="acknowledge" value="1" required
+           onchange="var b=this.closest('form').querySelector('button[type=submit]'); if(b){b.disabled=!this.checked;}" />
+    <span>I have read the data &amp; security notice above. I understand that enabling AI sends transaction details to a third party, that I am responsible for securing this deployment, and that the software is provided AS IS with no warranty.</span>
+  </label>
+  {{ B.btn('Continue to dashboard', type='submit', variant='primary') }}
+</form>
+<p class="subtle" style="margin:0.75rem 0 0">We won’t touch your ledger files until you make an edit in the UI. The acknowledgement above is recorded server-side with a timestamp.</p>
+<script>
+  /* Disable the submit button until the disclaimer checkbox is ticked.
+     The `required` attribute on the checkbox is the no-JS fallback —
+     vanilla form submit is blocked by the browser if it's unchecked. */
+  (function () {
+    var form = document.querySelector(".setup-welcome-continue-form");
+    if (!form) return;
+    var btn = form.querySelector("button[type=submit]");
+    if (btn) btn.disabled = true;
+  })();
+</script>
+{% endcall %}
+
+{% call C.card(title='Review / transform your ledger before continuing') %}
+<p style="margin:0 0 0.75rem">
+  If you’re bringing in a ledger from another tool, the import wizard runs a three-bucket analysis
+  (<strong>Keep / Transform / Foreign</strong>) so you can see exactly what our plugins would change,
+  approve the plan, and roll back on <code>bean-check</code> failure.
+</p>
+{{ B.btn('Open the import analyzer', href='/setup/import', variant='ghost') }}
+{% endcall %}
+
+{% call C.card(title='Start over from scratch') %}
+<p style="margin:0 0 0.75rem">
+  If this isn’t the ledger you meant to point the app at, you can delete it and scaffold a canonical
+  empty layout. We won’t do this automatically — you’d need to remove the files and then hit
+  <code>/setup</code>.
+</p>
+{{ B.btn('Go to the main setup page', href='/setup', variant='ghost') }}
+{% endcall %}
+
+{% endcall %}
+
+<p class="subtle" style="margin-top:2rem">
+  This page only appears once per ledger: clicking <strong>Continue</strong> flips a flag in memory.
+  If you delete the database later and your ledger has picked up <code>lamella-*</code> markers by then,
+  you’ll be routed to the reconstruction wizard instead.
+</p>
+{% endblock %}

@@ -1,0 +1,15 @@
+{
+  "id": "gen-test-classify-amb",
+  "model": "anthropic/claude-haiku-4.5",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"target_account\": \"Expenses:Acme:Supplies\", \"confidence\": 0.78, \"reasoning\": \"Likely supplies but merchant is unusual.\"}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {"prompt_tokens": 380, "completion_tokens": 40, "total_tokens": 420}
+}

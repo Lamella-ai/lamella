@@ -1,0 +1,70 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# In-place "classified" tile for /review per-group classify swaps.
+
+   Replaces the source group section after a successful classify
+   (single-row or group-bulk). Same outer markup as a group card
+   so layout doesn't shift when the swap lands — the user can
+   keep clicking down the page without buttons jumping.
+
+   Per ADR-0036 (every action acks within 100ms) + ADR-0037 (no
+   page reloads, preserve scroll). Direct user feedback: "I need
+   to have the ability to just scroll down the page and go click
+   click click click. And not have the page reload, and not have
+   the page layout shift."
+
+   Inputs:
+     count          int    rows classified
+     account        str    target account path
+     account_alias  str    display alias of the account (optional)
+     undo_url       str    POST endpoint for the Undo button (optional;
+                           when empty the button is omitted)
+     undo_form_data dict   hidden inputs for the undo POST (optional)
+#}
+<section class="rsg-group rsg-group--done"
+         data-classify-done="1"
+         role="status" aria-live="polite">
+  <header class="rsg-group-head">
+    <div class="rsg-group-head-main">
+      <div class="rsg-group-done-icon" aria-hidden="true">
+        {% import "_components/_icons.html" as icon %}
+        {{ icon.checkcircle(size=22) }}
+      </div>
+      <div class="rsg-group-done-text">
+        <strong>
+          {%- if count and count > 1 -%}
+            Classified {{ count }} rows
+          {%- else -%}
+            Classified
+          {%- endif -%}
+        </strong>
+        <span class="rsg-group-done-target">
+          as <code title="{{ account }}">{{ account_alias or account }}</code>
+        </span>
+      </div>
+    </div>
+    {%- if undo_url -%}
+    <div class="rsg-group-done-actions">
+      <form method="post" action="{{ undo_url }}"
+            hx-post="{{ undo_url }}"
+            hx-target="closest section.rsg-group"
+            hx-swap="outerHTML"
+            class="rsg-group-done-undo-form">
+        {%- for k, v in (undo_form_data or {}).items() -%}
+        <input type="hidden" name="{{ k }}" value="{{ v }}">
+        {%- endfor -%}
+        <button type="submit" class="link-as-button"
+                title="Reverse this classification — restores the row to the pending queue and removes the just-written ledger entry.">
+          Undo
+        </button>
+      </form>
+    </div>
+    {%- endif -%}
+  </header>
+</section>

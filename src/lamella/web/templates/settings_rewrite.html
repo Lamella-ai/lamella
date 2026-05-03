@@ -1,0 +1,86 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Ledger-wide rewrite — Settings{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Rewrite{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Ledger-wide rewrite',
+     subtitle='Rename a path segment across every .bean file. An auto-backup is created before every rewrite.',
+     kicker='Settings · Danger zone'
+) %}
+{% endcall %}
+
+{% call L.section(title='Preview a rewrite') %}
+{% call C.card() %}
+<form method="get" action="/settings/rewrite" class="form-grid" style="max-width:none">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Old segment</label>
+      <input class="field-input" type="text" name="old" value="{{ old }}" pattern="[A-Z][A-Za-z0-9-]*" required placeholder="e.g. Property" />
+    </div>
+    <div class="field">
+      <label class="field-label">New segment</label>
+      <input class="field-input" type="text" name="new" value="{{ new }}" pattern="[A-Z][A-Za-z0-9-]*" required placeholder="e.g. RealEstate" />
+    </div>
+  </div>
+  <div class="field">
+    <label class="field-label">Segment position</label>
+    <input class="field-input" type="text" name="segment_index" list="seg-pos-datalist" value="{{ segment_index|default('1') }}" />
+    <datalist id="seg-pos-datalist">
+      <option value="1" label="1 — entity / top-level (Assets:X:…)">
+      <option value="2" label="2 — vehicle slug under Vehicles (Expenses:Vehicles:X:…)">
+    </datalist>
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Preview', type='submit', variant='primary') }}</div>
+</form>
+{% endcall %}
+{% endcall %}
+
+{% if preview %}
+{% call L.section(title='Preview', subtitle='%d files · %d lines' % (preview.file_count, preview.line_count)) %}
+{% if not preview.lines %}
+{{ F.empty_state('No matches.') }}
+{% else %}
+<form hx-post="/settings/rewrite" hx-target="body" hx-swap="beforeend" style="margin-bottom:1rem">
+  <input type="hidden" name="old" value="{{ old }}" />
+  <input type="hidden" name="new" value="{{ new }}" />
+  <input type="hidden" name="segment_index" value="{{ segment_index }}" />
+  <input type="hidden" name="confirm" value="yes" />
+  {{ B.btn('Apply rewrite (%d lines)' % preview.line_count, type='submit', variant='danger') }}
+</form>
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead><tr><th>File</th><th class="num">Line</th><th>Before</th><th>After</th></tr></thead>
+  <tbody>
+  {% for line in preview.lines %}
+  <tr>
+    <td><code>{{ line.file }}</code></td>
+    <td class="num">{{ line.line_number }}</td>
+    <td><code>{{ line.before }}</code></td>
+    <td><code style="color:var(--ok)">{{ line.after }}</code></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endif %}
+{% endcall %}
+{% endif %}
+
+<p class="subtle" style="margin-top:1.5rem"><a href="/settings">← back to Settings</a></p>
+{% endblock %}

@@ -1,0 +1,360 @@
+You are classifying one FIXME transaction for a small-business
+Beancount ledger. You pick ONE target account from the whitelist
+below. Never invent an account.
+
+EVIDENCE TIERS — read this before anything else.
+
+There are two kinds of evidence below. They have different powers.
+Treat them as physically separate inputs that play different
+roles, even when they arrive in the same prompt.
+
+DIRECT EVIDENCE — about THIS transaction.
+  - The transaction's own merchant identity (payee + narration).
+  - A receipt linked to THIS transaction (the "Paperless receipt
+    content" section below, when present).
+  - A ⭐ MEMO FOR THIS TXN — a note the user wrote ABOUT this
+    exact transaction, linked by txn_hash.
+  Direct evidence can ESTABLISH a classification on its own.
+
+CIRCUMSTANTIAL CONTEXT — about the day, the project, similar
+past activity, or other things in the user's life around this
+time.
+  - Day-scoped notes (not flagged as memo for this txn).
+  - Mileage log entries near this date.
+  - Active projects in the date window.
+  - Similar resolved transactions (the user's past patterns).
+  Circumstantial context belongs to whatever it was originally
+  written about — NOT to this transaction unless direct evidence
+  ties them together. It can ONLY corroborate a hypothesis that
+  direct evidence already supports. It cannot CREATE a hypothesis
+  on its own.
+
+The most common LLM failure mode in this job is bridging gaps
+with plausible stories: same-day note about merchant X applied
+to a same-day txn at unrelated merchant Y, or a past pattern
+("this merchant was sometimes fuel") applied to a txn whose own
+narration doesn't say fuel. The construction always sounds
+reasonable. Don't do it. If direct evidence is absent or thin,
+the correct answer is low confidence + send to review. Do not
+fill the gap with circumstantial inference.
+
+ABSENCE OF EXPECTED EVIDENCE counts AGAINST a hypothesis, not
+neutral. If a mileage log densely covers this date and does NOT
+record a stop at or near this merchant, that's evidence against
+a vehicle/fuel/parking interpretation, not silence. If an active
+project covers this date and its log doesn't mention the activity
+that would explain the txn, that's mild evidence against the
+project interpretation. Calibrate this per-source by the density
+shown below — sparse logs give weak absence signal.
+
+CONFIDENCE GATING.
+  - ≥ 0.95 (auto-apply tier in some flows): direct evidence is
+    decisive. The merchant + receipt content + ⭐ memo combine to
+    leave no plausible alternative.
+  - 0.70 – 0.90: direct evidence supports the answer; circum-
+    stantial context corroborates without contradicting.
+  - ≤ 0.50: your reasoning rests primarily on circumstantial
+    context (no memo, no receipt, no decisive merchant signal).
+    Cap at this band regardless of how plausible the inference
+    feels — the construction quality is irrelevant; what matters
+    is whether the foundation exists. The system uses ≤ 0.50 as
+    "send to review."
+  - When a merchant could plausibly fit multiple categories and
+    you have no receipt / narration to disambiguate, pick the
+    user's most-common category for that merchant from
+    similar-history and report ≤ 0.60 — not whichever inference
+    the surrounding context supports.
+
+{% if fixme_root == "Income" %}This is an INCOME FIXME — a deposit or
+receipt that needs to be attributed to the correct income source
+(entity sales, consulting, interest, reimbursement, etc.). The
+whitelist below is scoped to `Income:…` accounts. Pick the one that
+best matches the source of these funds given the narration, notes,
+mileage logs, and active projects. Income attribution is a tax
+decision, so be conservative with confidence; the review queue
+will never auto-apply an income classification regardless of the
+confidence you report.
+{% elif fixme_root == "Liabilities" %}This is a LIABILITIES FIXME —
+typically a credit-card payment landing on the card (debt reduction),
+a loan payment landing on the principal balance, or a transfer into
+a payable. Pick the liability account that best matches which
+debt instrument this payment is reducing. Narration like "PAYMENT
+THANK YOU" + a card-name fragment is decisive.
+{% elif fixme_root == "Equity" %}This is an EQUITY FIXME — usually an
+owner draw, owner contribution, or opening/closing balance reset.
+Pick the equity account aligned with the entity that owns this
+movement. These are rare and usually deliberate; low-confidence
+classifications should defer to a human.
+{% elif fixme_root == "Assets" %}This is an ASSETS FIXME — typically
+the destination side of an inter-account transfer. Pick the
+account (savings, secondary checking, brokerage, etc.) that
+received these funds given the narration. Source-side information
+lives in the other posting and the card binding.
+{% else %}This is an EXPENSES FIXME. Entities map 1:1 to the second
+path segment in an `Expenses:<Entity>:…` account. The card that
+was physically charged has a deterministic entity binding by
+default — but in a multi-entity operation, the wrong card
+sometimes gets used. If the evidence (merchant history, receipt
+content, project context, or a user-authored note) says this
+charge actually belongs to a different entity, pick that entity's
+account from the whitelist below. The system decides the
+bookkeeping shape downstream — your job is to pick the correct
+target account; the intercompany_flag and owning_entity fields
+are advisory only and the override-writer determines whether to
+emit a 2-leg, owner-contribution, or 4-leg DueFrom/DueTo block
+based on each entity's structural type (commingling sole-prop ↔
+personal vs. legally-separate LLC/partnership/corp).
+{% endif %}
+
+{% if registry_preamble %}{{ registry_preamble }}
+{% endif %}
+{% if entity_context %}
+Entity context for '{{ entity }}':
+-----
+{{ entity_context }}
+-----
+Use this as STRONG BACKGROUND for what this entity does, how it
+makes money, how it spends money, and how it interacts with
+other entities. It should shape your expectations about what
+categories are plausible — a "supplies" charge on the retail
+business entity is usually inventory-adjacent, whereas a
+"supplies" charge on the rental-property entity is usually
+maintenance. Don't treat it as a hard rule, but let it bias
+ambiguous cases.
+
+{% endif %}Transaction
+-----------
+Date:         {{ txn.date }}
+Amount:       {{ "%.2f"|format(txn.amount) }} {{ txn.currency }}
+{% if txn.card_account %}Card account: {{ txn.card_account }}
+Card binding: entity {{ entity or "unknown" }} (deterministic — but challengeable by evidence)
+{% else %}Card account: (not resolved — no card/account hint for this row; classify across every entity's whitelist below)
+{% endif %}Payee:        {{ txn.payee or "(none)" }}
+Narration:    {{ txn.narration or "(none)" }}
+{% if txn.card_account and txn.card_account.startswith("Liabilities:") %}
+SIGN CONVENTION — this charge is on a LIABILITY account (credit
+card, line of credit, loan). The amount above is the bank-side
+leg as the bank reports it.
+  - NEGATIVE bank-side amount = the card was CHARGED. This is an
+    EXPENSE — pick from Expenses:* in the whitelist below.
+  - POSITIVE bank-side amount = money INTO the liability = bill
+    payment / paydown / credit. This is a TRANSFER-shaped row
+    (typically a Liabilities:* destination), NOT income. Do NOT
+    propose Income:* for a positive amount on a liability — the
+    money came out of one account (checking) and went into this
+    liability to reduce its balance.
+{% endif %}
+{% if similar %}
+Recently resolved similar transactions [CIRCUMSTANTIAL — past
+patterns, not direct evidence about this transaction]:
+{% for row in similar %}- {{ row.date }} {{ "%.2f"|format(row.amount) }}  "{{ row.narration }}" -> {{ row.target_account }}
+{% endfor %}
+A consistent past pattern is moderate evidence that the same
+classification fits today, but ONLY when this txn's own data
+(merchant + narration + any receipt) is consistent with it.
+A merchant that has historically been classified two ways means
+neither pattern decides the answer alone — pick the most-common
+match for this user and report ≤ 0.60.
+{% else %}No similar resolved transactions in the last 180 days.
+{% endif %}
+{% if card_suspicion %}
+⚠ Merchant-history suspicion:
+{{ card_suspicion.reason }}
+
+The card that was charged says the entity is
+'{{ card_suspicion.card_entity or "unknown" }}', but this merchant's
+history decisively points at '{{ card_suspicion.dominant_entity }}'. This
+is almost certainly a wrong-card situation. Set intercompany_flag=TRUE
+and owning_entity='{{ card_suspicion.dominant_entity }}', and pick a
+'{{ card_suspicion.dominant_entity }}' account from the whitelist.
+{% endif %}
+{% if active_notes %}
+User-authored notes near this date. Each line is tagged with its
+provenance — DIRECT (memo attached to this txn by hash) or
+CIRCUMSTANTIAL (a day-scoped note that may or may not be about
+this txn):
+{% for note in active_notes %}{% if note.txn_hash and note.txn_hash == txn.txn_hash %}- [DIRECT — ⭐ MEMO FOR THIS TXN] captured {{ note.captured_at.date() if note.captured_at.date is defined else note.captured_at }}: {{ note.body }}{% else %}- [CIRCUMSTANTIAL — day-scoped note, not bound to this txn] captured {{ note.captured_at.date() if note.captured_at.date is defined else note.captured_at }}{% if note.active_from and note.active_to and note.active_from != note.active_to %} (range {{ note.active_from }}..{{ note.active_to }}){% endif %}: {{ note.body }}{% endif %}
+{% if note.entity_hint or note.merchant_hint or note.keywords %}  Hints:{% if note.entity_hint %} entity={{ note.entity_hint }}{% endif %}{% if note.merchant_hint %} merchant={{ note.merchant_hint }}{% endif %}{% if note.keywords %} keywords={{ note.keywords | join(", ") }}{% endif %}
+{% endif %}{% if note.card_override %}  ⚠ card_override=TRUE — user says the card binding should not be trusted for this period.
+{% endif %}{% endfor %}
+DIRECT memos are user instructions about this exact transaction.
+CIRCUMSTANTIAL day-notes belong to whatever the user was writing
+about at the time — that is NOT necessarily this transaction
+just because they share a date. Day-scoped notes can corroborate
+a hypothesis the txn's own data already supports; they cannot
+create one. If a day-scoped note describes one merchant /
+purchase and this txn is at a different merchant or for a
+different purchase, it does not classify this txn — it's
+background, and you should classify from the merchant default
+and report a confidence in the ≤ 0.60 band.
+{% endif %}
+{% if receipt %}
+Paperless receipt content [DIRECT EVIDENCE — receipt linked to
+THIS transaction] — {{ receipt.confidence_note }}
+Vendor:  {{ receipt.vendor or "(not extracted)" }}
+Total:   {{ receipt.total or "(not extracted)" }}
+Receipt date: {{ receipt.document_date or "(not extracted)" }}
+{% if receipt.date_mismatch_note %}⚠ {{ receipt.date_mismatch_note }}
+{% endif %}OCR excerpt:
+-----
+{{ receipt.content_excerpt }}
+-----
+A receipt linked to this txn is direct evidence about what was
+bought. Line items on a receipt establish the classification on
+their own — even at an ambiguous merchant. An ambiguous receipt
+(no line items visible, only totals) is weak direct evidence
+and degrades to a moderate signal. OCR is imperfect: if a field
+is flagged with ⚠, weigh it lower and consider the corresponding
+field "not extracted" rather than confident.
+{% endif %}
+{% if active_projects %}
+Active projects whose expected-merchants list matched this txn's
+payee [CIRCUMSTANTIAL — date / merchant overlap, not direct
+evidence about this txn]:
+{% for proj in active_projects %}
+▸ {{ proj.display_name }}{% if proj.entity_slug %} (entity: {{ proj.entity_slug }}){% endif %}{% if proj.start_date %} · {{ proj.start_date }}{% if proj.end_date %} – {{ proj.end_date }}{% else %} – ongoing{% endif %}{% endif %}
+{% if proj.description %}{{ proj.description }}
+{% endif %}{% if proj.budget_amount %}Budget: {{ proj.budget_amount }}
+{% endif %}{% endfor %}
+A merchant + date match is not proof the purchase belongs to the
+project — it just makes the project a candidate. The project
+applies only when this txn's own data (narration, receipt
+content, amount) shows the purchase actually fits the project's
+materials / scope / intent. If the project description names a
+specific account path AND this txn fits the project's scope,
+prefer that account.
+
+If the txn is at a project-listed merchant but the purchase
+doesn't fit the project's scope, classify as the merchant
+default and note the ambiguity. Multiple plausible projects →
+lower confidence; pick the project whose description most
+directly matches what was bought, or report a generic merchant
+default if neither dominates.
+
+Absence-of-evidence: if a project's date window covers this date
+and there's no description-level match between this txn and the
+project's scope, treat that as mild evidence AGAINST the project
+interpretation, not silence.
+{% endif %}{% if mileage_entries %}
+Mileage log entries near this date [CIRCUMSTANTIAL — these
+record miles driven; they say nothing about what was purchased
+unless the entry text says so]:
+{% for m in mileage_entries %}- {{ m.entry_date }} [{{ m.entity }}] {{ m.vehicle }} · {{ "%.1f"|format(m.miles) }} mi{% if m.purpose %} · {{ m.purpose }}{% endif %}{% if m.from_loc or m.to_loc %} · {{ m.from_loc or "" }}→{{ m.to_loc or "" }}{% endif %}{% if m.notes %} · {{ m.notes }}{% endif %}
+{% endfor %}
+A mileage entry only classifies this txn when there is a clear,
+specific link: this txn is itself a vehicle-related expense
+(fuel, tolls, parking, maintenance, parts) AND the entry
+identifies the vehicle, OR the entry's own purpose / notes
+explicitly name the merchant or trip purpose this txn matches.
+Without that explicit link, the entry is background — do not
+infer a stop-along-the-way the data doesn't state. The entry
+tells you about miles; the txn's own merchant + receipt tell
+you what was bought.
+
+Absence counts. If a vehicle logged on most days does NOT have
+an entry covering this date, that is evidence AGAINST a
+vehicle-expense interpretation for that vehicle, not silence.
+Calibrate per-vehicle with the density table below — a sparsely
+logged vehicle gives uninformative absence.
+{% if vehicle_density %}
+
+Vehicle log density (last {{ vehicle_density[0].window_days }} days):
+{% for d in vehicle_density %}- {{ d.vehicle }}{% if d.entity %} [{{ d.entity }}]{% endif %} · {{ d.days_with_entries }}/{{ d.window_days }} days logged · {{ d.total_entries }} entries{% if d.last_entry_date %} · last entry {{ d.last_entry_date }}{% endif %}
+{% endfor %}
+{% endif %}
+
+Zero-mile rows are meaningful signal, not noise. The default
+posture for a 0-mile entry is RULE OUT, not opt-in: a vehicle
+that did not move CANNOT have driven to a merchant. The exception
+requires explicit notes that say the service came to the vehicle.
+
+  1. 0 mi + EXPLICIT notes that the service came to the vehicle
+     (e.g. "Filled up with gas from gas can", "Mobile mechanic
+     came out", "Oil change in the driveway", "New tires
+     installed in garage"): the vehicle was stationary AND the
+     purchase reached it where it sat. For fuel/maintenance/parts
+     txns, this vehicle becomes a candidate. Without these
+     notes, this case does NOT apply — fall through to case 2.
+
+  2. 0 mi + NO notes (or notes that don't claim a come-to-vehicle
+     service): "vehicle sat still today" marker. RULE OUT this
+     vehicle for any txn whose service requires the vehicle to be
+     physically AT the merchant: car wash, drive-through food,
+     fuel pumped at a gas station, parking, drive-up tolls,
+     restaurants, grocery store runs, errand-shaped purchases.
+     A carwash specifically requires the car to arrive — 0 miles
+     means it didn't, so the vehicle is NOT the attribution
+     target. Pick a different vehicle (one that has miles logged
+     for that date) or attribute the txn to a non-vehicle
+     account.
+
+  3. Cross-referenced notes between vehicles ("Went to gas station
+     to get gas for <OtherVehicle>", "Filled up with gas from gas
+     can"): the vehicle that DROVE is not necessarily the vehicle
+     the purchase is attributed to. Follow the note's stated
+     attribution target. The driving vehicle's fuel economy +
+     miles still justifies its own (trivial) fuel-consumed share
+     for that trip, but the txn itself attributes to the
+     note-identified recipient.
+{% endif %}
+{% if prior_attempts %}
+⚠ Previous classify attempts on THIS transaction (user-reviewed):
+{% for attempt in prior_attempts %}
+- {{ attempt.decided_at }} · {{ attempt.model }}
+  proposed: {{ attempt.target or "(no target)" }}{% if attempt.confidence is not none %} (conf {{ "%.2f"|format(attempt.confidence) }}){% endif %}
+  reasoning was: "{{ attempt.reasoning }}"
+  user said: {{ attempt.user_decision }}
+{% endfor %}
+The user has already reviewed prior attempts on this exact
+transaction. Read each "user said" line CAREFULLY — it tells you
+what the user thought was wrong, and may name the account or
+direction they think is correct. Do NOT propose any account the
+user explicitly rejected unless you have strong new evidence.
+
+When the user's decision text names a specific account path:
+
+1. The entity segment in the user-named path (the second segment,
+   e.g. the ENTITY in `Expenses:ENTITY:…`) is a strong directional
+   signal about which entity the user considers responsible for
+   this charge. Prefer an account under the user-named entity —
+   finding the closest plausible match in the whitelist below.
+   Do NOT silently fall back to a same-entity account whose leaf
+   name happens to match the user's literal words — that
+   disregards the user's clear direction about which entity the
+   expense belongs to.
+
+2. Exact path existence is not required. The user is giving you a
+   direction, not a fully-qualified whitelist entry. Map the user's
+   intent onto an account that actually exists under the entity
+   they named — the whitelist may have a similar name, a slight
+   variation, or the Schedule-C-canonical form of what they said.
+
+3. Briefly acknowledge the user's prior feedback in your own
+   `reasoning` field and name the mapping you chose.
+
+{% endif %}{% if accounts_by_entity %}
+Whitelist of valid target accounts, grouped by entity:
+{% for ent, accts in accounts_by_entity.items() %}
+{{ ent or "(uncategorized)" }}:
+{% for acct in accts %}  - {{ acct }}{% if account_descriptions and account_descriptions.get(acct) %}
+      → {{ account_descriptions[acct] }}{% endif %}
+{% endfor %}{% endfor %}
+{% else %}
+Whitelist of valid target accounts (entity: {{ entity or "unknown" }}):
+{% for acct in accounts %}- {{ acct }}{% if account_descriptions and account_descriptions.get(acct) %}
+    → {{ account_descriptions[acct] }}{% endif %}
+{% endfor %}{% endif %}
+
+Return:
+- target_account: MUST be copied verbatim from the whitelist above.
+- confidence: 0.0 to 1.0. Use >= 0.95 only when the merchant and
+  history leave essentially no doubt.
+- reasoning: one sentence, plain English.
+- intercompany_flag: set TRUE ONLY when you selected an account
+  whose entity differs from the card-binding entity above — i.e.,
+  this is a wrong-card situation that needs a four-leg correction.
+  Leave FALSE whenever target_account's entity equals the
+  card-binding entity.
+- owning_entity: when intercompany_flag=TRUE, set this to the
+  target_account's entity (the entity that actually incurred the
+  expense). Else null.

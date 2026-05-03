@@ -1,0 +1,64 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Root-aware account row. Bank-only fields (kind / institution /
+   last_four / SimpleFIN / Balances link) hide for Expenses / Income /
+   Equity rows — those have only display_name + entity_slug to edit.
+   ADR-0031: the slug (account_path) is never editable here regardless;
+   it's the immutable Beancount identity, surfaced as a <code> below. #}
+{%- set _root = a.account_path.split(':')|first -%}
+{%- set _is_bank = _root in ('Assets', 'Liabilities') -%}
+<li id="account-row-{{ a.account_path }}"
+    class="account-row {% if not a.kind and _is_bank %}unlabeled{% endif %}"
+    data-account-root="{{ _root }}">
+  <form method="post" action="/settings/accounts/{{ a.account_path }}"
+        hx-post="/settings/accounts/{{ a.account_path }}"
+        hx-target="#account-row-{{ a.account_path }}"
+        hx-swap="outerHTML"
+        autocomplete="off" class="account-row-form">
+
+    <div class="account-row-primary">
+      <span class="account-row-status">
+        {% if saved_marker %}<span class="saved inline-flash">✓</span>{% endif %}
+        {% if a.closed_on %}<span class="badge badge--muted">Closed</span>
+        {% elif _is_bank and not a.kind %}<span class="badge badge--warn">Unlabeled</span>
+        {% elif _is_bank %}<span class="badge badge--accent">{{ a.kind | humanize }}</span>
+        {% else %}<span class="badge badge--muted">{{ _root }}</span>{% endif %}
+      </span>
+      <input type="text" name="display_name" value="{{ a.display_name or '' }}"
+             class="acct-display field-input" placeholder="Display name" autocomplete="off" />
+      {% if _is_bank %}
+      <input type="text" name="kind" value="{{ a.kind or '' }}"
+             class="acct-kind field-input" list="account-kinds-datalist" placeholder="kind" autocomplete="off" />
+      <input type="text" name="institution" value="{{ a.institution or '' }}"
+             class="acct-inst field-input" list="institutions-datalist" placeholder="Institution" autocomplete="off" />
+      <input type="text" name="last_four" value="{{ a.last_four or '' }}"
+             class="acct-l4 field-input" maxlength="4" list="last-fours-datalist" placeholder="****" autocomplete="off" />
+      {% endif %}
+      <input type="text" name="entity_slug" value="{{ a.entity_slug or '' }}"
+             class="acct-entity field-input" list="account-entities-datalist" placeholder="entity" autocomplete="off" />
+      <button type="submit" class="btn btn-primary btn-sm acct-save"><span>Save</span></button>
+    </div>
+
+    <div class="account-row-secondary subtle">
+      <code class="acct-path" title="{{ a.account_path }}">{{ a.account_path }}</code>
+      {% if _is_bank %}
+      <a href="/settings/accounts/{{ a.account_path }}/balances"
+         class="acct-balances-link"
+         title="Record known balances and audit segment drift"
+         style="margin-left:0.5rem;">Balances →</a>
+      <details class="acct-advanced">
+        <summary>SimpleFIN / raw</summary>
+        <label>SimpleFIN account ID
+          <input type="text" name="simplefin_account_id" value="{{ a.simplefin_account_id or '' }}" autocomplete="off" />
+        </label>
+      </details>
+      {% endif %}
+    </div>
+  </form>
+</li>

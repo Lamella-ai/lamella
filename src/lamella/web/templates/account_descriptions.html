@@ -1,0 +1,123 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Account descriptions — Settings{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Account descriptions{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Account descriptions',
+     subtitle='Plain-English description per Expense/Income account. The AI sees what you write here alongside each account in the classify whitelist, giving it context for narrow or newly-created accounts that have no transaction history yet.',
+     kicker='Settings'
+) %}
+{% endcall %}
+
+<p class="subtle" style="margin:-8px 0 1rem">
+  {{ described }} of {{ total_accounts }} accounts described.
+</p>
+
+<datalist id="entities-filter-datalist">
+  {% for e in entities_seen %}<option value="{{ e }}">{% endfor %}
+</datalist>
+
+{% call C.card() %}
+<form method="get" action="/settings/account-descriptions" class="form-grid" style="max-width:none">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Entity</label>
+      <input class="field-input" type="text" name="entity" list="entities-filter-datalist" value="{{ entity or '' }}" placeholder="(all)" />
+    </div>
+    <div class="field">
+      <label class="field-label">Filter</label>
+      <label style="display:flex; gap:8px; align-items:center; font-size:0.92rem">
+        <input type="checkbox" name="only_missing" value="1" {% if only_missing %}checked{% endif %} />
+        Only show accounts without a description
+      </label>
+    </div>
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Filter', type='submit', variant='primary') }}</div>
+</form>
+{% endcall %}
+
+{% if rows %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr><th style="width:24%">Account</th><th class="num shrink">Txns</th><th>Description (shown to AI on classify)</th></tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr id="acct-desc-{{ r.account_path | replace(':', '-') }}">
+      <td>
+        <code style="font-size:0.85em">{{ r.account_path }}</code>
+        {% if r.entity %}<br><span class="subtle" style="font-size:0.82rem">{{ r.entity | entity }}</span>{% endif %}
+        {% if r.txn_count > 0 %}
+          <br><a href="/audit?target_account={{ r.account_path }}" class="subtle" style="font-size:0.82rem"
+                 title="Re-classify historical txns in this account to see if the AI would now prefer a different (maybe newly-created) account.">
+            Audit this account →
+          </a>
+        {% endif %}
+        {% if r.txn_count >= 20 %}
+          <br><form hx-post="/settings/account-descriptions/mine" hx-target="body" hx-swap="beforeend" style="display:inline; margin-top:4px">
+            <input type="hidden" name="account_path" value="{{ r.account_path }}" />
+            {{ B.btn('Mine sub-categories', type='submit', variant='ghost', size='sm') }}
+          </form>
+        {% endif %}
+      </td>
+      <td class="num subtle">{{ r.txn_count }}</td>
+      <td>
+        <form method="post" action="/settings/account-descriptions/save"
+              hx-post="/settings/account-descriptions/save"
+              hx-target="next .save-slot"
+              hx-swap="innerHTML"
+              style="display:flex; gap:8px; align-items:flex-start">
+          <input type="hidden" name="account_path" value="{{ r.account_path }}" />
+          <textarea class="field-textarea" name="description" rows="2" style="flex:1; font-size:0.9rem"
+                    placeholder="e.g. SaaS subscriptions for shipping labels — anything recurring with postage/shipping vendors in the narration.">{{ r.description }}</textarea>
+          <div style="display:flex; flex-direction:column; gap:4px">
+            {{ B.btn('Save', type='submit', variant='primary', size='sm') }}
+            <div class="save-slot subtle" style="font-size:0.82rem"></div>
+          </div>
+        </form>
+        {% if r.txn_count >= 5 %}
+          <form hx-post="/settings/account-descriptions/generate" hx-target="body" hx-swap="beforeend" style="display:inline; margin-top:6px">
+            <input type="hidden" name="account_path" value="{{ r.account_path }}" />
+            {{ B.btn('AI draft', type='submit', variant='ghost', size='sm') }}
+          </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% else %}
+{{ F.empty_state('No accounts match this filter.') }}
+{% endif %}
+
+{% call L.section(title='How to use this') %}
+{% call C.card() %}
+<ul style="margin:0; padding-left:1.2rem; line-height:1.7">
+  <li>Focus on <strong>narrow accounts with low or zero history</strong> first — those are where a description has the biggest impact. (Toggle “Only show accounts without a description” above to see all the unannotated ones.)</li>
+  <li>For <strong>catchall accounts</strong> like <code>Expenses:*:OtherExpenses</code>, describe what DOES belong there so the AI doesn’t default to it as a safe fallback.</li>
+  <li>Pair with <a href="/settings/entities">entity-level context</a> (Acme does X, Personal does Y) — entity context is the big picture, account descriptions are the fine-grained hints.</li>
+</ul>
+{% endcall %}
+{% endcall %}
+
+<p class="subtle" style="margin-top:1.5rem"><a href="/settings">← back to Settings</a></p>
+{% endblock %}

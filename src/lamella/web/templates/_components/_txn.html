@@ -1,0 +1,263 @@
+{# ═══════════════════════════════════════════════════════════════════
+   Transaction-shaped molecules — composable building blocks for any
+   page that renders financial activity.
+
+   Use:
+     {% import "_components/_txn.html" as T %}
+     {{ T.summary(item) }}
+     {{ T.proposed(proposal) }}
+     {{ T.status(item) }}
+     {{ T.confidence_pill(score, bucket) }}
+
+   These are the "molecule" layer in the component hierarchy — built
+   on top of the atom-level helpers in data.html (D.badge, D.money,
+   D.account_path) and the icon library. Per-page templates compose
+   these molecules with `_components/_txn_actions.html` (T.actions)
+   to assemble a complete row in 5–10 lines instead of 80+.
+
+   Input shape — every macro accepts a duck-typed object/dict with
+   the fields it needs. The naming follows the StagingReviewItem /
+   StagedHit / SearchHit shapes already used across the codebase
+   (date, amount, currency, payee, description, source, …) so most
+   call sites work without adapter code.
+   ═══════════════════════════════════════════════════════════════════ #}
+
+{% import "_components/_icons.html" as icon %}
+{% import "_components/data.html" as D %}
+
+
+{# ─── T.summary(item) ─────────────────────────────────────────────
+   The date · amount · payee · narration line that appears on
+   every txn row across the app. Falls back gracefully when payee
+   or narration is missing.
+
+   Inputs (duck-typed):
+     item.date | item.posting_date  - date or ISO string
+     item.amount                    - Decimal-ish
+     item.currency                  - "USD" by default
+     item.payee                     - str | None
+     item.description / .narration  - str | None
+     item.memo                      - str | None
+   Optional kwargs:
+     show_memo   bool  default true — include the memo dim line
+     compact     bool  default false — single-line, no narration
+                                       below; for dense tables
+   ─────────────────────────────────────────────────────────────── #}
+{%- macro summary(item, show_memo=true, compact=false) -%}
+{# Field aliases: different row shapes across the app use slightly
+   different names for the same data. The macro accepts whichever
+   the call site has (StagingReviewItem.posting_date,
+   TxnRow.date, NeedsReceiptRow.txn_date, …) so most pages pass
+   the row in directly without an adapter. #}
+{%- set _date = (
+     item.date if (item.date is defined and item.date) else
+     item.posting_date if (item.posting_date is defined and item.posting_date) else
+     item.txn_date if item.txn_date is defined else
+     ''
+) -%}
+{%- set _amt = (
+     item.amount if (item.amount is defined and item.amount is not none) else
+     item.max_expense_amount if item.max_expense_amount is defined else
+     0
+) -%}
+{%- set _ccy = item.currency if item.currency is defined else 'USD' -%}
+{%- set _payee = item.payee if (item.payee is defined and item.payee) else none -%}
+{%- set _narr = item.narration if (item.narration is defined and item.narration) else (item.description if (item.description is defined and item.description) else none) -%}
+{%- set _memo = item.memo if (item.memo is defined and item.memo) else none -%}
+<span class="txn-summary {% if compact %}txn-summary--compact{% endif %}">
+  <time class="txn-summary__date num" datetime="{{ _date }}">{{ _date }}</time>
+  {# Sign-aware: D.money renders +/- prefix and money--pos/neg/zero color
+     classes so the user can visually distinguish refunds from charges.
+     Currency=`''` suppresses D.money's own ccy emission so we keep the
+     explicit txn-summary__ccy span for layout consistency. #}
+  <span class="txn-summary__amount num">{{ D.money(_amt, currency='', signed=true) }}<span class="txn-summary__ccy">{{ _ccy }}</span></span>
+  {%- if _payee or _narr -%}
+    <span class="txn-summary__label" title="{{ _payee or _narr }}">{{ _payee or _narr }}</span>
+  {%- else -%}
+    <span class="txn-summary__label txn-summary__label--missing">(no label)</span>
+  {%- endif -%}
+  {%- if not compact and _narr and _narr != _payee -%}
+    <span class="txn-summary__narration">{{ _narr }}</span>
+  {%- endif -%}
+  {%- if show_memo and not compact and _memo -%}
+    <span class="txn-summary__memo">{{ _memo }}</span>
+  {%- endif -%}
+</span>
+{%- endmacro -%}
+
+
+{# ─── T.confidence_pill(score, bucket) ────────────────────────────
+   Uniform confidence indicator. Either pass a numeric score (0..1)
+   and let the macro derive the bucket, or pass a pre-bucketed
+   string ("high" / "medium" / "low" / "unresolved").
+   ─────────────────────────────────────────────────────────────── #}
+{%- macro confidence_pill(score=none, bucket=none) -%}
+{%- set _b = bucket -%}
+{%- if not _b and score is not none -%}
+  {%- set _s = score|float -%}
+  {%- if _s >= 0.90 -%}{%- set _b = 'high' -%}
+  {%- elif _s >= 0.50 -%}{%- set _b = 'medium' -%}
+  {%- elif _s > 0 -%}{%- set _b = 'low' -%}
+  {%- else -%}{%- set _b = 'unresolved' -%}
+  {%- endif -%}
+{%- endif -%}
+{%- if _b -%}
+<span class="txn-conf txn-conf--{{ _b }}">{{ _b }}</span>
+{%- endif -%}
+{%- endmacro -%}
+
+
+{# ─── T.proposed(proposal) ────────────────────────────────────────
+   The AI proposal band. Renders the target account, a confidence
+   pill, an optional "via {by}" attribution, and an inline why
+   expander when rationale is present. The `tone` arg tints the
+   left border so a fixme-uncategorized placeholder reads
+   distinctly from a real proposal.
+
+   Inputs (duck-typed):
+     proposal.target | .target_account | .proposed_account
+     proposal.confidence | .proposed_confidence  - bucket str
+     proposal.score | .proposed_score             - 0..1 (optional)
+     proposal.by | .proposed_by                   - "ai" / "rule" / …
+     proposal.rationale | .proposed_rationale     - str | None
+   ─────────────────────────────────────────────────────────────── #}
+{%- macro proposed(p) -%}
+{%- set _target = p.target if (p.target is defined and p.target) else (p.target_account if (p.target_account is defined and p.target_account) else (p.proposed_account if p.proposed_account is defined else none)) -%}
+{%- set _bucket = p.confidence if (p.confidence is defined and p.confidence) else (p.proposed_confidence if p.proposed_confidence is defined else none) -%}
+{%- set _score  = p.score if p.score is defined else (p.proposed_score if p.proposed_score is defined else none) -%}
+{%- set _by     = p.by if (p.by is defined and p.by) else (p.proposed_by if p.proposed_by is defined else none) -%}
+{%- set _why    = p.rationale if (p.rationale is defined and p.rationale) else (p.proposed_rationale if p.proposed_rationale is defined else none) -%}
+{%- if _target -%}
+{%- set _is_unresolved = ('FIXME' in _target|upper) or ('Uncategorized' in _target) -%}
+<div class="txn-proposed {% if _is_unresolved %}txn-proposed--unresolved{% endif %}">
+  <div class="txn-proposed__head">
+    {{ icon.sparkles(size=14) }}
+    <span class="txn-proposed__label">Proposed</span>
+    {{ confidence_pill(score=_score, bucket=_bucket) }}
+    {%- if _by %}<span class="txn-proposed__by">via {{ _by }}</span>{%- endif %}
+  </div>
+  <div class="txn-proposed__account">
+    <strong title="{{ _target }}">{{ _target | alias }}</strong>
+    {%- if _target | alias != _target %}<code class="txn-proposed__full">{{ _target }}</code>{%- endif %}
+  </div>
+  {%- if _why %}
+  <details class="txn-proposed__why">
+    <summary>why</summary>
+    <p>{{ _why }}</p>
+  </details>
+  {%- endif %}
+</div>
+{%- endif -%}
+{%- endmacro -%}
+
+
+{# ─── T.account_picker(name, ...) ────────────────────────────────
+   Autocomplete-by-typing input backed by the global
+   #accounts-datalist. Every classify form, every settings save
+   form has its own version of this; centralizing means the
+   placeholder, autocomplete=off, list= reference, and styling
+   stay consistent.
+
+   Inputs:
+     name        str — form field name (default: "target_account")
+     value       str — pre-filled value
+     placeholder str — placeholder text (defaults to a sensible hint)
+     required    bool
+     extra_class str — extra CSS class on the input
+     id          str — HTML id (when the form needs label-for binding)
+     list_id     str — datalist id to bind (default: accounts-datalist)
+   ─────────────────────────────────────────────────────────────── #}
+{%- macro account_picker(
+     name='target_account', value='', placeholder='',
+     required=false, extra_class='', id='', list_id='accounts-datalist',
+     autofocus=false
+) -%}
+<input
+  {%- if id %} id="{{ id }}"{%- endif %}
+  class="field-input txn-account-picker {{ extra_class }}"
+  type="text"
+  name="{{ name }}"
+  value="{{ value }}"
+  list="{{ list_id }}"
+  autocomplete="off"
+  spellcheck="false"
+  placeholder="{{ placeholder or 'Expenses:Acme:Office:Supplies …' }}"
+  {%- if required %} required{%- endif %}
+  {%- if autofocus %} autofocus{%- endif %} />
+{%- endmacro -%}
+
+
+{# ─── T.context_tags(item, extras) ────────────────────────────────
+   Page-context tag strip — source · card · entity · paired · links
+   to /txn and /ai/decisions. Combines what the staging-review
+   helper `_build_row_extras` resolves about a row (card display,
+   entity, ai_decision_id, txn_link) with item-level fields
+   (source, pair_id, pair_kind, pair_confidence).
+
+   Inputs:
+     item    StagingReviewItem-shaped — source, pair_id, pair_kind,
+             pair_confidence
+     extras  dict | None — card_display, card_secondary, card_account,
+             entity_display, txn_link, ai_decision_id
+   ─────────────────────────────────────────────────────────────── #}
+{%- macro context_tags(item, extras=None) -%}
+{%- set ex = extras or {} -%}
+<span class="txn-context">
+  {%- if item.source is defined and item.source -%}
+    {{ D.badge(item.source, tone='muted') }}
+  {%- endif -%}
+  {%- if ex.card_display -%}
+    <span class="txn-context__tag">
+      {{ icon.creditcard(size=12) }}
+      {{ ex.card_display }}{%- if ex.card_secondary %}<span class="subtle">·{{ ex.card_secondary }}</span>{%- endif %}
+    </span>
+  {%- elif ex.card_account -%}
+    <span class="txn-context__tag"><code>{{ ex.card_account }}</code></span>
+  {%- endif -%}
+  {%- if ex.entity_display -%}
+    <span class="txn-context__tag">{{ icon.briefcase(size=12) }} {{ ex.entity_display }}</span>
+  {%- endif -%}
+  {%- if item.pair_id is defined and item.pair_id -%}
+    {{ D.badge('↔ paired · ' ~ (item.pair_kind or 'pair') ~ ' · ' ~ (item.pair_confidence or '?'), tone='info') }}
+  {%- endif -%}
+  {%- if ex.txn_link -%}
+    <a class="txn-context__link" href="{{ ex.txn_link }}" target="_blank" rel="noopener">
+      open transaction {{ icon.external(size=12) }}
+    </a>
+  {%- endif -%}
+  {%- if ex.ai_decision_id -%}
+    <a class="txn-context__link" href="/ai/decisions/{{ ex.ai_decision_id }}" target="_blank" rel="noopener">
+      AI history #{{ ex.ai_decision_id }} {{ icon.external(size=12) }}
+    </a>
+  {%- endif -%}
+</span>
+{%- endmacro -%}
+
+
+{# ─── T.status(item) ──────────────────────────────────────────────
+   Compact status pills for any txn-shaped item. Renders only
+   what's true; an empty result block is fine.
+
+   Inputs (duck-typed):
+     item.is_fixme        bool — Expenses:FIXME unresolved
+     item.pair_id         id   — has a matched-pair record
+     item.pair_kind       "transfer" / "duplicate"
+     item.source          "simplefin" / "csv" / "paste" / "reboot"
+     item.needs_review    bool — auto-deferred / needs-attention
+   ─────────────────────────────────────────────────────────────── #}
+{%- macro status(item) -%}
+<span class="txn-status">
+  {%- if item.is_fixme is defined and item.is_fixme -%}
+    {{ D.badge('Uncategorized', tone='warn') }}
+  {%- endif -%}
+  {%- if item.pair_id is defined and item.pair_id -%}
+    {{ D.badge('↔ paired · ' ~ (item.pair_kind or 'pair'), tone='info') }}
+  {%- endif -%}
+  {%- if item.source is defined and item.source -%}
+    {{ D.badge(item.source, tone='muted') }}
+  {%- endif -%}
+  {%- if item.needs_review is defined and item.needs_review -%}
+    {{ D.badge('needs review', tone='warn') }}
+  {%- endif -%}
+</span>
+{%- endmacro -%}

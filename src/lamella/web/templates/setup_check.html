@@ -1,0 +1,93 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% block title %}Setup check — Lamella{% endblock %}
+{% block layout %}setup{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block content %}
+
+<h1>Setup check</h1>
+<p class="muted">
+  Before classifying, verify every piece of user-configured state
+  matches reality. Each section shows what's registered, what's
+  used, and what's missing or likely wrong.
+</p>
+
+<div class="overall-status" style="margin:1rem 0;padding:0.75rem 1rem;border-radius:6px;
+  {% if overall == 'ok' %}background:#d1e7dd;color:var(--ok);
+  {% elif overall == 'warn' %}background:#fff3cd;color:var(--warn);
+  {% else %}background:var(--err-soft);color:var(--err);{% endif %}">
+  {% if overall == 'ok' %}
+    🟢 <strong>Setup looks good.</strong>
+    All {{ ok_count }} sections passed. You can start classifying
+    with confidence that the output will land in the right accounts.
+  {% elif overall == 'warn' %}
+    🟡 <strong>Setup usable but has {{ warn_count }} warning{% if warn_count != 1 %}s{% endif %}.</strong>
+    Classify will work, but fix the warnings below first for best results.
+  {% else %}
+    🔴 <strong>Setup has {{ bad_count }} blocking issue{% if bad_count != 1 %}s{% endif %}.</strong>
+    Classifying now will produce wrong accounts. Fix the red items first.
+  {% endif %}
+</div>
+
+<div class="setup-sections" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(360px, 1fr));gap:1rem;">
+  {% for s in sections %}
+    <section style="border:1px solid #ccc;border-radius:6px;padding:0.75rem 1rem;
+      {% if s.health == 'bad' %}border-left:4px solid #dc3545;
+      {% elif s.health == 'warn' %}border-left:4px solid #ffc107;
+      {% else %}border-left:4px solid #198754;{% endif %}">
+      <h2 style="margin:0 0 0.25rem;font-size:1.1rem;">
+        {% if s.health == 'bad' %}🔴{% elif s.health == 'warn' %}🟡{% else %}🟢{% endif %}
+        {{ s.title }}
+      </h2>
+      {% if s.summary %}
+        <p class="muted" style="margin:0.1rem 0 0.5rem;font-size:0.95rem;">{{ s.summary }}</p>
+      {% endif %}
+      {% if s.counts %}
+        <dl style="display:grid;grid-template-columns:1fr auto;gap:0.2rem 0.75rem;margin:0.5rem 0;font-size:0.9rem;">
+          {% for label, value in s.counts %}
+            <dt class="muted">{{ label }}</dt>
+            <dd style="margin:0;text-align:right;"><code>{{ value }}</code></dd>
+          {% endfor %}
+        </dl>
+      {% endif %}
+      {% if s.issues %}
+        <ul style="margin:0.5rem 0 0;padding-left:1.25rem;font-size:0.9rem;">
+          {% for issue in s.issues %}
+            <li style="margin-bottom:0.4rem;">
+              {% if issue.severity == 'bad' %}🔴{% elif issue.severity == 'warn' %}🟡{% else %}ℹ️{% endif %}
+              <strong>{{ issue.title }}</strong>
+              {% if issue.detail %}<br /><span class="muted">{{ issue.detail }}</span>{% endif %}
+              {% if issue.fix_url %}
+                <br /><a href="{{ issue.fix_url }}">{{ issue.fix_label or "Fix →" }}</a>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      {% if s.fix_url %}
+        <p class="small" style="margin-top:0.5rem;">
+          <a href="{{ s.fix_url }}">{{ s.fix_label or "Manage" }} →</a>
+        </p>
+      {% endif %}
+    </section>
+  {% endfor %}
+</div>
+
+<hr style="margin-top:2rem;" />
+<h2>Next steps</h2>
+<ol>
+  <li>Fix any 🔴 issues above — they'll produce wrong data if you classify now.</li>
+  <li>Review 🟡 warnings — they don't block classify but may cause noisier results.</li>
+  <li>Once setup is green, the <a href="/status">status page</a> gives you ongoing health checks.</li>
+  <li>For first-time classification of existing data, see the
+    <a href="/audit">classification audit</a> (sampling-based disagreement surfacing).</li>
+</ol>
+
+{% endblock %}

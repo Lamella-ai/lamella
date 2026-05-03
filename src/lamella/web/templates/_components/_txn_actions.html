@@ -1,0 +1,188 @@
+{# ═══════════════════════════════════════════════════════════════════
+   Transaction-action component — drop-in actions for any txn-shaped row.
+
+   Every page that renders a list of transactions (review, card,
+   txn detail, search results, AI suggestions, audit, future inline
+   tables) can include this and get the SAME modal-driven flow for
+   classify / Ask AI / ignore without duplicating per-page form HTML.
+
+   The component renders three icon buttons:
+     • classify   — opens an inline classify form in a popover modal
+     • ask-ai     — opens the unified Ask-AI job modal
+     • ignore     — opens a one-line "reason" form in a popover modal
+                    (rendered only when the ref is staged; the ledger
+                    side intentionally rejects ignore — to remove a
+                    real ledger transaction, edit the .bean file)
+
+   Inputs (passed via macro args):
+     ref         str            "staged:<id>" or "ledger:<hash>"
+     compact     bool           True → tighter padding, just the icons,
+                                no labels (for dense table rows)
+     return_url  str | None     where to land after Accept/Close
+                                (defaults to the current request path
+                                via JS — see action-popover behavior)
+
+   Use:
+     {% import "_components/_txn_actions.html" as T %}
+     ...
+     {{ T.actions(ref="staged:" ~ row.staged_id) }}
+     {{ T.actions(ref="ledger:" ~ row.txn_hash, compact=True) }}
+
+   The macro emits the buttons + their popover bodies. One copy of
+   the modal-handling JS lives in <body> (loaded by base.html) — the
+   buttons just toggle data-attributes that the global handler
+   reads; nothing per-page.
+   ═══════════════════════════════════════════════════════════════════ #}
+
+{%- macro actions(ref, compact=false, return_url=None, proposal=None, undoable_txn_id=None) -%}
+{%- set _is_staged = ref.startswith('staged:') -%}
+{%- set _btn_class = 'txnact__btn' ~ (' txnact__btn--compact' if compact else '') -%}
+{%- set _prop_target = (proposal.target if (proposal and proposal.target is defined) else None) or (proposal.target_account if (proposal and proposal.target_account is defined) else None) or (proposal.proposed_account if (proposal and proposal.proposed_account is defined) else None) -%}
+<span class="txnact" data-ref="{{ ref }}"
+      {%- if return_url %} data-return-url="{{ return_url }}"{% endif %}>
+
+  {# Accept proposal — only rendered when a proposal exists and isn't
+     a FIXME/Uncategorized placeholder. One-click writes the proposed
+     target without going through the classify popover. After a
+     successful classify the form dispatches a cancelable
+     ``lamella:txn-classified`` event before falling back to a full
+     reload. Pages that want in-place updates (e.g. /review,
+     /ai/suggestions) listen for the event and call preventDefault();
+     the reload is then skipped. Pages without a listener still get
+     the safe full reload. #}
+  {%- if _prop_target and 'FIXME' not in _prop_target|upper and 'Uncategorized' not in _prop_target -%}
+  <form method="post" action="/api/txn/{{ ref }}/classify"
+        class="txnact__accept-form"
+        hx-post="/api/txn/{{ ref }}/classify"
+        hx-swap="none"
+        hx-on::after-request="if(event.detail.successful){window.__lamellaAfterClassify ? window.__lamellaAfterClassify('{{ ref }}') : window.location.reload();}">
+    <input type="hidden" name="target_account" value="{{ _prop_target }}">
+    {% if return_url %}<input type="hidden" name="return_url" value="{{ return_url }}">{% endif %}
+    <button type="submit" class="{{ _btn_class }} txnact__btn--accept"
+            title="Accept the proposal: write {{ _prop_target }}"
+            aria-label="Accept proposal">
+      <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>{% if not compact %}<span>Accept{% if _prop_target %} → {{ _prop_target | alias }}{% endif %}</span>{% endif %}
+    </button>
+  </form>
+  {%- endif -%}
+
+  {# Classify — inline popover. Form posts to the unified
+     /api/txn/{ref}/classify. After-request closes the modal and
+     reloads the underlying page so the user sees fresh state.
+     Click handler positions the fixed-position popover at the
+     button's viewport coordinates (right-anchored) so it escapes
+     the overflow-hidden table cells / group cards that would
+     otherwise clip it. #}
+  <button type="button" class="{{ _btn_class }} txnact__btn--classify"
+          title="Classify this transaction (pick a target)"
+          aria-label="Classify"
+          onclick="window.lamellaTxnactPopover && window.lamellaTxnactPopover(this)">
+    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+      <line x1="7" y1="7" x2="7.01" y2="7"/>
+    </svg>{% if not compact %}<span>Classify</span>{% endif %}
+  </button>
+  <div class="txnact__popover">
+    <form method="post" action="/api/txn/{{ ref }}/classify"
+          hx-post="/api/txn/{{ ref }}/classify"
+          hx-swap="none"
+          hx-on::after-request="if(event.detail.successful){this.closest('.txnact__popover').removeAttribute('data-open');window.__lamellaAfterClassify ? window.__lamellaAfterClassify('{{ ref }}') : window.location.reload();}">
+      {% if return_url %}<input type="hidden" name="return_url" value="{{ return_url }}">{% endif %}
+      {%- import "_components/_txn.html" as Txn -%}
+      {{ Txn.account_picker(extra_class='txnact__input', required=true) }}
+      <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+    </form>
+  </div>
+
+  {# Ask AI — opens the unified job modal. The button uses the
+     canonical robot icon and the "AI" label is ALWAYS shown
+     (even in compact mode) so the affordance reads at a glance.
+     Distinct color via .txnact__btn--ai (purple-tinted) sets it
+     apart from the neutral classify/ignore buttons. Per user
+     feedback: "maybe the AI button can say 'AI' and have a robot
+     head as the icon? Maybe a different color?" #}
+  <button type="button" class="{{ _btn_class }} txnact__btn--ai"
+          title="Ask AI to classify this transaction"
+          aria-label="Ask AI"
+          hx-post="/api/txn/{{ ref }}/ask-ai"
+          hx-target="body" hx-swap="beforeend"
+          hx-vals='{"attempt": 1{% if return_url %}, "return_url": "{{ return_url }}"{% endif %}}'>
+    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 8V4H8"/>
+      <rect width="16" height="12" x="4" y="8" rx="2"/>
+      <path d="M2 14h2"/>
+      <path d="M20 14h2"/>
+      <path d="M15 13v2"/>
+      <path d="M9 13v2"/>
+    </svg><span>AI</span>
+  </button>
+
+  {# Undo — ADR-0046 Phase 4b. Reverse-classify a previously
+     classified ledger transaction. Always visible when
+     undoable_txn_id is set; the page updates in place via the
+     existing __lamellaAfterClassify path so a stale Undo doesn't
+     stick around — the row is gone (or its UI is re-rendered)
+     after the next refresh. Posts to the unified
+     /api/txn/{lamella_txn_id}/reverse-classify which removes
+     every override block targeting the named transaction. #}
+  {% if undoable_txn_id %}
+  <form method="post"
+        action="/api/txn/{{ undoable_txn_id }}/reverse-classify"
+        class="txnact__undo-form"
+        hx-post="/api/txn/{{ undoable_txn_id }}/reverse-classify"
+        hx-swap="none"
+        hx-on::after-request="if(event.detail.successful){window.__lamellaAfterClassify ? window.__lamellaAfterClassify('{{ ref }}') : window.location.reload();}">
+    {% if return_url %}<input type="hidden" name="return_url" value="{{ return_url }}">{% endif %}
+    {# CSRF: handled by the site-wide hook in base.html. The htmx
+       configRequest listener attaches X-CSRF-Token from the
+       lamella_csrf cookie on every htmx call; the global submit
+       listener injects a hidden _csrf input on vanilla submits.
+       Explicit `value="{{ request.state.csrf }}"` doesn't work
+       inside macros because Jinja macros don't inherit `request`
+       from the caller's scope — UndefinedError on render. #}
+    <button type="submit" class="{{ _btn_class }} txnact__btn--undo"
+            title="Undo this classification (removes the override; the txn returns to its uncategorized state)"
+            aria-label="Undo classification">
+      <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 7v6h6"/>
+        <path d="M21 17a9 9 0 0 0-15-6.7L3 13"/>
+      </svg>{% if not compact %}<span>Undo</span>{% endif %}
+    </button>
+  </form>
+  {% endif %}
+
+  {# Ignore — staged rows only. Inline popover for the reason.
+     Reversible: the row can be brought back via the /review/ignored
+     surface or POST /api/txn/{ref}/restore. #}
+  {% if _is_staged %}
+  <button type="button" class="{{ _btn_class }} txnact__btn--dismiss"
+          title="Hide this row from the queue (reversible — view or restore from /review/ignored)"
+          aria-label="Ignore"
+          onclick="window.lamellaTxnactPopover && window.lamellaTxnactPopover(this)">
+    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+      <line x1="1" y1="1" x2="23" y2="23"/>
+    </svg>{% if not compact %}<span>Ignore</span>{% endif %}
+  </button>
+  <div class="txnact__popover txnact__popover--danger">
+    <form method="post" action="/api/txn/{{ ref }}/dismiss"
+          hx-post="/api/txn/{{ ref }}/dismiss"
+          hx-swap="none"
+          hx-on::after-request="if(event.detail.successful){this.closest('.txnact__popover').removeAttribute('data-open');window.__lamellaAfterClassify ? window.__lamellaAfterClassify('{{ ref }}') : window.location.reload();}">
+      {% if return_url %}<input type="hidden" name="return_url" value="{{ return_url }}">{% endif %}
+      <input type="text" name="reason" class="field-input txnact__input"
+             placeholder="Reason (optional) — kept on the row for later reference" />
+      <button type="submit" class="btn btn-warn btn-sm">Ignore</button>
+    </form>
+  </div>
+  {% endif %}
+
+</span>
+{%- endmacro -%}

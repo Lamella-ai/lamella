@@ -1,0 +1,250 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Loans & mortgages — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Loans{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Loans & mortgages',
+     subtitle='Mortgages, auto loans, student loans, HELOCs. The wizard handles new loans + imports + refis + payoffs — pick the flow that matches the real-world event.',
+     kicker='Records'
+) %}
+  {{ B.btn('New mortgage', href='/settings/loans/wizard/purchase', icon=icon.plus(), variant='primary') }}
+  {{ B.btn('Import existing', href='/settings/loans/wizard/import_existing', icon=icon.upload()) }}
+  {{ B.btn('Refi', href='/settings/loans/wizard/refi', icon=icon.refresh()) }}
+  {{ B.btn('Payoff', href='/settings/loans/wizard/payoff', icon=icon.checkcircle()) }}
+{% endcall %}
+
+{% if saved %}
+{% call F.banner(tone='ok', title='Saved') %}{{ saved }}{% endcall %}
+{% endif %}
+
+{% if candidates %}
+{% call L.section(title='Discovered in your ledger', subtitle='%d candidate%s' % (candidates|length, 's' if candidates|length != 1 else '')) %}
+{% call C.card() %}
+  <p class="subtle" style="margin-top:0">
+    Liability accounts that look like loans. Promote one into a tracked
+    loan with principal, APR, amortization, and SimpleFIN mapping.
+  </p>
+{% endcall %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Account</th>
+      <th>Entity</th>
+      <th>Institution</th>
+      <th>Suggested slug</th>
+      <th>Type</th>
+      <th class="shrink"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in candidates %}
+    <tr>
+      <td title="{{ c.account_path }}">{{ c.account_path | alias }}</td>
+      <td>{{ (c.entity | entity) if c.entity else '—' }}</td>
+      <td>{{ c.institution or '—' }}</td>
+      <td><code>{{ c.suggested_slug }}</code></td>
+      <td>{{ D.badge(c.loan_type | humanize, tone='muted') }}</td>
+      <td class="shrink">
+        {{ B.btn(
+            'Promote →',
+            href='/loans?prefill_slug=' + c.suggested_slug
+                 + '&prefill_institution=' + (c.institution or '')
+                 + '&prefill_entity=' + (c.entity or '')
+                 + '&prefill_type=' + c.loan_type
+                 + ('&prefill_revolving=1' if c.is_revolving else '')
+                 + '&prefill_account_path=' + c.account_path
+                 + '&prefill_display_name=' + (c.institution or '') + '%20' + c.loan_type
+                 + '#promote',
+            size='sm'
+        ) }}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+{% if loans %}
+<div class="record-grid" id="loans-grid">
+  {% for l in loans %}
+  {% include "partials/_loan_card.html" %}
+  {% endfor %}
+</div>
+{% else %}
+{% call L.section() %}
+{{ F.empty_state(
+    'No loans tracked yet.',
+    'Start with the New mortgage wizard',
+    '/settings/loans/wizard/purchase',
+    icon=icon.landmark(28)
+) }}
+{% endcall %}
+{% endif %}
+
+{% if prefill %}
+<section id="promote" style="margin-top:2.25rem">
+{% call L.section(title='Promote candidate') %}
+{% call F.banner(tone='info', title='Pre-filled from your ledger') %}
+  Using <strong title="{{ prefill.account_path }}">{{ prefill.account_path | alias }}</strong>.
+  The liability account already exists, so it won't be re-created — only the
+  interest / escrow expense accounts get scaffolded if you check that box.
+  Prefer the
+  <a href="/settings/loans/wizard/import_existing">Import existing wizard</a>
+  for full anchor / payment-history capture.
+{% endcall %}
+
+{% call C.card() %}
+<form id="promote-form" method="post" action="/settings/loans" class="form-grid" style="max-width:none">
+  <input type="hidden" name="intent" value="create" />
+  <input type="hidden" name="existing_liability_path" value="{{ prefill.account_path }}" />
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label" for="loan-display-name">Display name <span class="required-mark">*</span></label>
+      <input class="field-input" id="loan-display-name" type="text" name="display_name"
+             placeholder="e.g. Main House Mortgage" required
+             value="{{ prefill.display_name }}" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="loan-slug">Slug</label>
+      <input class="field-input" id="loan-slug" type="text" name="slug"
+             pattern="[A-Z][A-Za-z0-9-]*" placeholder="auto-suggested if blank"
+             value="{{ prefill.slug }}" />
+      <span class="field-hint">Beancount path segment — must start with a capital letter.</span>
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label" for="loan-type">Type</label>
+      <input class="field-input" id="loan-type" type="text" name="loan_type"
+             list="loan-types-datalist"
+             value="{{ prefill.loan_type }}" />
+      <datalist id="loan-types-datalist">
+        {% for t in loan_types %}<option value="{{ t }}">{% endfor %}
+      </datalist>
+    </div>
+    <div class="field">
+      <label class="field-label" for="loan-entity">Entity (who owes this) <span class="required-mark">*</span></label>
+      <input class="field-input" id="loan-entity" type="text" name="entity_slug"
+             list="entities-datalist" required
+             value="{{ prefill.entity_slug }}" />
+      <datalist id="entities-datalist">
+        {% for e in entities %}<option value="{{ e.slug }}" label="{{ e.display_name or e.slug }}">{% endfor %}
+      </datalist>
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="loan-institution">Institution</label>
+    <input class="field-input" id="loan-institution" type="text" name="institution"
+           placeholder="e.g. the bank or lender name"
+           value="{{ prefill.institution }}" />
+  </div>
+
+  <div class="field">
+    <label style="display:flex; gap:8px; align-items:center; font-size:0.92rem;">
+      <input type="checkbox" name="is_revolving" value="1"
+             {% if prefill.is_revolving %}checked{% endif %} />
+      Revolving (HELOC / line of credit) — skips amortization
+    </label>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label" for="loan-credit-limit">Credit limit <span class="subtle">(revolving only)</span></label>
+      <input class="field-input" id="loan-credit-limit" type="text" name="credit_limit" placeholder="100000.00" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="loan-principal">Original principal</label>
+      <input class="field-input" id="loan-principal" type="text" name="original_principal" />
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label" for="loan-funded">Funded date</label>
+      <input class="field-input" id="loan-funded" type="date" name="funded_date" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="loan-firstpay">First payment date</label>
+      <input class="field-input" id="loan-firstpay" type="date" name="first_payment_date" />
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label" for="loan-due-day">Payment due day (1–31)</label>
+      <input class="field-input" id="loan-due-day" type="number" name="payment_due_day" min="1" max="31" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="loan-term">Term months</label>
+      <input class="field-input" id="loan-term" type="number" name="term_months" />
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label" for="loan-apr">Interest rate APR (percent)</label>
+      <input class="field-input" id="loan-apr" type="text" name="interest_rate_apr" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="loan-monthly">Monthly payment estimate</label>
+      <input class="field-input" id="loan-monthly" type="text" name="monthly_payment_estimate" />
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label" for="loan-escrow">Monthly escrow (if applicable)</label>
+      <input class="field-input" id="loan-escrow" type="text" name="escrow_monthly" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="loan-sf">SimpleFIN account ID</label>
+      <input class="field-input" id="loan-sf" type="text" name="simplefin_account_id" />
+    </div>
+  </div>
+
+  <div class="field">
+    <label style="display:flex; gap:8px; align-items:center; font-size:0.92rem;">
+      <input type="checkbox" name="create_expense_tree" value="1" checked />
+      Create liability + interest (+ escrow) accounts in the ledger
+    </label>
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="loan-notes">Notes</label>
+    <textarea class="field-textarea" id="loan-notes" name="notes" rows="2"></textarea>
+  </div>
+
+  <div class="form-actions">
+    {{ B.btn('Cancel', href='/loans', variant='ghost') }}
+    <span class="spacer"></span>
+    {{ B.btn('Promote to tracked loan', type='submit', variant='primary') }}
+  </div>
+</form>
+{% endcall %}
+{% endcall %}
+</section>
+{% endif %}
+{% endblock %}

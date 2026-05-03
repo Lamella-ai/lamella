@@ -1,0 +1,48 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{#
+  Banner body for /setup/accounts — extracted so save handlers can
+  re-render just this block via hx-swap-oob after a successful save.
+  Keeps the "N of M missing" count fresh without blowing away the
+  form the user is working in.
+#}
+{% if all_labeled %}
+  <strong style="color:var(--ok);">✓ All {{ total }} accounts labeled.</strong>
+  <p style="margin:0.3em 0 0;">
+    <form method="post" action="/setup/refresh-progress" style="display:inline;">
+      <button type="submit" class="primary">Next: charts →</button>
+    </form>
+  </p>
+{% elif total == 0 %}
+  <strong>No user-facing accounts registered yet.</strong>
+  <p class="small" style="margin:0.3em 0 0.6em;">
+    Accounts typically appear here from SimpleFIN ingestion or manual
+    entry. Without at least one account, the AI classifier has
+    nothing to classify from.
+  </p>
+  <p style="margin:0.3em 0 0;">
+    <a href="/setup/accounts?add=account"><button type="button" class="primary">+ Add an account manually →</button></a>
+    <a href="/setup/simplefin" style="margin-left:0.6em;"><button type="button" class="secondary">Configure SimpleFIN →</button></a>
+  </p>
+{% else %}
+  <strong style="color:var(--warn);">⚠ {{ needs_count }} of {{ total }} accounts missing kind + entity.</strong>
+  <p class="small" style="margin:0.3em 0 0;">
+    Rows without both fields are up top. Saving a row triggers
+    companion-account scaffolding (Interest / Bank:Fees / Cashback /
+    OpeningBalances / Transfers:InFlight) based on the kind you
+    pick. All writes go through bean-check.
+  </p>
+{% endif %}
+{% if unused_count %}
+<p class="small muted" style="margin:0.4em 0 0;">
+  💡 {{ unused_count }} account{{ '' if unused_count == 1 else 's' }} have zero postings — likely stale discovery results.
+  The badge under each account path shows postings · SimpleFIN binding.
+  Unused accounts can stay (harmless) or be Closed via the row form below.
+</p>
+{% endif %}

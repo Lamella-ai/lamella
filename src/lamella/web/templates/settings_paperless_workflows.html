@@ -1,0 +1,37 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Paperless workflows — Settings{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Paperless workflow bindings{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Tag-driven workflow bindings',
+     subtitle='Apply a Paperless tag to a document and Lamella automatically runs the corresponding action. Create a binding below by choosing a tag name and an action. Once applied, the tag triggers a workflow run that stamps completion tags on the document for audit and idempotency.',
+     kicker='Settings'
+) %}
+{% endcall %}
+
+{%- if not paperless_configured %}
+  {% call F.banner(tone='err', title='Paperless not configured') %}
+    Tag autocomplete requires <code>PAPERLESS_URL</code> and <code>PAPERLESS_API_TOKEN</code>. For now, you can still create bindings by typing tag names directly, but Paperless integration must be enabled first.
+  {% endcall %}
+{%- endif %}
+
+{% include "partials/_workflows_settings_body.html" %}
+
+<p class="subtle" style="margin-top:1.5rem"><a href="/settings">← back to Settings</a></p>
+{% endblock %}

@@ -1,0 +1,25 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Next 2-4 actions after the top one. Compact chips so the user
+   can see upcoming work without scrolling. #}
+{% if health.next_actions|length > 1 %}
+<nav class="next-actions-strip" aria-label="Upcoming actions">
+  {% for action in health.next_actions[1:5] %}
+    <a class="next-action-chip severity-{{ action.severity }}"
+       href="{{ action.endpoint }}"
+       title="{{ action.detail }}">
+      <span class="severity-dot"></span>
+      <span class="chip-title">{{ action.title }}</span>
+    </a>
+  {% endfor %}
+  {% if health.next_actions|length > 5 %}
+    <span class="muted small">+{{ health.next_actions|length - 5 }} more</span>
+  {% endif %}
+</nav>
+{% endif %}

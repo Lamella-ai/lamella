@@ -1,0 +1,31 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Success fragment for /documents/{id}/apply-tag (ADR-0065).
+   Swapped into #row-status-{paperless_id} by the per-row Process dropdown.
+
+   Shows a confirmation that the trigger tag was applied plus a "Run now"
+   link that fires the binding rule immediately without waiting for the
+   next scheduler tick.
+
+   Rule-name convention: "binding:<tag_name>" -- this matches the convention
+   used by the /documents/workflows/{rule_name}/run endpoint.
+   TODO(worker-k): confirm convention with Worker K's settings endpoint once merged.
+#}
+<span class="small">
+  Tagged <code>{{ tag_name }}</code>.
+  Will run on next scheduler tick.
+  &mdash;
+  <form hx-post="/documents/workflows/binding:{{ tag_name }}/run"
+        hx-target="#row-status-{{ paperless_id }}"
+        hx-swap="innerHTML"
+        class="inline-form"
+        style="display:inline">
+    <button type="submit" class="btn btn--sm btn--outline">Run now</button>
+  </form>
+</span>

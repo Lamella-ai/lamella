@@ -1,0 +1,61 @@
+-- Copyright 2026 Lamella
+-- SPDX-License-Identifier: Apache-2.0
+--
+-- Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+-- https://lamella.ai
+
+-- 053 — accounts_meta.kind_source: provenance for the kind value.
+--
+-- Phase 2 of /setup/recovery (see SETUP_IMPLEMENTATION.md). The
+-- recovery editor needs to distinguish where an account's kind
+-- value came from so the UI can render appropriate confirmation
+-- hints and downstream passes can tell user-confirmed labels apart
+-- from automated guesses.
+--
+-- Value space (Phase 7 step 5 documentation pass):
+--
+--   NULL kind, NULL source     → unclassified. The row exists
+--                                because the path was discovered
+--                                in the ledger, but no kind has
+--                                been inferred or set.
+--   non-NULL kind, NULL source → user-confirmed. Either typed
+--                                directly into the form, or saved
+--                                from any source after review.
+--                                The save path in
+--                                registry/service.py clears
+--                                kind_source on every write so
+--                                'I saw and accepted this' is the
+--                                terminal state regardless of how
+--                                the value originally arrived.
+--   non-NULL kind, 'keyword'   → kind was inferred by
+--                                _infer_account_kind matching a
+--                                path token (e.g. "creditcard"
+--                                somewhere in the path). Signal,
+--                                not commitment — the sibling pass
+--                                may overwrite, and the UI hints
+--                                "looks like a credit card from
+--                                the path".
+--   non-NULL kind, 'sibling'   → kind was derived from neighboring
+--                                accounts under the same
+--                                Liabilities:{Entity}:{Institution}:*
+--                                prefix all sharing one kind.
+--                                Stronger signal than 'keyword'
+--                                (concrete neighbor evidence) but
+--                                still derived. The UI hints
+--                                "looks like a credit card based
+--                                on other Bank One accounts
+--                                under BetaCorp".
+--
+-- Three values currently writable: NULL, 'keyword', 'sibling'.
+-- Two of those four states are produced ONLY by writers in
+-- registry/discovery.py (seed + sibling passes). The save path in
+-- registry/service.py is the only writer that clears the column
+-- back to NULL — see _maybe_clear_kind_source there.
+--
+-- Existing rows leave kind_source NULL. We can't retroactively
+-- detect which existing kinds came from `_infer_account_kind` vs
+-- a user save, so treating them all as user-confirmed is the safe
+-- default. The next boot's sibling pass will only touch NULL-kind
+-- rows, so existing data is undisturbed.
+
+ALTER TABLE accounts_meta ADD COLUMN kind_source TEXT;

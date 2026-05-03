@@ -1,0 +1,50 @@
+# Default: treat files as text, normalize to LF on commit, check out as LF.
+# Prevents the CRLF re-save churn we just dug ourselves out of.
+* text=auto eol=lf
+
+# --- Source / template / config: explicit text + LF (defensive) ---
+*.py        text eol=lf
+*.pyi       text eol=lf
+*.sh        text eol=lf
+*.bash      text eol=lf
+*.html      text eol=lf
+*.j2        text eol=lf
+*.css       text eol=lf
+*.js        text eol=lf
+*.mjs       text eol=lf
+*.json      text eol=lf
+*.toml      text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.md        text eol=lf
+*.txt       text eol=lf
+*.csv       text eol=lf
+*.bean      text eol=lf
+*.beancount text eol=lf
+*.sql       text eol=lf
+Dockerfile  text eol=lf
+Dockerfile.* text eol=lf
+
+# --- Binary: never touch ---
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.webp      binary
+*.pdf       binary
+*.woff      binary
+*.woff2     binary
+*.ttf       binary
+*.otf       binary
+*.eot       binary
+*.zip       binary
+*.tar       binary
+*.tar.gz    binary
+*.tgz       binary
+*.gz        binary
+*.sqlite    binary
+*.db        binary
+
+# Note: no Windows-script exemption needed. The only .bat / .cmd / .ps1
+# files in this repo live under .venv/Scripts/ which is gitignored.

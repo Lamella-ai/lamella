@@ -1,0 +1,83 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Vehicles — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Vehicles{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Vehicles',
+     subtitle='One card per vehicle — tap in for the money grid, mileage charts, and standard-mileage-vs-actual deduction comparison for %d.' % year,
+     kicker='Records'
+) %}
+  {{ B.btn('Log a trip', href='/mileage', icon=icon.car()) }}
+  {{ B.btn('Import mileage', href='/mileage/import', icon=icon.upload()) }}
+  <button type="button"
+          class="btn btn-primary"
+          hx-get="/vehicles/new-modal"
+          hx-target="body"
+          hx-swap="beforeend">
+    {{ icon.plus() }} Add vehicle
+  </button>
+{% endcall %}
+
+{% if phase2_banner_count and phase2_banner_count > 0 %}
+{% call F.banner(
+     tone='warn',
+     title='%d vehicle%s now report unknown business-use' % (
+        phase2_banner_count, '' if phase2_banner_count == 1 else 's'
+     )
+) %}
+  We used to assume 100% business when a trip had no split recorded — that
+  silent fallback has been removed. Open each vehicle below and log
+  business / commuting / personal splits for this year's trips to get
+  a deduction figure back.
+{% endcall %}
+{% endif %}
+
+{% if cards %}
+<div class="record-grid" id="vehicles-grid">
+  {% for c in cards %}
+  {% include "partials/_vehicle_card.html" %}
+  {% endfor %}
+</div>
+{% else %}
+{{ F.empty_state(
+    'No vehicles tracked yet.',
+    'Add your first vehicle',
+    '/vehicles/new',
+    icon=icon.car(28)
+) }}
+{% endif %}
+
+<div style="margin-top:2rem;">
+  <p class="subtle">
+    {{ B.btn('IRS rates', href='/settings/mileage-rates', icon=icon.settings(), size='sm') }}
+    {{ B.btn('Back-fill audit', href='/vehicles-backfill-audit', icon=icon.search(), size='sm') }}
+  </p>
+</div>
+
+<script>
+/* Close any open modal when the server fires HX-Trigger=vehicle-saved
+   on the modal-edit POST. Mirrors entities.html. */
+document.body.addEventListener("vehicle-saved", function () {
+  document.querySelectorAll(".modal-backdrop.is-open").forEach(function (m) {
+    m.classList.remove("is-open");
+    setTimeout(function () { m.remove(); }, 200);
+  });
+});
+</script>
+{% endblock %}

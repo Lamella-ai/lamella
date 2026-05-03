@@ -1,0 +1,129 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Dangling receipt links — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Dangling receipt links{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Dangling receipt links',
+     subtitle='Receipt links whose Paperless document is gone. Surfaced only after ≥3 consecutive 404 sweeps spaced over ≥7 days, so a transient outage cannot mass-unlink. Lamella never auto-unlinks; user click required.',
+     kicker='Receipts'
+) %}
+  <form method="post"
+        action="/documents/dangling/sweep"
+        hx-post="/documents/dangling/sweep"
+        hx-swap="none">
+    <button type="submit" class="btn btn-secondary">Sweep now</button>
+  </form>
+{% endcall %}
+
+<section class="page-section">
+  <div class="page-section-body">
+    <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1.25rem;">
+      <div style="padding:0.7rem 1rem; border:1px solid var(--border); border-radius:8px; background:var(--panel);">
+        <div style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted);">Healthy</div>
+        <div style="font-size:1.6rem; font-weight:700;">{{ status.healthy }}</div>
+      </div>
+      <div style="padding:0.7rem 1rem; border:1px solid var(--border); border-radius:8px; background:var(--panel);">
+        <div style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted);">Pending verification</div>
+        <div style="font-size:1.6rem; font-weight:700;">{{ status.pending }}</div>
+        <div class="muted" style="font-size:0.78rem;">1–2 consecutive 404s — not yet evidence</div>
+      </div>
+      <div style="padding:0.7rem 1rem; border:1px solid var(--err); border-left:4px solid var(--err); border-radius:8px; background:rgba(185,28,28,0.04);">
+        <div style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--err);">Dangling</div>
+        <div style="font-size:1.6rem; font-weight:700; color:var(--err);">{{ status.dangling }}</div>
+        <div class="muted" style="font-size:0.78rem;">≥3 404s + ≥7 days — review below</div>
+      </div>
+    </div>
+
+    {% if dangling %}
+      <h3 style="margin-top:0;">Dangling links — {{ dangling|length }}</h3>
+      <p class="subtle">
+        Each row's Paperless document returned 404 on the last
+        {% raw %}{{N}}{% endraw %} consecutive sweeps. Click <strong>Unlink</strong>
+        to strip the link from <code>connector_links.bean</code> + clear
+        the auto-stamped <code>Lamella:*</code> custom fields. The
+        Paperless document itself is not touched (it's already gone).
+      </p>
+      <table class="small" style="width:100%;">
+        <thead>
+          <tr>
+            <th>Paperless ID</th>
+            <th>Linked txn</th>
+            <th>Amount</th>
+            <th>Date</th>
+            <th>First missed</th>
+            <th>Consecutive 404s</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in dangling %}
+            <tr>
+              <td>
+                {% if d.paperless_url %}
+                  <a href="{{ d.paperless_url }}" target="_blank" rel="noopener">#{{ d.paperless_id }}</a>
+                {% else %}
+                  #{{ d.paperless_id }}
+                {% endif %}
+              </td>
+              <td>
+                {% if d.txn_hash and d.txn_hash|length >= 12 %}
+                  <a href="/txn/{{ d.txn_hash }}"><code>{{ d.txn_hash[:12] }}…</code></a>
+                {% else %}
+                  <code>{{ d.txn_hash }}</code>
+                {% endif %}
+              </td>
+              <td>{{ d.txn_amount or '—' }}</td>
+              <td>{{ d.txn_date or '—' }}</td>
+              <td class="muted">{{ d.first_404_at }}</td>
+              <td>{{ d.consecutive_404s }}</td>
+              <td>
+                <form method="post"
+                      action="/api/paperless/{{ d.paperless_id }}/unlink-mismatched"
+                      hx-post="/api/paperless/{{ d.paperless_id }}/unlink-mismatched"
+                      hx-confirm="Unlink Paperless #{{ d.paperless_id }} from its receipt_links row? The Paperless document is already gone; this just removes the dead reference."
+                      hx-swap="none"
+                      style="display:inline;">
+                  <button type="submit" class="btn" style="background:var(--err); color:#fff; border-color:var(--err);">
+                    Unlink
+                  </button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% elif status.healthy or status.pending %}
+      <p class="subtle">
+        No dangling links. Click <strong>Sweep now</strong> to re-probe.
+        A link surfaces here only after ≥3 consecutive 404 sweeps + a
+        7-day cooldown, so a transient outage doesn't trigger false
+        positives.
+      </p>
+    {% else %}
+      <p class="subtle">
+        No sweeps have run yet. Click <strong>Sweep now</strong> to
+        probe every linked Paperless document. Healthy docs show as
+        green; missing docs need ≥3 confirmations + ≥7 days before
+        they surface as dangling.
+      </p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

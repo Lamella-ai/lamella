@@ -1,0 +1,153 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<div class="txn-panel" id="txn-panel-{{ target_hash }}">
+  <div class="txn-panel-head">
+    <strong>{{ date }}</strong>
+    · {{ from_amount | money(currency) }}
+    · {% if payee %}<strong>{{ payee }}</strong> · {% endif %}<span class="muted">{{ narration }}</span>
+  </div>
+  <p class="muted small">
+    From <code title="{{ from_account }}">{{ from_account | alias }}</code>
+    {% if already_categorized %}
+      → categorized as
+      {% for acct in override_target_accounts %}
+        <strong>{{ acct | alias }}</strong>{% if not loop.last %}, {% endif %}
+      {% endfor %}
+    {% elif has_fixme %}
+      <span class="badge preferred">Uncategorized</span>
+    {% endif %}
+  </p>
+
+  {% if already_categorized %}
+    <div class="txn-panel-mode" style="background:var(--ok-soft);border:1px solid #86efac;border-radius:6px;padding:.6rem .8rem;margin-bottom:.5rem;">
+      <p style="margin:0;">
+        <strong>Already categorized.</strong> To change it, undo first,
+        then pick a new target in the form below.
+      </p>
+      <form hx-post="/txn/{{ target_hash }}/revert-override"
+            hx-target="#txn-panel-{{ target_hash }}"
+            hx-swap="outerHTML"
+            style="margin-top:.4rem;">
+        <button type="submit" class="secondary small">Undo categorization</button>
+      </form>
+    </div>
+  {% endif %}
+
+  {% if relevant_loans %}
+    <div class="txn-panel-loan-match">
+      <strong>This looks like a payment on:</strong>
+      {% for loan in relevant_loans %}
+        <a href="/settings/loans/{{ loan.slug }}#fixme-candidates" class="secondary small"
+           title="Open loan detail to record principal/interest/escrow split">
+          {{ loan.display_name or loan.slug }} →
+        </a>
+      {% endfor %}
+      <p class="muted small">
+        Mortgage / auto loan payments need a principal/interest/escrow
+        split — use the loan detail page's amortization-aware form.
+      </p>
+    </div>
+  {% endif %}
+
+  <div class="txn-panel-modes">
+    <details class="txn-panel-mode" open>
+      <summary><strong>Categorize</strong> — point this to an expense category</summary>
+      <form hx-post="/txn/{{ target_hash }}/categorize-inplace"
+            hx-target="#txn-panel-{{ target_hash }}"
+            hx-swap="outerHTML"
+            autocomplete="off" class="stacked-form txn-categorize-form">
+        <input type="hidden" name="mode" value="categorize" />
+        <label>Target expense account
+          <input type="text" name="target_account" list="accounts-datalist"
+                 required placeholder="Expenses:Entity:Category" autocomplete="off" />
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" name="save_rule" value="1"
+                 data-toggles="rule-pattern-{{ target_hash }}" />
+          Also save a rule so future merchants like this auto-categorize
+        </label>
+        <label id="rule-pattern-{{ target_hash }}" class="rule-pattern-label" hidden>
+          Rule pattern text
+          <input type="text" name="rule_pattern_value" value="{{ payee or narration }}" />
+        </label>
+        <button type="submit" class="primary-action">Apply categorize</button>
+        <p class="muted small" style="margin:.4rem 0 0 0;">
+          Edits the source .bean file directly. A timestamped backup
+          is written to <code>.pre-inplace-&lt;ts&gt;/</code> before
+          any change, and bean-check validates the result — on
+          failure the file is restored byte-identical.
+        </p>
+      </form>
+      <script>
+        (function () {
+          var form = document.currentScript.previousElementSibling;
+          if (!form) return;
+          var cb = form.querySelector('input[name="save_rule"]');
+          if (!cb) return;
+          var targetId = cb.getAttribute('data-toggles');
+          var target = targetId ? document.getElementById(targetId) : null;
+          if (!target) return;
+          function sync() { target.hidden = !cb.checked; }
+          cb.addEventListener('change', sync);
+          sync();
+        })();
+      </script>
+    </details>
+
+    <details class="txn-panel-mode">
+      <summary><strong>Mark as transfer</strong> — to another account you own (brokerage, mortgage principal, intra-bank move)</summary>
+      <form hx-post="/txn/{{ target_hash }}/apply"
+            hx-target="#txn-panel-{{ target_hash }}"
+            hx-swap="outerHTML"
+            autocomplete="off" class="stacked-form">
+        <input type="hidden" name="mode" value="transfer" />
+        <label>Other-side account
+          <input type="text" name="target_account" list="accounts-datalist"
+                 required placeholder="Liabilities:Personal:YourBank:Mortgage"
+                 autocomplete="off" />
+        </label>
+        <p class="muted small">
+          Same mechanism as categorize — writes a single override — but
+          the convention is Liabilities:* or Assets:* on the other side.
+          For mortgage payments, use the loan detail page instead so
+          principal / interest / escrow get split properly.
+        </p>
+        <button type="submit" class="primary-action">Apply transfer</button>
+      </form>
+    </details>
+
+    <details class="txn-panel-mode">
+      <summary><strong>Split across multiple accounts</strong> — multi-line override</summary>
+      <form hx-post="/txn/{{ target_hash }}/apply"
+            hx-target="#txn-panel-{{ target_hash }}"
+            hx-swap="outerHTML"
+            autocomplete="off" class="stacked-form">
+        <input type="hidden" name="mode" value="split" />
+        <div class="split-lines">
+          <div class="split-line">
+            <input type="text" name="split_account" list="accounts-datalist" placeholder="account" autocomplete="off" />
+            <input type="text" name="split_amount" inputmode="decimal" placeholder="0.00" />
+          </div>
+          <div class="split-line">
+            <input type="text" name="split_account" list="accounts-datalist" placeholder="account" autocomplete="off" />
+            <input type="text" name="split_amount" inputmode="decimal" placeholder="0.00" />
+          </div>
+          <div class="split-line">
+            <input type="text" name="split_account" list="accounts-datalist" placeholder="account" autocomplete="off" />
+            <input type="text" name="split_amount" inputmode="decimal" placeholder="0.00" />
+          </div>
+        </div>
+        <p class="muted small">
+          Total must equal {{ from_amount | money(currency) }}.
+        </p>
+        <button type="submit" class="primary-action">Apply split</button>
+      </form>
+    </details>
+  </div>
+</div>

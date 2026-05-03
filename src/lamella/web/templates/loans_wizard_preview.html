@@ -1,0 +1,68 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% block title %}{{ flow.title }} — Preview{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block content %}
+<h1>{{ flow.title }} — Preview</h1>
+<p class="muted">
+  Review the writes below. Nothing is committed to the ledger until
+  you confirm. Bean-check runs once over the full batch — if any
+  write fails, the entire commit is rolled back atomically.
+</p>
+
+<section>
+  {% for row in preview_rows %}
+    <article class="card">
+      <header><strong>{{ loop.index }}. {{ row.summary }}</strong></header>
+      {% if row.details %}
+        <table class="data">
+          <tbody>
+            {% for label, value in row.details %}
+              <tr><th scope="row">{{ label }}</th><td>{{ value }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+    </article>
+  {% endfor %}
+</section>
+
+{# Back-to-edit replays the params back into the initial step.
+   User can navigate forward via normal step submission again. #}
+<form method="post"
+      action="/settings/loans/wizard/{{ flow_name }}/step"
+      class="inline-form">
+  {% for k, v in params.items() %}
+    {% if v is not none %}
+      <input type="hidden" name="{{ k }}" value="{{ v }}" />
+    {% endif %}
+  {% endfor %}
+  <input type="hidden" name="step" value="{{ flow.initial_step() }}" />
+  <button type="submit" class="secondary">← Back to edit</button>
+</form>
+
+<form method="post"
+      action="/settings/loans/wizard/{{ flow_name }}/commit"
+      class="inline-form">
+  {% for k, v in params.items() %}
+    {% if v is not none %}
+      <input type="hidden" name="{{ k }}" value="{{ v }}" />
+    {% endif %}
+  {% endfor %}
+  <button type="submit" class="primary-action">
+    Commit {{ preview_rows | length }} write(s)
+  </button>
+</form>
+
+<p class="muted small">
+  Refresh on this page is safe — preview is read-only. The commit
+  only runs when you click "Commit".
+</p>
+{% endblock %}

@@ -1,0 +1,119 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+-->
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}General settings — Lamella{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block page_title %}General settings{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='General settings',
+     subtitle='Display preferences. Per ADR-0047 these live on a focused sub-page; /settings is the navigation dashboard.',
+     kicker='Settings'
+) %}
+  {{ B.btn('← Back to settings', href='/settings', variant='ghost') }}
+{% endcall %}
+
+{% if saved %}
+  {% call F.banner(tone='ok', title='Saved', dismissible=true) %}{% endcall %}
+{% endif %}
+
+{% call L.section(title='Number formatting') %}
+{% call C.card() %}
+<form method="post" action="/settings/general" class="form-grid" style="max-width:none">
+  <p class="subtle" style="margin-top:0">
+    Controls thousands and decimal separators on every money display
+    across the app — transactions, audit, KPI tiles, reports.
+  </p>
+  <div class="field">
+    <label class="field-label">Number locale</label>
+    <div class="settings-locale-grid">
+      {% for code, sample, hint in number_locale_options %}
+      <label class="settings-locale-card {% if number_locale == code %}is-active{% endif %}">
+        <input type="radio" name="number_locale" value="{{ code }}"
+               {% if number_locale == code %}checked{% endif %} />
+        <div class="settings-locale-sample">{{ sample }}</div>
+        <div class="settings-locale-code">{{ code }}</div>
+        <div class="settings-locale-hint">{{ hint }}</div>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="field">
+    <label class="field-label" for="app_tz">Timezone (IANA)</label>
+    <p class="subtle" style="margin-top:0;margin-bottom:0.4rem">
+      IANA timezone name used to render all user-facing timestamps
+      (transactions, receipts, audit log). See
+      <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones"
+         target="_blank" rel="noopener">List of tz database time zones</a>.
+      Invalid entries are silently ignored; the current value is kept.
+    </p>
+    <input id="app_tz" type="text" name="app_tz"
+           class="field-input" style="max-width:22rem"
+           value="{{ app_tz }}"
+           placeholder="America/Denver"
+           autocomplete="off" spellcheck="false" />
+  </div>
+  <div class="form-actions">
+    <span class="spacer"></span>
+    {{ B.btn('Save', type='submit', variant='primary') }}
+  </div>
+</form>
+{% endcall %}
+{% endcall %}
+{% endblock %}
+
+{% block head_extra %}
+<style>
+  .settings-locale-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.7rem;
+    margin-top: 0.5rem;
+  }
+  .settings-locale-card {
+    display: block;
+    padding: 1rem;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .settings-locale-card:hover { border-color: var(--accent); }
+  .settings-locale-card.is-active {
+    border-color: var(--accent);
+    background: var(--accent-soft, var(--panel));
+  }
+  .settings-locale-card input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .settings-locale-sample {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 1.4rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .settings-locale-code {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-top: 0.3rem;
+  }
+  .settings-locale-hint {
+    font-size: 0.85rem;
+    color: var(--fg-soft, var(--muted));
+    margin-top: 0.3rem;
+  }
+</style>
+{% endblock %}

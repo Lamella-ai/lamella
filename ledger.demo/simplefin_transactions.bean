@@ -1,0 +1,2555 @@
+;; ---------------------------------------------------------------
+;; Managed by Lamella. Do not edit by hand.
+;;
+;; This file is regenerated from user actions in the web UI. Manual
+;; edits may be reverted silently on the next write.
+;;
+;; File:      simplefin_transactions.bean
+;; Owner:     lamella
+;; Schema:    lamella-ledger-version=3
+;; Generated: 2026-04-29 by Lamella demo generator
+;; ---------------------------------------------------------------
+
+
+2025-01-04 * "Sunrise Foods" "Weekly groceries"
+  lamella-txn-id: "13eb9438-c3d3-4b81-8d75-def34fde55c7"
+  Liabilities:Personal:BankOne:Card                               -157.88 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00001"
+  Expenses:Personal:Groceries                                      157.88 USD
+
+2025-01-14 * "Harvest Lane Co-op" "Weekly groceries"
+  lamella-txn-id: "c7e5b17e-a866-49b9-9376-f02ed3c3504f"
+  Liabilities:Personal:BankOne:Card                                -97.81 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00002"
+  Expenses:Personal:Groceries                                       97.81 USD
+
+2025-01-20 * "Sunrise Foods" "Weekly groceries"
+  lamella-txn-id: "50519229-192f-493c-90ee-fa9101372243"
+  Liabilities:Personal:BankOne:Card                               -111.52 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00003"
+  Expenses:Personal:Groceries                                      111.52 USD
+
+2025-01-24 * "Greenleaf Market" "Weekly groceries"
+  lamella-txn-id: "532a228e-2db3-474d-8052-37741ea92991"
+  Liabilities:Personal:BankOne:Card                               -149.94 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00004"
+  Expenses:Personal:Groceries                                      149.94 USD
+
+2025-02-03 * "Cornerstone Grocers" "Weekly groceries"
+  lamella-txn-id: "dddae983-b29c-4a52-a331-b045760b5248"
+  Liabilities:Personal:BankOne:Card                               -109.39 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00005"
+  Expenses:Personal:Groceries                                      109.39 USD
+
+2025-02-11 * "Sunrise Foods" "Weekly groceries"
+  lamella-txn-id: "aad6a28e-095d-45c4-85b7-b6805aeb5b56"
+  Liabilities:Personal:BankOne:Card                                -61.76 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00006"
+  Expenses:Personal:Groceries                                       61.76 USD
+
+2025-02-12 * "Harvest Lane Co-op" "Weekly groceries"
+  lamella-txn-id: "4a3f1d8e-91d5-46fb-a36d-0d69207b7816"
+  Liabilities:Personal:BankOne:Card                                -99.10 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00007"
+  Expenses:Personal:Groceries                                       99.10 USD
+
+2025-02-15 * "Cornerstone Grocers" "Weekly groceries"
+  lamella-txn-id: "d0f78258-1684-4ccd-96ed-dcb499be6d9f"
+  Liabilities:Personal:BankOne:Card                               -153.81 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00008"
+  Expenses:Personal:Groceries                                      153.81 USD
+
+2025-02-25 * "Harvest Lane Co-op" "Weekly groceries"
+  lamella-txn-id: "a1f62b79-bc30-4f63-a103-d858e43ea193"
+  Liabilities:Personal:BankOne:Card                               -134.57 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00009"
+  Expenses:Personal:Groceries                                      134.57 USD
+
+2025-02-28 * "Cornerstone Grocers" "Weekly groceries"
+  lamella-txn-id: "2ea7a59b-b83d-430f-869e-dd7fdcc58083"
+  Liabilities:Personal:BankOne:Card                                -70.61 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00010"
+  Expenses:Personal:Groceries                                       70.61 USD
+
+2025-03-10 * "Harvest Lane Co-op" "Weekly groceries"
+  lamella-txn-id: "e2411219-87c3-46c8-9f96-dfff9426f273"
+  Liabilities:Personal:BankOne:Card                                -68.65 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00011"
+  Expenses:Personal:Groceries                                       68.65 USD
+
+2025-03-16 * "Sunrise Foods" "Weekly groceries"
+  lamella-txn-id: "9ed24e29-3bb7-48fb-a79b-5c215ef59111"
+  Liabilities:Personal:BankOne:Card                               -135.53 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00012"
+  Expenses:Personal:Groceries                                      135.53 USD
+
+2025-03-18 * "Cornerstone Grocers" "Weekly groceries"
+  lamella-txn-id: "f952539e-2770-4b96-825c-0804c759d2ba"
+  Liabilities:Personal:BankOne:Card                               -118.28 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00013"
+  Expenses:Personal:Groceries                                      118.28 USD
+
+2025-03-19 * "Greenleaf Market" "Weekly groceries"
+  lamella-txn-id: "54f3bfe4-0c57-4392-9754-659df157a59e"
+  Liabilities:Personal:BankOne:Card                                -60.32 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00014"
+  Expenses:Personal:Groceries                                       60.32 USD
+
+2025-03-22 * "Sunrise Foods" "Weekly groceries"
+  lamella-txn-id: "500be62e-95b6-40c1-a368-3712438040a3"
+  Liabilities:Personal:BankOne:Card                                -61.14 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00015"
+  Expenses:Personal:Groceries                                       61.14 USD
+
+2025-03-24 * "Cornerstone Grocers" "Weekly groceries"
+  lamella-txn-id: "77788462-6b8b-471a-a4a6-27073c73abcb"
+  Liabilities:Personal:BankOne:Card                               -153.54 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00016"
+  Expenses:Personal:Groceries                                      153.54 USD
+
+2025-03-30 * "Cornerstone Grocers" "Weekly groceries"
+  lamella-txn-id: "017fb6a9-377a-4e36-9162-a82ffd7c3a79"
+  Liabilities:Personal:BankOne:Card                               -148.15 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00017"
+  Expenses:Personal:Groceries                                      148.15 USD
+
+2025-03-31 * "Harvest Lane Co-op" "Weekly groceries"
+  lamella-txn-id: "c1a8cba3-b9f5-41e6-bdca-dde32dd1b9bd"
+  Liabilities:Personal:BankOne:Card                               -115.03 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00018"
+  Expenses:Personal:Groceries                                      115.03 USD
+
+2025-04-03 * "Cornerstone Grocers" "Weekly groceries"
+  lamella-txn-id: "7e935c59-02c5-4606-97ed-ee08faddbe0e"
+  Liabilities:Personal:BankOne:Card                               -158.28 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00019"
+  Expenses:Personal:Groceries                                      158.28 USD
+
+2025-04-08 * "Cornerstone Grocers" "Weekly groceries"
+  lamella-txn-id: "7eaf7662-9ce3-4db1-9adc-4d6670c64155"
+  Liabilities:Personal:BankOne:Card                                -80.41 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00020"
+  Expenses:Personal:Groceries                                       80.41 USD
+
+2025-04-26 * "Sunrise Foods" "Weekly groceries"
+  lamella-txn-id: "2b8c3fa0-b802-4107-a99c-a8d4ec2ceb95"
+  Liabilities:Personal:BankOne:Card                                -97.49 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00021"
+  Expenses:Personal:Groceries                                       97.49 USD
+
+2025-04-30 * "Cornerstone Grocers" "Weekly groceries"
+  lamella-txn-id: "02fad9bb-37f2-4f5f-83dd-6b8720610b95"
+  Liabilities:Personal:BankOne:Card                               -149.32 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00022"
+  Expenses:Personal:Groceries                                      149.32 USD
+
+2025-05-13 * "Harvest Lane Co-op" "Weekly groceries"
+  lamella-txn-id: "eb96a3e3-ea9b-494f-a497-4a96a0ff478e"
+  Liabilities:Personal:BankOne:Card                               -125.57 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00023"
+  Expenses:Personal:Groceries                                      125.57 USD
+
+2025-05-28 * "Sunrise Foods" "Weekly groceries"
+  lamella-txn-id: "44dfc0e4-e075-4c0d-beec-4196a2042d8e"
+  Liabilities:Personal:BankOne:Card                               -129.98 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00024"
+  Expenses:Personal:Groceries                                      129.98 USD
+
+2025-06-01 * "Harvest Lane Co-op" "Weekly groceries"
+  lamella-txn-id: "f9177f85-1e44-46f0-a58d-0a4d0f69d04c"
+  Liabilities:Personal:BankOne:Card                               -103.99 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00025"
+  Expenses:Personal:Groceries                                      103.99 USD
+
+2025-06-07 * "Cornerstone Grocers" "Weekly groceries"
+  lamella-txn-id: "0eb957c9-f519-4efc-b9b7-4e06ba7c15e4"
+  Liabilities:Personal:BankOne:Card                                -98.44 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00026"
+  Expenses:Personal:Groceries                                       98.44 USD
+
+2025-06-16 * "Sunrise Foods" "Weekly groceries"
+  lamella-txn-id: "826085ae-2cb0-448a-99dc-2679210da9cd"
+  Liabilities:Personal:BankOne:Card                                -79.48 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00027"
+  Expenses:Personal:Groceries                                       79.48 USD
+
+2025-07-14 * "Harvest Lane Co-op" "Weekly groceries"
+  lamella-txn-id: "efe47a37-3184-4b6e-9ef9-3fd7716dfbe2"
+  Liabilities:Personal:BankOne:Card                                -58.03 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00028"
+  Expenses:Personal:Groceries                                       58.03 USD
+
+2025-07-20 * "Greenleaf Market" "Weekly groceries"
+  lamella-txn-id: "6ff97fc1-b08f-420a-85c8-7278cbfa4c14"
+  Liabilities:Personal:BankOne:Card                                -88.31 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00029"
+  Expenses:Personal:Groceries                                       88.31 USD
+
+2025-07-21 * "Sunrise Foods" "Weekly groceries"
+  lamella-txn-id: "7fd531e9-7156-4a9d-a301-050ec3fcf0d7"
+  Liabilities:Personal:BankOne:Card                               -123.92 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00030"
+  Expenses:Personal:Groceries                                      123.92 USD
+
+2025-07-24 * "Cornerstone Grocers" "Weekly groceries"
+  lamella-txn-id: "98531006-b241-4066-a156-1b8a04d3303a"
+  Liabilities:Personal:BankOne:Card                                -85.43 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00031"
+  Expenses:Personal:Groceries                                       85.43 USD
+
+2025-07-25 * "Cornerstone Grocers" "Weekly groceries"
+  lamella-txn-id: "adedea46-efd1-49f8-a89e-b914ebb71357"
+  Liabilities:Personal:BankOne:Card                                -59.82 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00032"
+  Expenses:Personal:Groceries                                       59.82 USD
+
+2025-08-06 * "Sunrise Foods" "Weekly groceries"
+  lamella-txn-id: "7784b19b-c470-4af6-bebc-9cba97637bea"
+  Liabilities:Personal:BankOne:Card                                -98.82 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00033"
+  Expenses:Personal:Groceries                                       98.82 USD
+
+2025-08-16 * "Cornerstone Grocers" "Weekly groceries"
+  lamella-txn-id: "cf2c47bd-76a2-4675-849c-23fb61b2895f"
+  Liabilities:Personal:BankOne:Card                                -86.05 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00034"
+  Expenses:Personal:Groceries                                       86.05 USD
+
+2025-08-18 * "Sunrise Foods" "Weekly groceries"
+  lamella-txn-id: "06ec2230-c238-4dd6-90ab-ae902fc35148"
+  Liabilities:Personal:BankOne:Card                               -117.16 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00035"
+  Expenses:Personal:Groceries                                      117.16 USD
+
+2025-08-21 * "Sunrise Foods" "Weekly groceries"
+  lamella-txn-id: "3965b399-793f-4754-8295-500718702d90"
+  Liabilities:Personal:BankOne:Card                                -64.02 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00036"
+  Expenses:Personal:Groceries                                       64.02 USD
+
+2025-09-06 * "Cornerstone Grocers" "Weekly groceries"
+  lamella-txn-id: "0b10386c-2c3a-44f1-a510-1fceb18b5b9f"
+  Liabilities:Personal:BankOne:Card                               -137.69 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00037"
+  Expenses:Personal:Groceries                                      137.69 USD
+
+2025-09-15 * "Cornerstone Grocers" "Weekly groceries"
+  lamella-txn-id: "606f674f-c61d-4ed8-bef8-764bc8b6715e"
+  Liabilities:Personal:BankOne:Card                                -85.98 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00038"
+  Expenses:Personal:Groceries                                       85.98 USD
+
+2025-09-23 * "Harvest Lane Co-op" "Weekly groceries"
+  lamella-txn-id: "7a145397-965c-4b13-93d3-057f811fc364"
+  Liabilities:Personal:BankOne:Card                                -90.99 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00039"
+  Expenses:Personal:Groceries                                       90.99 USD
+
+2025-10-29 * "Greenleaf Market" "Weekly groceries"
+  lamella-txn-id: "1c3e93c9-1077-4082-aedd-2862d6bd802b"
+  Liabilities:Personal:BankOne:Card                                -82.80 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00040"
+  Expenses:Personal:Groceries                                       82.80 USD
+
+2025-11-01 * "Sunrise Foods" "Weekly groceries"
+  lamella-txn-id: "3960315f-cd5b-4ffb-95fb-774b4f99e9c9"
+  Liabilities:Personal:BankOne:Card                                -76.25 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00041"
+  Expenses:Personal:Groceries                                       76.25 USD
+
+2025-11-03 * "Greenleaf Market" "Weekly groceries"
+  lamella-txn-id: "e97bc551-9922-496b-a26b-bbe3a660cfea"
+  Liabilities:Personal:BankOne:Card                               -123.93 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00042"
+  Expenses:Personal:Groceries                                      123.93 USD
+
+2025-11-14 * "Cornerstone Grocers" "Weekly groceries"
+  lamella-txn-id: "f5df92fe-a766-4dbf-81bf-9a3a9f4ea89d"
+  Liabilities:Personal:BankOne:Card                               -152.18 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00043"
+  Expenses:Personal:Groceries                                      152.18 USD
+
+2025-11-15 * "Cornerstone Grocers" "Weekly groceries"
+  lamella-txn-id: "96a375d6-0a6c-4775-948e-47574961666b"
+  Liabilities:Personal:BankOne:Card                               -151.82 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00044"
+  Expenses:Personal:Groceries                                      151.82 USD
+
+2025-11-17 * "Sunrise Foods" "Weekly groceries"
+  lamella-txn-id: "a8253b62-b58d-41f8-8007-a4bec5df57af"
+  Liabilities:Personal:BankOne:Card                               -145.47 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00045"
+  Expenses:Personal:Groceries                                      145.47 USD
+
+2025-11-20 * "Sunrise Foods" "Weekly groceries"
+  lamella-txn-id: "03573db3-d23e-4277-91c8-46be324a7c52"
+  Liabilities:Personal:BankOne:Card                                -88.86 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00046"
+  Expenses:Personal:Groceries                                       88.86 USD
+
+2025-11-27 * "Greenleaf Market" "Weekly groceries"
+  lamella-txn-id: "77698b2f-55b9-431d-a442-69fa8828cb44"
+  Liabilities:Personal:BankOne:Card                                -74.83 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00047"
+  Expenses:Personal:Groceries                                       74.83 USD
+
+2025-12-16 * "Harvest Lane Co-op" "Weekly groceries"
+  lamella-txn-id: "8ca68aa7-09cf-4ab2-981c-0ed8a10baa0f"
+  Liabilities:Personal:BankOne:Card                                -90.52 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00048"
+  Expenses:Personal:Groceries                                       90.52 USD
+
+2025-01-24 * "Bluebird Diner" "Dinner out"
+  lamella-txn-id: "6c622aed-880d-4ca6-8cea-26ebb999716d"
+  Liabilities:Personal:BankOne:Card                                -23.62 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00049"
+  Expenses:Personal:Restaurants                                     23.62 USD
+
+2025-01-26 * "Old Mill Pub" "Dinner out"
+  lamella-txn-id: "780e84fb-9d98-4e91-beec-41f98e1dd75d"
+  Liabilities:Personal:BankOne:Card                                -20.82 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00050"
+  Expenses:Personal:Restaurants                                     20.82 USD
+
+2025-02-01 * "Riverside Cafe" "Dinner out"
+  lamella-txn-id: "ced8fbe8-be9f-4c1f-a8c9-b73492267841"
+  Liabilities:Personal:BankOne:Card                                -53.26 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00051"
+  Expenses:Personal:Restaurants                                     53.26 USD
+
+2025-02-18 * "Riverside Cafe" "Dinner out"
+  lamella-txn-id: "fd48ff54-9d5a-4a2f-a0bd-1514b408da0d"
+  Liabilities:Personal:BankOne:Card                                -73.57 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00052"
+  Expenses:Personal:Restaurants                                     73.57 USD
+
+2025-03-03 * "Tortuga Taqueria" "Dinner out"
+  lamella-txn-id: "a60662c3-ad5a-498e-9b13-3e33d990bf92"
+  Liabilities:Personal:BankOne:Card                                -66.65 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00053"
+  Expenses:Personal:Restaurants                                     66.65 USD
+
+2025-03-04 * "Riverside Cafe" "Dinner out"
+  lamella-txn-id: "88313fa6-e04e-4da2-8bec-558511bc4c98"
+  Liabilities:Personal:BankOne:Card                                -62.22 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00054"
+  Expenses:Personal:Restaurants                                     62.22 USD
+
+2025-03-13 * "Riverside Cafe" "Dinner out"
+  lamella-txn-id: "d029b9ad-04a7-4351-b5c0-cb6ebb3408f0"
+  Liabilities:Personal:BankOne:Card                                -74.83 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00055"
+  Expenses:Personal:Restaurants                                     74.83 USD
+
+2025-04-05 * "Old Mill Pub" "Dinner out"
+  lamella-txn-id: "8c1f08b9-0196-42bb-bf4d-a87d5e9adc50"
+  Liabilities:Personal:BankOne:Card                                -77.01 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00056"
+  Expenses:Personal:Restaurants                                     77.01 USD
+
+2025-04-06 * "Bluebird Diner" "Dinner out"
+  lamella-txn-id: "fed9f85b-ebf6-41c1-9d97-bba44bdf26e3"
+  Liabilities:Personal:BankOne:Card                                -39.25 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00057"
+  Expenses:Personal:Restaurants                                     39.25 USD
+
+2025-05-06 * "Bluebird Diner" "Dinner out"
+  lamella-txn-id: "dccfcb87-fd05-43f6-9115-9779471a621c"
+  Liabilities:Personal:BankOne:Card                                -34.31 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00058"
+  Expenses:Personal:Restaurants                                     34.31 USD
+
+2025-05-13 * "Tortuga Taqueria" "Dinner out"
+  lamella-txn-id: "8a151a27-707c-46a2-9200-2e9a452a5c22"
+  Liabilities:Personal:BankOne:Card                                -36.29 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00059"
+  Expenses:Personal:Restaurants                                     36.29 USD
+
+2025-05-22 * "Sakura Ramen House" "Dinner out"
+  lamella-txn-id: "75b6bc44-2633-4bad-ab0c-4870f82a3cfc"
+  Liabilities:Personal:BankOne:Card                                -41.98 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00060"
+  Expenses:Personal:Restaurants                                     41.98 USD
+
+2025-05-23 * "Tortuga Taqueria" "Dinner out"
+  lamella-txn-id: "6518b6c7-567b-4999-824e-dd1c45350527"
+  Liabilities:Personal:BankOne:Card                                -55.17 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00061"
+  Expenses:Personal:Restaurants                                     55.17 USD
+
+2025-05-25 * "Tortuga Taqueria" "Dinner out"
+  lamella-txn-id: "87b25040-f670-41c8-aec2-4a0816e86959"
+  Liabilities:Personal:BankOne:Card                                -29.20 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00062"
+  Expenses:Personal:Restaurants                                     29.20 USD
+
+2025-06-09 * "Bluebird Diner" "Dinner out"
+  lamella-txn-id: "41c083f9-c412-41c2-9dd9-788270f8ea5c"
+  Liabilities:Personal:BankOne:Card                                -31.72 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00063"
+  Expenses:Personal:Restaurants                                     31.72 USD
+
+2025-06-28 * "Bluebird Diner" "Dinner out"
+  lamella-txn-id: "edd51367-bf9a-4edf-a3c5-62fb0e3b2cac"
+  Liabilities:Personal:BankOne:Card                                -66.63 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00064"
+  Expenses:Personal:Restaurants                                     66.63 USD
+
+2025-07-05 * "Old Mill Pub" "Dinner out"
+  lamella-txn-id: "f52e192a-d943-4792-8b8e-2434060afa75"
+  Liabilities:Personal:BankOne:Card                                -74.44 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00065"
+  Expenses:Personal:Restaurants                                     74.44 USD
+
+2025-08-10 * "Tortuga Taqueria" "Dinner out"
+  lamella-txn-id: "acc39573-13f7-4bcd-82a9-dea989f34d1d"
+  Liabilities:Personal:BankOne:Card                                -54.32 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00066"
+  Expenses:Personal:Restaurants                                     54.32 USD
+
+2025-08-12 * "Sakura Ramen House" "Dinner out"
+  lamella-txn-id: "8f4ee1c2-3583-4e87-8c82-f9041da88963"
+  Liabilities:Personal:BankOne:Card                                -38.36 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00067"
+  Expenses:Personal:Restaurants                                     38.36 USD
+
+2025-09-05 * "Sakura Ramen House" "Dinner out"
+  lamella-txn-id: "0c8dd282-9d94-4f16-b00a-f97f8f436816"
+  Liabilities:Personal:BankOne:Card                                -29.48 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00068"
+  Expenses:Personal:Restaurants                                     29.48 USD
+
+2025-09-13 * "Bluebird Diner" "Dinner out"
+  lamella-txn-id: "549af4fa-a5b8-4571-867d-230984e6bbb9"
+  Liabilities:Personal:BankOne:Card                                -34.54 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00069"
+  Expenses:Personal:Restaurants                                     34.54 USD
+
+2025-09-23 * "Bluebird Diner" "Dinner out"
+  lamella-txn-id: "6f785241-eeae-4a1e-8b07-c0384eca1c29"
+  Liabilities:Personal:BankOne:Card                                -34.72 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00070"
+  Expenses:Personal:Restaurants                                     34.72 USD
+
+2025-10-06 * "Riverside Cafe" "Dinner out"
+  lamella-txn-id: "a113013b-2362-4bf2-b29a-1ea067e5a3af"
+  Liabilities:Personal:BankOne:Card                                -14.39 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00071"
+  Expenses:Personal:Restaurants                                     14.39 USD
+
+2025-10-08 * "Tortuga Taqueria" "Dinner out"
+  lamella-txn-id: "b02d9bf0-04e3-459e-8e4f-535ecb00729c"
+  Liabilities:Personal:BankOne:Card                                -19.70 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00072"
+  Expenses:Personal:Restaurants                                     19.70 USD
+
+2025-10-18 * "Tortuga Taqueria" "Dinner out"
+  lamella-txn-id: "6985f5f8-702d-4691-86b5-26032a145748"
+  Liabilities:Personal:BankOne:Card                                -58.61 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00073"
+  Expenses:Personal:Restaurants                                     58.61 USD
+
+2025-10-25 * "Sakura Ramen House" "Dinner out"
+  lamella-txn-id: "bef43f46-d448-474b-8d47-33b5f6f90971"
+  Liabilities:Personal:BankOne:Card                                -50.01 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00074"
+  Expenses:Personal:Restaurants                                     50.01 USD
+
+2025-10-26 * "Old Mill Pub" "Dinner out"
+  lamella-txn-id: "169681aa-ac1e-489e-b88d-528148b00972"
+  Liabilities:Personal:BankOne:Card                                -43.14 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00075"
+  Expenses:Personal:Restaurants                                     43.14 USD
+
+2025-10-28 * "Old Mill Pub" "Dinner out"
+  lamella-txn-id: "ca332234-38cf-44bd-9906-592fcd416b2b"
+  Liabilities:Personal:BankOne:Card                                -43.29 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00076"
+  Expenses:Personal:Restaurants                                     43.29 USD
+
+2025-11-05 * "Tortuga Taqueria" "Dinner out"
+  lamella-txn-id: "1479ad5a-9f18-4409-8046-c88e3de733e5"
+  Liabilities:Personal:BankOne:Card                                -14.34 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00077"
+  Expenses:Personal:Restaurants                                     14.34 USD
+
+2025-11-15 * "Riverside Cafe" "Dinner out"
+  lamella-txn-id: "693aeac3-2cbb-4322-be49-31808e273b1e"
+  Liabilities:Personal:BankOne:Card                                -31.23 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00078"
+  Expenses:Personal:Restaurants                                     31.23 USD
+
+2025-11-18 * "Riverside Cafe" "Dinner out"
+  lamella-txn-id: "d5710bf1-2b01-446b-bd02-51c85e5b4f0f"
+  Liabilities:Personal:BankOne:Card                                -50.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00079"
+  Expenses:Personal:Restaurants                                     50.00 USD
+
+2025-11-26 * "Tortuga Taqueria" "Dinner out"
+  lamella-txn-id: "65ca917a-7b2b-4a4b-8253-19b773182d3f"
+  Liabilities:Personal:BankOne:Card                                -74.73 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00080"
+  Expenses:Personal:Restaurants                                     74.73 USD
+
+2025-12-01 * "Sakura Ramen House" "Dinner out"
+  lamella-txn-id: "9e255bbc-2733-4e82-88da-59a0d5957b0c"
+  Liabilities:Personal:BankOne:Card                                -66.58 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00081"
+  Expenses:Personal:Restaurants                                     66.58 USD
+
+2025-12-02 * "Old Mill Pub" "Dinner out"
+  lamella-txn-id: "6ef84478-2578-4bb6-a8a3-e577422e2a87"
+  Liabilities:Personal:BankOne:Card                                -26.01 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00082"
+  Expenses:Personal:Restaurants                                     26.01 USD
+
+2025-12-12 * "Riverside Cafe" "Dinner out"
+  lamella-txn-id: "568b2dc1-3448-4857-8c22-736528a9f811"
+  Liabilities:Personal:BankOne:Card                                -66.61 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00083"
+  Expenses:Personal:Restaurants                                     66.61 USD
+
+2025-12-13 * "Bluebird Diner" "Dinner out"
+  lamella-txn-id: "1780d1b5-4c79-4f93-b3f9-0d5e9384dd55"
+  Liabilities:Personal:BankOne:Card                                -57.05 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00084"
+  Expenses:Personal:Restaurants                                     57.05 USD
+
+2025-01-02 * "Cardinal Fuel" "Fuel — personal vehicle"
+  lamella-txn-id: "b0f5be1e-9690-4f16-9e96-b4a9ef232ce5"
+  Liabilities:Personal:BankOne:Card                                -36.03 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00085"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        36.03 USD
+
+2025-01-06 * "Cardinal Fuel" "Fuel — personal vehicle"
+  lamella-txn-id: "9618da49-2503-4bb3-ad18-f31aae8510ee"
+  Liabilities:Personal:BankOne:Card                                -50.89 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00086"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        50.89 USD
+
+2025-01-26 * "Highway 12 Stop" "Fuel — personal vehicle"
+  lamella-txn-id: "806a2afb-97ce-4a80-816a-88dc80803a20"
+  Liabilities:Personal:BankOne:Card                                -64.28 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00087"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        64.28 USD
+
+2025-03-09 * "Cardinal Fuel" "Fuel — personal vehicle"
+  lamella-txn-id: "e65b044b-75f3-4e49-bdc6-a92485dcb68a"
+  Liabilities:Personal:BankOne:Card                                -46.64 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00088"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        46.64 USD
+
+2025-03-22 * "Oakridge Gas Co." "Fuel — personal vehicle"
+  lamella-txn-id: "e147d51e-4127-48d8-9330-411230c467c6"
+  Liabilities:Personal:BankOne:Card                                -31.72 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00089"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        31.72 USD
+
+2025-04-14 * "Cardinal Fuel" "Fuel — personal vehicle"
+  lamella-txn-id: "0e10b1d7-02fc-435e-8850-7f9edfdbd068"
+  Liabilities:Personal:BankOne:Card                                -63.30 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00090"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        63.30 USD
+
+2025-04-15 * "Cardinal Fuel" "Fuel — personal vehicle"
+  lamella-txn-id: "c67d06fc-b96b-4118-8511-cc8c6cf6f55a"
+  Liabilities:Personal:BankOne:Card                                -63.47 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00091"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        63.47 USD
+
+2025-04-30 * "Highway 12 Stop" "Fuel — personal vehicle"
+  lamella-txn-id: "6b5d2c2a-1654-41d1-89d9-0b7b02d361ef"
+  Liabilities:Personal:BankOne:Card                                -40.98 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00092"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        40.98 USD
+
+2025-05-09 * "Cardinal Fuel" "Fuel — personal vehicle"
+  lamella-txn-id: "ae744c10-6aae-44f0-80b4-288a8c5b83d7"
+  Liabilities:Personal:BankOne:Card                                -62.39 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00093"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        62.39 USD
+
+2025-05-27 * "Highway 12 Stop" "Fuel — personal vehicle"
+  lamella-txn-id: "7edbe9f0-5657-47a4-89d2-39a6f0472767"
+  Liabilities:Personal:BankOne:Card                                -41.12 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00094"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        41.12 USD
+
+2025-06-03 * "Highway 12 Stop" "Fuel — personal vehicle"
+  lamella-txn-id: "e624c612-fb9f-48c1-b48f-453ca3941950"
+  Liabilities:Personal:BankOne:Card                                -30.03 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00095"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        30.03 USD
+
+2025-06-17 * "Cardinal Fuel" "Fuel — personal vehicle"
+  lamella-txn-id: "2d38f392-692c-462b-a9e0-52b381c856e2"
+  Liabilities:Personal:BankOne:Card                                -29.67 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00096"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        29.67 USD
+
+2025-07-06 * "Cardinal Fuel" "Fuel — personal vehicle"
+  lamella-txn-id: "7d8edf2e-2fd2-45f8-8c12-3e896002a7a1"
+  Liabilities:Personal:BankOne:Card                                -36.71 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00097"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        36.71 USD
+
+2025-07-07 * "Cardinal Fuel" "Fuel — personal vehicle"
+  lamella-txn-id: "eca54e0e-3c4c-4cee-9a43-83bdd5e4d02a"
+  Liabilities:Personal:BankOne:Card                                -49.72 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00098"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        49.72 USD
+
+2025-08-01 * "Oakridge Gas Co." "Fuel — personal vehicle"
+  lamella-txn-id: "41ee61c3-a69d-40c2-9740-a4e53a320615"
+  Liabilities:Personal:BankOne:Card                                -41.46 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00099"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        41.46 USD
+
+2025-08-04 * "Cardinal Fuel" "Fuel — personal vehicle"
+  lamella-txn-id: "437c6088-c48d-4db1-8a9a-b74818c58876"
+  Liabilities:Personal:BankOne:Card                                -30.43 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00100"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        30.43 USD
+
+2025-09-01 * "Cardinal Fuel" "Fuel — personal vehicle"
+  lamella-txn-id: "9b1dfad2-6685-4c7c-9d35-f7d72f8cdba4"
+  Liabilities:Personal:BankOne:Card                                -57.57 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00101"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        57.57 USD
+
+2025-09-07 * "Highway 12 Stop" "Fuel — personal vehicle"
+  lamella-txn-id: "271dfa41-f28d-4387-949e-845c229279ed"
+  Liabilities:Personal:BankOne:Card                                -43.02 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00102"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        43.02 USD
+
+2025-09-09 * "Highway 12 Stop" "Fuel — personal vehicle"
+  lamella-txn-id: "67babe9c-365d-46b6-bb3e-a90c9a6c47d4"
+  Liabilities:Personal:BankOne:Card                                -64.19 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00103"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        64.19 USD
+
+2025-09-17 * "Highway 12 Stop" "Fuel — personal vehicle"
+  lamella-txn-id: "c3128810-d8e8-4643-956f-649ff19ba165"
+  Liabilities:Personal:BankOne:Card                                -65.51 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00104"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        65.51 USD
+
+2025-09-21 * "Cardinal Fuel" "Fuel — personal vehicle"
+  lamella-txn-id: "2e77cce8-86ac-4d5c-b433-f56d07496590"
+  Liabilities:Personal:BankOne:Card                                -30.13 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00105"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        30.13 USD
+
+2025-10-13 * "Cardinal Fuel" "Fuel — personal vehicle"
+  lamella-txn-id: "5aaea272-a575-41b8-a7c3-3008ace91f42"
+  Liabilities:Personal:BankOne:Card                                -54.03 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00106"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        54.03 USD
+
+2025-11-12 * "Highway 12 Stop" "Fuel — personal vehicle"
+  lamella-txn-id: "9dde7c12-13a4-47f0-84c4-442cf8789bf3"
+  Liabilities:Personal:BankOne:Card                                -32.48 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00107"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        32.48 USD
+
+2025-11-27 * "Cardinal Fuel" "Fuel — personal vehicle"
+  lamella-txn-id: "be934be6-a014-42f9-a7b7-1f90a58a01b7"
+  Liabilities:Personal:BankOne:Card                                -44.02 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00108"
+  Expenses:Personal:Vehicles:V2018Sedan:Fuel                        44.02 USD
+
+2025-01-12 * "Greenline Power" "Electric utility"
+  lamella-txn-id: "9e4f7c55-e7e5-45c0-9fa6-3862ad662735"
+  note: "Greenline Power — auto-pay residential service."
+  Assets:Personal:BankOne:Checking                                -150.60 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00109"
+  Expenses:Personal:Properties:MainHouse:Utilities                 150.60 USD
+
+2025-01-14 * "Northland Natural Gas" "Gas utility"
+  lamella-txn-id: "44669ffe-5f71-4577-aa5d-b555f1e79eba"
+  Assets:Personal:BankOne:Checking                                 -98.67 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00110"
+  Expenses:Personal:Properties:MainHouse:Utilities                  98.67 USD
+
+2025-01-16 * "Ridgepoint Water Dist." "Water + sewer"
+  lamella-txn-id: "dc1f3789-d020-4159-a1e7-2a8b50f7923d"
+  Assets:Personal:BankOne:Checking                                 -54.23 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00111"
+  Expenses:Personal:Properties:MainHouse:Utilities                  54.23 USD
+
+2025-01-18 * "FiberOne ISP" "Home internet"
+  lamella-txn-id: "e90c0310-8f67-4943-9b43-93423755d424"
+  Assets:Personal:BankOne:Checking                                 -79.95 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00112"
+  Expenses:Personal:Internet                                        79.95 USD
+
+2025-01-20 * "Telemark Wireless" "Cell phone — personal line"
+  lamella-txn-id: "b3ae2b15-0353-423c-8d12-775e9d96786c"
+  Liabilities:Personal:BankOne:Card                                -58.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00113"
+  Expenses:Personal:Phone                                           58.00 USD
+
+2025-02-12 * "Greenline Power" "Electric utility"
+  lamella-txn-id: "bea115bb-45a1-4207-95d3-490ac8886866"
+  note: "Greenline Power — auto-pay residential service."
+  Assets:Personal:BankOne:Checking                                -146.68 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00114"
+  Expenses:Personal:Properties:MainHouse:Utilities                 146.68 USD
+
+2025-02-14 * "Northland Natural Gas" "Gas utility"
+  lamella-txn-id: "c8d86c9b-6499-45c8-ad25-66429feea8ae"
+  Assets:Personal:BankOne:Checking                                -111.02 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00115"
+  Expenses:Personal:Properties:MainHouse:Utilities                 111.02 USD
+
+2025-02-16 * "Ridgepoint Water Dist." "Water + sewer"
+  lamella-txn-id: "f03d3c20-9fc3-44ad-b5b4-6066fe316432"
+  Assets:Personal:BankOne:Checking                                 -51.26 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00116"
+  Expenses:Personal:Properties:MainHouse:Utilities                  51.26 USD
+
+2025-02-18 * "FiberOne ISP" "Home internet"
+  lamella-txn-id: "d6d84caf-6e9a-4983-8d36-3a1a11673bc2"
+  Assets:Personal:BankOne:Checking                                 -79.95 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00117"
+  Expenses:Personal:Internet                                        79.95 USD
+
+2025-02-20 * "Telemark Wireless" "Cell phone — personal line"
+  lamella-txn-id: "3dca6a42-88e6-4559-bd92-f5932596aea5"
+  Liabilities:Personal:BankOne:Card                                -58.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00118"
+  Expenses:Personal:Phone                                           58.00 USD
+
+2025-03-12 * "Greenline Power" "Electric utility"
+  lamella-txn-id: "9f579c2c-e3d3-4fb7-b9a3-a329100e9f68"
+  note: "Greenline Power — auto-pay residential service."
+  Assets:Personal:BankOne:Checking                                -125.83 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00119"
+  Expenses:Personal:Properties:MainHouse:Utilities                 125.83 USD
+
+2025-03-14 * "Northland Natural Gas" "Gas utility"
+  lamella-txn-id: "8581e0cd-21de-4a3c-ad3f-72e57d733422"
+  Assets:Personal:BankOne:Checking                                -122.15 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00120"
+  Expenses:Personal:Properties:MainHouse:Utilities                 122.15 USD
+
+2025-03-16 * "Ridgepoint Water Dist." "Water + sewer"
+  lamella-txn-id: "b78013b0-36bc-477c-9dfd-21cf5a8b7116"
+  Assets:Personal:BankOne:Checking                                 -57.67 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00121"
+  Expenses:Personal:Properties:MainHouse:Utilities                  57.67 USD
+
+2025-03-18 * "FiberOne ISP" "Home internet"
+  lamella-txn-id: "c69667cf-5d98-49ad-a6ba-cb7fff852698"
+  Assets:Personal:BankOne:Checking                                 -79.95 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00122"
+  Expenses:Personal:Internet                                        79.95 USD
+
+2025-03-20 * "Telemark Wireless" "Cell phone — personal line"
+  lamella-txn-id: "63aa3331-0eda-496c-a694-6dbfd3ed4958"
+  Liabilities:Personal:BankOne:Card                                -58.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00123"
+  Expenses:Personal:Phone                                           58.00 USD
+
+2025-04-12 * "Greenline Power" "Electric utility"
+  lamella-txn-id: "514c454c-42cf-4ce1-bce0-d516d6bd9a24"
+  note: "Greenline Power — auto-pay residential service."
+  Assets:Personal:BankOne:Checking                                -104.75 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00124"
+  Expenses:Personal:Properties:MainHouse:Utilities                 104.75 USD
+
+2025-04-14 * "Northland Natural Gas" "Gas utility"
+  lamella-txn-id: "e8433c95-5c87-458e-a5aa-352a6be93135"
+  Assets:Personal:BankOne:Checking                                 -85.71 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00125"
+  Expenses:Personal:Properties:MainHouse:Utilities                  85.71 USD
+
+2025-04-16 * "Ridgepoint Water Dist." "Water + sewer"
+  lamella-txn-id: "d013a7bb-62d3-4ec9-b7e6-cf70cb74f0af"
+  Assets:Personal:BankOne:Checking                                 -60.19 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00126"
+  Expenses:Personal:Properties:MainHouse:Utilities                  60.19 USD
+
+2025-04-18 * "FiberOne ISP" "Home internet"
+  lamella-txn-id: "eb7c413f-ca32-42fa-9642-99736ec498b0"
+  Assets:Personal:BankOne:Checking                                 -79.95 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00127"
+  Expenses:Personal:Internet                                        79.95 USD
+
+2025-04-20 * "Telemark Wireless" "Cell phone — personal line"
+  lamella-txn-id: "e122b444-8368-415e-8783-d79258f02ff8"
+  Liabilities:Personal:BankOne:Card                                -58.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00128"
+  Expenses:Personal:Phone                                           58.00 USD
+
+2025-05-12 * "Greenline Power" "Electric utility"
+  lamella-txn-id: "68fb91f5-7c03-4c5b-8367-165d780ba61f"
+  note: "Greenline Power — auto-pay residential service."
+  Assets:Personal:BankOne:Checking                                -161.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00129"
+  Expenses:Personal:Properties:MainHouse:Utilities                 161.00 USD
+
+2025-05-14 * "Northland Natural Gas" "Gas utility"
+  lamella-txn-id: "a6371439-92ec-485e-b6b7-153f4961d2e7"
+  Assets:Personal:BankOne:Checking                                 -39.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00130"
+  Expenses:Personal:Properties:MainHouse:Utilities                  39.00 USD
+
+2025-05-16 * "Ridgepoint Water Dist." "Water + sewer"
+  lamella-txn-id: "b7949dd6-58c1-4203-b7ed-1dffb90bff54"
+  Assets:Personal:BankOne:Checking                                 -62.20 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00131"
+  Expenses:Personal:Properties:MainHouse:Utilities                  62.20 USD
+
+2025-05-18 * "FiberOne ISP" "Home internet"
+  lamella-txn-id: "668ebf04-3613-4d38-90d0-4281bccdb659"
+  Assets:Personal:BankOne:Checking                                 -79.95 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00132"
+  Expenses:Personal:Internet                                        79.95 USD
+
+2025-05-20 * "Telemark Wireless" "Cell phone — personal line"
+  lamella-txn-id: "404a7d90-0ff2-4009-8d03-348a2f6afc6e"
+  Liabilities:Personal:BankOne:Card                                -58.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00133"
+  Expenses:Personal:Phone                                           58.00 USD
+
+2025-06-12 * "Greenline Power" "Electric utility"
+  lamella-txn-id: "94cb8124-c1d3-4b30-8f80-6b5dfca98023"
+  note: "Greenline Power — auto-pay residential service."
+  Assets:Personal:BankOne:Checking                                -154.35 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00134"
+  Expenses:Personal:Properties:MainHouse:Utilities                 154.35 USD
+
+2025-06-14 * "Northland Natural Gas" "Gas utility"
+  lamella-txn-id: "39835737-97ce-4035-acfd-8da6ee4cdbda"
+  Assets:Personal:BankOne:Checking                                 -91.29 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00135"
+  Expenses:Personal:Properties:MainHouse:Utilities                  91.29 USD
+
+2025-06-16 * "Ridgepoint Water Dist." "Water + sewer"
+  lamella-txn-id: "bb43113f-a47c-465c-996d-3d26a0d8ea08"
+  Assets:Personal:BankOne:Checking                                 -52.76 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00136"
+  Expenses:Personal:Properties:MainHouse:Utilities                  52.76 USD
+
+2025-06-18 * "FiberOne ISP" "Home internet"
+  lamella-txn-id: "78ff3e40-92c5-4937-80bc-41e44a556ae3"
+  Assets:Personal:BankOne:Checking                                 -79.95 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00137"
+  Expenses:Personal:Internet                                        79.95 USD
+
+2025-06-20 * "Telemark Wireless" "Cell phone — personal line"
+  lamella-txn-id: "8f39ab0b-1d2d-45f4-b932-52102076a3ad"
+  Liabilities:Personal:BankOne:Card                                -58.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00138"
+  Expenses:Personal:Phone                                           58.00 USD
+
+2025-07-12 * "Greenline Power" "Electric utility"
+  lamella-txn-id: "23585250-abb1-47da-8836-d748191f787c"
+  note: "Greenline Power — auto-pay residential service."
+  Assets:Personal:BankOne:Checking                                -108.37 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00139"
+  Expenses:Personal:Properties:MainHouse:Utilities                 108.37 USD
+
+2025-07-14 * "Northland Natural Gas" "Gas utility"
+  lamella-txn-id: "8c3b4b9d-dca5-4d0d-963c-49aae8af5239"
+  Assets:Personal:BankOne:Checking                                 -58.63 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00140"
+  Expenses:Personal:Properties:MainHouse:Utilities                  58.63 USD
+
+2025-07-16 * "Ridgepoint Water Dist." "Water + sewer"
+  lamella-txn-id: "cdea5601-40c6-4401-8c4c-b90e82db5047"
+  Assets:Personal:BankOne:Checking                                 -47.92 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00141"
+  Expenses:Personal:Properties:MainHouse:Utilities                  47.92 USD
+
+2025-07-18 * "FiberOne ISP" "Home internet"
+  lamella-txn-id: "ed60a8a8-244c-4939-b96c-797c624253dd"
+  Assets:Personal:BankOne:Checking                                 -79.95 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00142"
+  Expenses:Personal:Internet                                        79.95 USD
+
+2025-07-20 * "Telemark Wireless" "Cell phone — personal line"
+  lamella-txn-id: "e9b5c889-8f75-44a6-a027-78d4b765eec7"
+  Liabilities:Personal:BankOne:Card                                -58.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00143"
+  Expenses:Personal:Phone                                           58.00 USD
+
+2025-08-12 * "Greenline Power" "Electric utility"
+  lamella-txn-id: "e28e3613-2329-4dda-8d41-6ed70aef6d8a"
+  note: "Greenline Power — auto-pay residential service."
+  Assets:Personal:BankOne:Checking                                -155.04 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00144"
+  Expenses:Personal:Properties:MainHouse:Utilities                 155.04 USD
+
+2025-08-14 * "Northland Natural Gas" "Gas utility"
+  lamella-txn-id: "6c8651b1-78b5-41c6-9736-07b7037976ce"
+  Assets:Personal:BankOne:Checking                                 -56.34 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00145"
+  Expenses:Personal:Properties:MainHouse:Utilities                  56.34 USD
+
+2025-08-16 * "Ridgepoint Water Dist." "Water + sewer"
+  lamella-txn-id: "ba1e4798-00b2-4314-b1fa-4297e42b6de5"
+  Assets:Personal:BankOne:Checking                                 -64.75 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00146"
+  Expenses:Personal:Properties:MainHouse:Utilities                  64.75 USD
+
+2025-08-18 * "FiberOne ISP" "Home internet"
+  lamella-txn-id: "7dbdbb86-0de2-4fdd-a7d9-f6499cac4a13"
+  Assets:Personal:BankOne:Checking                                 -79.95 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00147"
+  Expenses:Personal:Internet                                        79.95 USD
+
+2025-08-20 * "Telemark Wireless" "Cell phone — personal line"
+  lamella-txn-id: "9cd1f52d-51b0-439c-ad91-2bf8f7074e65"
+  Liabilities:Personal:BankOne:Card                                -58.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00148"
+  Expenses:Personal:Phone                                           58.00 USD
+
+2025-09-12 * "Greenline Power" "Electric utility"
+  lamella-txn-id: "a9bd9f8f-2d24-4903-82d1-6ddf06749ce8"
+  note: "Greenline Power — auto-pay residential service."
+  Assets:Personal:BankOne:Checking                                -151.35 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00149"
+  Expenses:Personal:Properties:MainHouse:Utilities                 151.35 USD
+
+2025-09-14 * "Northland Natural Gas" "Gas utility"
+  lamella-txn-id: "cd4ab672-370c-4413-8987-461bb08b7d4c"
+  Assets:Personal:BankOne:Checking                                 -86.85 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00150"
+  Expenses:Personal:Properties:MainHouse:Utilities                  86.85 USD
+
+2025-09-16 * "Ridgepoint Water Dist." "Water + sewer"
+  lamella-txn-id: "25b07139-fec9-4ae7-bac6-d106286e25f3"
+  Assets:Personal:BankOne:Checking                                 -57.92 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00151"
+  Expenses:Personal:Properties:MainHouse:Utilities                  57.92 USD
+
+2025-09-18 * "FiberOne ISP" "Home internet"
+  lamella-txn-id: "fd81b793-7baa-4a8e-b1c2-9879e49573d6"
+  Assets:Personal:BankOne:Checking                                 -79.95 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00152"
+  Expenses:Personal:Internet                                        79.95 USD
+
+2025-09-20 * "Telemark Wireless" "Cell phone — personal line"
+  lamella-txn-id: "37c4e9c8-72a7-4671-b004-fe750015af83"
+  Liabilities:Personal:BankOne:Card                                -58.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00153"
+  Expenses:Personal:Phone                                           58.00 USD
+
+2025-10-12 * "Greenline Power" "Electric utility"
+  lamella-txn-id: "4b53861e-44f5-4922-9545-7a7bef852814"
+  note: "Greenline Power — auto-pay residential service."
+  Assets:Personal:BankOne:Checking                                -141.68 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00154"
+  Expenses:Personal:Properties:MainHouse:Utilities                 141.68 USD
+
+2025-10-14 * "Northland Natural Gas" "Gas utility"
+  lamella-txn-id: "c8a7e37b-afc0-48a4-8411-11efa91991b1"
+  Assets:Personal:BankOne:Checking                                 -76.89 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00155"
+  Expenses:Personal:Properties:MainHouse:Utilities                  76.89 USD
+
+2025-10-16 * "Ridgepoint Water Dist." "Water + sewer"
+  lamella-txn-id: "d12e118e-21b6-4cfe-9978-a8c253b4903b"
+  Assets:Personal:BankOne:Checking                                 -57.46 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00156"
+  Expenses:Personal:Properties:MainHouse:Utilities                  57.46 USD
+
+2025-10-18 * "FiberOne ISP" "Home internet"
+  lamella-txn-id: "f997a098-5ea9-45a8-b117-18709bac5a38"
+  Assets:Personal:BankOne:Checking                                 -79.95 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00157"
+  Expenses:Personal:Internet                                        79.95 USD
+
+2025-10-20 * "Telemark Wireless" "Cell phone — personal line"
+  lamella-txn-id: "6f51f2f4-26c0-43c2-bb83-0324c996ab69"
+  Liabilities:Personal:BankOne:Card                                -58.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00158"
+  Expenses:Personal:Phone                                           58.00 USD
+
+2025-11-12 * "Greenline Power" "Electric utility"
+  lamella-txn-id: "33b0ea7d-f2e6-45d5-b97d-88080bd6453b"
+  note: "Greenline Power — auto-pay residential service."
+  Assets:Personal:BankOne:Checking                                -163.82 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00159"
+  Expenses:Personal:Properties:MainHouse:Utilities                 163.82 USD
+
+2025-11-14 * "Northland Natural Gas" "Gas utility"
+  lamella-txn-id: "fc02b1c0-38d3-495f-8a5a-f6d663f0f2e4"
+  Assets:Personal:BankOne:Checking                                 -85.33 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00160"
+  Expenses:Personal:Properties:MainHouse:Utilities                  85.33 USD
+
+2025-11-16 * "Ridgepoint Water Dist." "Water + sewer"
+  lamella-txn-id: "d794167a-9241-4e90-800a-5b2df46e15ff"
+  Assets:Personal:BankOne:Checking                                 -63.95 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00161"
+  Expenses:Personal:Properties:MainHouse:Utilities                  63.95 USD
+
+2025-11-18 * "FiberOne ISP" "Home internet"
+  lamella-txn-id: "5eb2e43e-a07b-4717-b068-4fdeac410866"
+  Assets:Personal:BankOne:Checking                                 -79.95 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00162"
+  Expenses:Personal:Internet                                        79.95 USD
+
+2025-11-20 * "Telemark Wireless" "Cell phone — personal line"
+  lamella-txn-id: "548a9aac-0eab-4060-ad38-36849cfd1aee"
+  Liabilities:Personal:BankOne:Card                                -58.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00163"
+  Expenses:Personal:Phone                                           58.00 USD
+
+2025-12-12 * "Greenline Power" "Electric utility"
+  lamella-txn-id: "6006ec3e-e567-4c6f-9081-56cc379c1782"
+  note: "Greenline Power — auto-pay residential service."
+  Assets:Personal:BankOne:Checking                                -172.09 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00164"
+  Expenses:Personal:Properties:MainHouse:Utilities                 172.09 USD
+
+2025-12-14 * "Northland Natural Gas" "Gas utility"
+  lamella-txn-id: "bc465767-7752-4e1e-91ab-bb855e765220"
+  Assets:Personal:BankOne:Checking                                 -92.08 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00165"
+  Expenses:Personal:Properties:MainHouse:Utilities                  92.08 USD
+
+2025-12-16 * "Ridgepoint Water Dist." "Water + sewer"
+  lamella-txn-id: "935e868e-c101-4cf1-a3c5-1b122e27494d"
+  Assets:Personal:BankOne:Checking                                 -53.99 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00166"
+  Expenses:Personal:Properties:MainHouse:Utilities                  53.99 USD
+
+2025-12-18 * "FiberOne ISP" "Home internet"
+  lamella-txn-id: "397079ae-b4f7-48e4-97f2-fab9e354bf52"
+  Assets:Personal:BankOne:Checking                                 -79.95 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00167"
+  Expenses:Personal:Internet                                        79.95 USD
+
+2025-12-20 * "Telemark Wireless" "Cell phone — personal line"
+  lamella-txn-id: "b7428e23-2fd9-4fc7-8982-f24dd4d01627"
+  Liabilities:Personal:BankOne:Card                                -58.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00168"
+  Expenses:Personal:Phone                                           58.00 USD
+
+2025-01-08 * "Coastal Mutual Auto" "Auto insurance — quarterly"
+  lamella-txn-id: "78f7eb87-e1e0-4499-87b3-9d1e270f0173"
+  Assets:Personal:BankOne:Checking                                -318.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00169"
+  Expenses:Personal:Vehicles:V2018Sedan:Insurance                  318.00 USD
+
+2025-04-08 * "Coastal Mutual Auto" "Auto insurance — quarterly"
+  lamella-txn-id: "ec1440ba-6913-494b-924b-3d6f902a6464"
+  Assets:Personal:BankOne:Checking                                -318.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00170"
+  Expenses:Personal:Vehicles:V2018Sedan:Insurance                  318.00 USD
+
+2025-07-08 * "Coastal Mutual Auto" "Auto insurance — quarterly"
+  lamella-txn-id: "ae5d7157-d003-472a-a673-b92dd2a5a0e5"
+  Assets:Personal:BankOne:Checking                                -318.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00171"
+  Expenses:Personal:Vehicles:V2018Sedan:Insurance                  318.00 USD
+
+2025-10-08 * "Coastal Mutual Auto" "Auto insurance — quarterly"
+  lamella-txn-id: "3371f4ec-8c54-4d99-a320-11cc56c8c7bf"
+  Assets:Personal:BankOne:Checking                                -318.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00172"
+  Expenses:Personal:Vehicles:V2018Sedan:Insurance                  318.00 USD
+
+2025-04-22 * "MainStreet Auto Service" "Oil change"
+  lamella-txn-id: "83d3c831-b49a-4b37-8884-faeeed99fd85"
+  note: "Routine maintenance; vehicle slug V2018Sedan."
+  Liabilities:Personal:BankOne:Card                                -58.49 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00173"
+  Expenses:Personal:Vehicles:V2018Sedan:Oil                         58.49 USD
+
+2025-10-11 * "MainStreet Auto Service" "Tire rotation + alignment"
+  lamella-txn-id: "5510b4fd-7242-4c9a-9ea0-da393fd79ee8"
+  note: "Routine maintenance; vehicle slug V2018Sedan."
+  Liabilities:Personal:BankOne:Card                               -145.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00174"
+  Expenses:Personal:Vehicles:V2018Sedan:Maintenance                145.00 USD
+
+2025-03-11 * "State Department of Motor Vehicles" "Annual vehicle registration renewal"
+  lamella-txn-id: "7fc301a1-310a-46a3-8224-73c8da3b3795"
+  Assets:Personal:BankOne:Checking                                 -94.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00175"
+  Expenses:Personal:Vehicles:V2018Sedan:Registration                94.00 USD
+
+2025-01-03 * "Maple Hollow HOA" "HOA dues"
+  lamella-txn-id: "602ba75f-0d3c-4775-bb23-595324ce7415"
+  Assets:Personal:BankOne:Checking                                 -45.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00176"
+  Expenses:Personal:Properties:MainHouse:HOA                        45.00 USD
+
+2025-02-03 * "Maple Hollow HOA" "HOA dues"
+  lamella-txn-id: "711995c2-6937-43c4-a9b4-bbf2e5f74104"
+  Assets:Personal:BankOne:Checking                                 -45.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00177"
+  Expenses:Personal:Properties:MainHouse:HOA                        45.00 USD
+
+2025-03-03 * "Maple Hollow HOA" "HOA dues"
+  lamella-txn-id: "ef046e5f-b42d-4b99-af39-d32b9e4ff9a7"
+  Assets:Personal:BankOne:Checking                                 -45.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00178"
+  Expenses:Personal:Properties:MainHouse:HOA                        45.00 USD
+
+2025-04-03 * "Maple Hollow HOA" "HOA dues"
+  lamella-txn-id: "85eedcf6-b057-453f-80f8-acda2ce72b34"
+  Assets:Personal:BankOne:Checking                                 -45.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00179"
+  Expenses:Personal:Properties:MainHouse:HOA                        45.00 USD
+
+2025-05-03 * "Maple Hollow HOA" "HOA dues"
+  lamella-txn-id: "d5cad6b9-ee7d-4cd2-82ba-e4ffc5aa3b25"
+  Assets:Personal:BankOne:Checking                                 -45.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00180"
+  Expenses:Personal:Properties:MainHouse:HOA                        45.00 USD
+
+2025-06-03 * "Maple Hollow HOA" "HOA dues"
+  lamella-txn-id: "d033a52f-e9cf-4763-a9ba-896587eaf2ce"
+  Assets:Personal:BankOne:Checking                                 -45.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00181"
+  Expenses:Personal:Properties:MainHouse:HOA                        45.00 USD
+
+2025-07-03 * "Maple Hollow HOA" "HOA dues"
+  lamella-txn-id: "ade549fb-9166-4acc-84fd-a68f0a3e0909"
+  Assets:Personal:BankOne:Checking                                 -45.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00182"
+  Expenses:Personal:Properties:MainHouse:HOA                        45.00 USD
+
+2025-08-03 * "Maple Hollow HOA" "HOA dues"
+  lamella-txn-id: "4444cbc8-ffd8-4cf4-b106-c7abd4c656ba"
+  Assets:Personal:BankOne:Checking                                 -45.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00183"
+  Expenses:Personal:Properties:MainHouse:HOA                        45.00 USD
+
+2025-09-03 * "Maple Hollow HOA" "HOA dues"
+  lamella-txn-id: "b970e42a-5727-433e-acd4-40cab316e795"
+  Assets:Personal:BankOne:Checking                                 -45.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00184"
+  Expenses:Personal:Properties:MainHouse:HOA                        45.00 USD
+
+2025-10-03 * "Maple Hollow HOA" "HOA dues"
+  lamella-txn-id: "0bb663be-fac1-436d-914c-a0bf24f33cf3"
+  Assets:Personal:BankOne:Checking                                 -45.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00185"
+  Expenses:Personal:Properties:MainHouse:HOA                        45.00 USD
+
+2025-11-03 * "Maple Hollow HOA" "HOA dues"
+  lamella-txn-id: "469915bf-4e2c-464c-a8e5-17f2c8d0ad15"
+  Assets:Personal:BankOne:Checking                                 -45.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00186"
+  Expenses:Personal:Properties:MainHouse:HOA                        45.00 USD
+
+2025-12-03 * "Maple Hollow HOA" "HOA dues"
+  lamella-txn-id: "d71f6ca7-fe22-494d-ae65-d5c0b21873c0"
+  Assets:Personal:BankOne:Checking                                 -45.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00187"
+  Expenses:Personal:Properties:MainHouse:HOA                        45.00 USD
+
+2025-04-14 * "Maple Hollow Hardware" "Spring lawn fertilizer"
+  lamella-txn-id: "9827c531-465b-4ade-9c1e-e55035539e9d"
+  Liabilities:Personal:BankOne:Card                                -62.25 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00188"
+  Expenses:Personal:Properties:MainHouse:Maintenance                62.25 USD
+
+2025-05-22 * "Greenview Home Services" "HVAC service call"
+  lamella-txn-id: "9de39588-65e1-4fc9-8faa-cc10f7775197"
+  Liabilities:Personal:BankOne:Card                               -185.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00189"
+  Expenses:Personal:Properties:MainHouse:Maintenance               185.00 USD
+
+2025-07-09 * "Greenview Home Services" "Replacement faucet kitchen"
+  lamella-txn-id: "aa7e2b66-e4db-47da-befe-1cac91475e5b"
+  Liabilities:Personal:BankOne:Card                               -138.99 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00190"
+  Expenses:Personal:Properties:MainHouse:Repairs                   138.99 USD
+
+2025-09-30 * "Greenview Home Services" "Gutter cleaning"
+  lamella-txn-id: "07895012-3149-4c83-87c5-1a3c9ea909f5"
+  Liabilities:Personal:BankOne:Card                                -95.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00191"
+  Expenses:Personal:Properties:MainHouse:Maintenance                95.00 USD
+
+2025-11-04 * "Greenview Home Services" "Leaking pipe — plumber visit"
+  lamella-txn-id: "f28f8ac0-cd55-49ab-8562-4d4058a47d09"
+  Liabilities:Personal:BankOne:Card                               -275.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00192"
+  Expenses:Personal:Properties:MainHouse:Repairs                   275.00 USD
+
+2025-02-18 * "Northshore Dental" "Annual physical co-pay"
+  lamella-txn-id: "a7fae966-4440-411c-86fa-4bf81cc60c7a"
+  Liabilities:Personal:BankOne:Card                                -45.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00193"
+  Expenses:Personal:Healthcare                                      45.00 USD
+
+2025-05-30 * "Cedar Pharmacy" "Pharmacy refill"
+  lamella-txn-id: "2492f35a-7eaf-436b-88e6-502548d6980c"
+  Liabilities:Personal:BankOne:Card                                -32.50 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00194"
+  Expenses:Personal:Healthcare                                      32.50 USD
+
+2025-09-14 * "Plainview Family Practice" "Dental cleaning co-pay"
+  lamella-txn-id: "a429b110-799d-4327-afc9-d8d951a5df48"
+  Liabilities:Personal:BankOne:Card                                -65.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00195"
+  Expenses:Personal:Healthcare                                      65.00 USD
+
+2025-11-22 * "Northshore Dental" "Pharmacy refill"
+  lamella-txn-id: "660896b3-f9b2-4e1b-a648-f304dacd222a"
+  Liabilities:Personal:BankOne:Card                                -28.95 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00196"
+  Expenses:Personal:Healthcare                                      28.95 USD
+
+2025-03-22 * "Northwind Outfitters" "Seasonal clothing"
+  lamella-txn-id: "b12ca9c2-6797-4a07-8bd8-1f3061f12d06"
+  Liabilities:Personal:BankOne:Card                               -128.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00197"
+  Expenses:Personal:Clothing                                       128.00 USD
+
+2025-08-15 * "Northwind Outfitters" "Seasonal clothing"
+  lamella-txn-id: "7ca2e168-dfbd-400b-a9fe-acb42849e5ee"
+  Liabilities:Personal:BankOne:Card                                -94.50 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00198"
+  Expenses:Personal:Clothing                                        94.50 USD
+
+2025-11-28 * "Northwind Outfitters" "Seasonal clothing"
+  lamella-txn-id: "def0aac8-b3b1-49ba-883a-f8c47424fc98"
+  Liabilities:Personal:BankOne:Card                               -215.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00199"
+  Expenses:Personal:Clothing                                       215.00 USD
+
+2025-01-18 * "Riverbend Streaming" "Movies / streaming / books"
+  lamella-txn-id: "8b401587-cb1c-4208-b2a8-f91ff3ecb12b"
+  Liabilities:Personal:BankOne:Card                                -22.80 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00200"
+  Expenses:Personal:Entertainment                                   22.80 USD
+
+2025-02-20 * "Bayside Cinemas" "Movies / streaming / books"
+  lamella-txn-id: "e8043587-b3a8-458f-9464-f62fbe4dc708"
+  Liabilities:Personal:BankOne:Card                                -28.73 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00201"
+  Expenses:Personal:Entertainment                                   28.73 USD
+
+2025-06-16 * "Bayside Cinemas" "Movies / streaming / books"
+  lamella-txn-id: "0b5b31e3-2af6-4df2-ad70-c94cad62455a"
+  Liabilities:Personal:BankOne:Card                                 -9.93 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00202"
+  Expenses:Personal:Entertainment                                    9.93 USD
+
+2025-07-02 * "Riverbend Streaming" "Movies / streaming / books"
+  lamella-txn-id: "9d0c9b0e-a9fd-46a4-b6bc-6796b5c99585"
+  Liabilities:Personal:BankOne:Card                                -14.12 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00203"
+  Expenses:Personal:Entertainment                                   14.12 USD
+
+2025-06-18 * "Cascade Books" "Movies / streaming / books"
+  lamella-txn-id: "cb05030d-e794-434b-a903-de822d917e4b"
+  Liabilities:Personal:BankOne:Card                                -10.14 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00204"
+  Expenses:Personal:Entertainment                                   10.14 USD
+
+2025-09-06 * "Riverbend Streaming" "Movies / streaming / books"
+  lamella-txn-id: "ba49dcec-e864-47a8-8194-d82f86d84b12"
+  Liabilities:Personal:BankOne:Card                                -12.75 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00205"
+  Expenses:Personal:Entertainment                                   12.75 USD
+
+2025-11-13 * "Cascade Books" "Movies / streaming / books"
+  lamella-txn-id: "7c1ee1d0-5cde-4571-a75d-49d6ad10a6b0"
+  Liabilities:Personal:BankOne:Card                                -28.48 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00206"
+  Expenses:Personal:Entertainment                                   28.48 USD
+
+2025-01-19 * "Bayside Cinemas" "Movies / streaming / books"
+  lamella-txn-id: "d26d964c-12cb-487e-b897-321ad76d7e1f"
+  Liabilities:Personal:BankOne:Card                                -35.05 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00207"
+  Expenses:Personal:Entertainment                                   35.05 USD
+
+2025-07-09 * "Cascade Books" "Movies / streaming / books"
+  lamella-txn-id: "8408a6b0-b7c6-4448-99b5-603d96ea8da5"
+  Liabilities:Personal:BankOne:Card                                -24.95 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00208"
+  Expenses:Personal:Entertainment                                   24.95 USD
+
+2025-05-19 * "Riverbend Streaming" "Movies / streaming / books"
+  lamella-txn-id: "e9eb04e6-a2e4-4619-9970-d5bc399c96a8"
+  Liabilities:Personal:BankOne:Card                                -11.75 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00209"
+  Expenses:Personal:Entertainment                                   11.75 USD
+
+2025-03-26 * "Cascade Books" "Movies / streaming / books"
+  lamella-txn-id: "e86d94c7-b2c3-4287-a60e-5816a0a24acf"
+  Liabilities:Personal:BankOne:Card                                -11.82 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00210"
+  Expenses:Personal:Entertainment                                   11.82 USD
+
+2025-12-18 * "Bayside Cinemas" "Movies / streaming / books"
+  lamella-txn-id: "123aab21-06dc-412e-ba0b-ef6d61879d51"
+  Liabilities:Personal:BankOne:Card                                -19.90 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00211"
+  Expenses:Personal:Entertainment                                   19.90 USD
+
+2025-08-31 * "Riverbend Streaming" "Movies / streaming / books"
+  lamella-txn-id: "302ed230-5d90-4a86-8dfd-02d450175167"
+  Liabilities:Personal:BankOne:Card                                -21.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00212"
+  Expenses:Personal:Entertainment                                   21.00 USD
+
+2025-12-29 * "Cascade Books" "Movies / streaming / books"
+  lamella-txn-id: "885bb182-0f62-4dc7-90f6-d5b19adc0b40"
+  Liabilities:Personal:BankOne:Card                                -37.15 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00213"
+  Expenses:Personal:Entertainment                                   37.15 USD
+
+2025-04-15 * "Riverside Public Library Foundation" "Charitable donation"
+  lamella-txn-id: "d9081ace-605c-4e12-8767-8aabbf825bff"
+  note: "Schedule A line 11 — charitable contributions."
+  Assets:Personal:BankOne:Checking                                -100.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00214"
+  Expenses:Personal:Charity                                        100.00 USD
+
+2025-06-20 * "Maple Hollow Food Bank" "Charitable donation"
+  lamella-txn-id: "307d5787-d0db-4708-a663-1698ed4f2f7a"
+  note: "Schedule A line 11 — charitable contributions."
+  Assets:Personal:BankOne:Checking                                 -50.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00215"
+  Expenses:Personal:Charity                                         50.00 USD
+
+2025-12-18 * "Riverside Public Library Foundation" "Charitable donation"
+  lamella-txn-id: "3be6e06d-6731-4b11-98ea-82e859a043de"
+  note: "Schedule A line 11 — charitable contributions."
+  Assets:Personal:BankOne:Checking                                -200.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00216"
+  Expenses:Personal:Charity                                        200.00 USD
+
+2025-12-22 * "Children of the Forest Conservancy" "Charitable donation"
+  lamella-txn-id: "ffd6d021-06e5-4ec9-aad5-719d97a8d269"
+  note: "Schedule A line 11 — charitable contributions."
+  Assets:Personal:BankOne:Checking                                -150.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "pers-00217"
+  Expenses:Personal:Charity                                        150.00 USD
+
+2025-01-15 * "Brightstar Co." "January retainer"
+  lamella-txn-id: "b06e26e3-c191-42dc-8f65-984244f3fdce"
+  project: "ProjectAlpha"
+  note: "ProjectAlpha milestone payment from Brightstar Co.."
+  Assets:Acme:BankOne:Checking                                    6500.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-inc-00218"
+  Income:Acme:Consulting                                         -6500.00 USD
+
+2025-02-14 * "Northwind Holdings" "February engagement"
+  lamella-txn-id: "65786ea1-2fa5-4025-9d20-c52ccd040c23"
+  note: "Engagement: February engagement — Northwind Holdings."
+  Assets:Acme:BankOne:Checking                                    4200.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-inc-00219"
+  Income:Acme:Consulting                                         -4200.00 USD
+
+2025-03-28 * "Brightstar Co." "Phase II milestone"
+  lamella-txn-id: "40b354c6-38bf-4f2b-9684-a554a2f06da7"
+  project: "ProjectAlpha"
+  note: "ProjectAlpha milestone payment from Brightstar Co.."
+  Assets:Acme:BankOne:Checking                                    8800.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-inc-00220"
+  Income:Acme:Consulting                                         -8800.00 USD
+
+2025-04-30 * "Cobalt Industries" "April advisory"
+  lamella-txn-id: "3e169a51-564a-4097-9898-6384a9f73cd4"
+  note: "Engagement: April advisory — Cobalt Industries."
+  Assets:Acme:BankOne:Checking                                    3400.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-inc-00221"
+  Income:Acme:Consulting                                         -3400.00 USD
+
+2025-05-15 * "Brightstar Co." "May retainer"
+  lamella-txn-id: "570125a8-68ab-4db3-906b-f262820d175f"
+  project: "ProjectAlpha"
+  note: "ProjectAlpha milestone payment from Brightstar Co.."
+  Assets:Acme:BankOne:Checking                                    6500.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-inc-00222"
+  Income:Acme:Consulting                                         -6500.00 USD
+
+2025-06-17 * "Northwind Holdings" "Quarterly retainer"
+  lamella-txn-id: "a7e98881-7f7d-4074-b303-cdcd992fc22a"
+  note: "Engagement: Quarterly retainer — Northwind Holdings."
+  Assets:Acme:BankOne:Checking                                    5100.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-inc-00223"
+  Income:Acme:Consulting                                         -5100.00 USD
+
+2025-07-18 * "Brightstar Co." "Phase III deliverables"
+  lamella-txn-id: "ff4b9992-280a-4b95-91b2-85d595fffe94"
+  project: "ProjectAlpha"
+  note: "ProjectAlpha milestone payment from Brightstar Co.."
+  Assets:Acme:BankOne:Checking                                    7250.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-inc-00224"
+  Income:Acme:Consulting                                         -7250.00 USD
+
+2025-08-12 * "Cobalt Industries" "August project"
+  lamella-txn-id: "6629e9ba-217a-4aa3-ade2-3d2b0decdba0"
+  note: "Engagement: August project — Cobalt Industries."
+  Assets:Acme:BankOne:Checking                                    2900.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-inc-00225"
+  Income:Acme:Consulting                                         -2900.00 USD
+
+2025-09-10 * "Brightstar Co." "September retainer"
+  lamella-txn-id: "a0f486f2-0a7b-4653-8e82-ab89c5f4d380"
+  project: "ProjectAlpha"
+  note: "ProjectAlpha milestone payment from Brightstar Co.."
+  Assets:Acme:BankOne:Checking                                    6500.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-inc-00226"
+  Income:Acme:Consulting                                         -6500.00 USD
+
+2025-10-22 * "Cobalt Industries" "October consulting"
+  lamella-txn-id: "29e33ba2-01e8-4007-805d-af37127214cd"
+  note: "Engagement: October consulting — Cobalt Industries."
+  Assets:Acme:BankOne:Checking                                    4500.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-inc-00227"
+  Income:Acme:Consulting                                         -4500.00 USD
+
+2025-11-14 * "Northwind Holdings" "Year-end planning"
+  lamella-txn-id: "9f094a79-8e96-4142-90e2-3d72cad8a103"
+  note: "Engagement: Year-end planning — Northwind Holdings."
+  Assets:Acme:BankOne:Checking                                    3800.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-inc-00228"
+  Income:Acme:Consulting                                         -3800.00 USD
+
+2025-12-18 * "Brightstar Co." "Phase IV final"
+  lamella-txn-id: "c50a8f60-4a89-4492-9b00-6908701e60f6"
+  project: "ProjectAlpha"
+  note: "ProjectAlpha milestone payment from Brightstar Co.."
+  Assets:Acme:BankOne:Checking                                    9200.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-inc-00229"
+  Income:Acme:Consulting                                         -9200.00 USD
+
+2025-01-06 * "Cloudvault SaaS" "Cloudvault SaaS — monthly subscription"
+  lamella-txn-id: "c5be7d60-5a77-46a2-a97a-7b5e1e7fef4f"
+  Liabilities:Acme:BankOne:Card                                    -49.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00230"
+  Expenses:Acme:Software                                            49.00 USD
+
+2025-01-07 * "Pipeline Project Tools" "Pipeline Project Tools — monthly subscription"
+  lamella-txn-id: "ad6a11db-9a9e-43a3-9949-0d6bfb476b24"
+  Liabilities:Acme:BankOne:Card                                    -29.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00231"
+  Expenses:Acme:Software                                            29.00 USD
+
+2025-01-08 * "DocuStream" "DocuStream — monthly subscription"
+  lamella-txn-id: "fbdf4947-7642-4f87-9a4d-76d7ad9bd733"
+  Liabilities:Acme:BankOne:Card                                    -19.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00232"
+  Expenses:Acme:Software                                            19.00 USD
+
+2025-01-09 * "Bytefield Hosting" "Bytefield Hosting — monthly subscription"
+  lamella-txn-id: "dc244a91-f293-4567-9cf1-a011e07ec695"
+  Liabilities:Acme:BankOne:Card                                    -22.50 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00233"
+  Expenses:Acme:Software                                            22.50 USD
+
+2025-02-06 * "Cloudvault SaaS" "Cloudvault SaaS — monthly subscription"
+  lamella-txn-id: "e41b4bd2-2a1f-4922-be55-ebbe3015bf17"
+  Liabilities:Acme:BankOne:Card                                    -49.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00234"
+  Expenses:Acme:Software                                            49.00 USD
+
+2025-02-07 * "Pipeline Project Tools" "Pipeline Project Tools — monthly subscription"
+  lamella-txn-id: "abd74267-7754-42a4-a23c-5d5508cbaf62"
+  Liabilities:Acme:BankOne:Card                                    -29.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00235"
+  Expenses:Acme:Software                                            29.00 USD
+
+2025-02-08 * "DocuStream" "DocuStream — monthly subscription"
+  lamella-txn-id: "a1708833-7d8f-44b3-85e6-d3f4c30c5478"
+  Liabilities:Acme:BankOne:Card                                    -19.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00236"
+  Expenses:Acme:Software                                            19.00 USD
+
+2025-02-09 * "Bytefield Hosting" "Bytefield Hosting — monthly subscription"
+  lamella-txn-id: "a3257f75-7744-4646-86fc-587756043076"
+  Liabilities:Acme:BankOne:Card                                    -22.50 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00237"
+  Expenses:Acme:Software                                            22.50 USD
+
+2025-03-06 * "Cloudvault SaaS" "Cloudvault SaaS — monthly subscription"
+  lamella-txn-id: "25f12a27-f1f1-42f3-8cab-7eec2e9998c4"
+  Liabilities:Acme:BankOne:Card                                    -49.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00238"
+  Expenses:Acme:Software                                            49.00 USD
+
+2025-03-07 * "Pipeline Project Tools" "Pipeline Project Tools — monthly subscription"
+  lamella-txn-id: "1966226a-d7ad-4188-bfd0-22f7f78112a1"
+  Liabilities:Acme:BankOne:Card                                    -29.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00239"
+  Expenses:Acme:Software                                            29.00 USD
+
+2025-03-08 * "DocuStream" "DocuStream — monthly subscription"
+  lamella-txn-id: "9dbc52af-3e83-4903-9250-ec5e395730d2"
+  Liabilities:Acme:BankOne:Card                                    -19.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00240"
+  Expenses:Acme:Software                                            19.00 USD
+
+2025-03-09 * "Bytefield Hosting" "Bytefield Hosting — monthly subscription"
+  lamella-txn-id: "466b2ccb-6d5a-489f-9826-caa2b7a060fa"
+  Liabilities:Acme:BankOne:Card                                    -22.50 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00241"
+  Expenses:Acme:Software                                            22.50 USD
+
+2025-04-06 * "Cloudvault SaaS" "Cloudvault SaaS — monthly subscription"
+  lamella-txn-id: "db41332c-1035-4f0f-8562-c9a84c7eaf4b"
+  Liabilities:Acme:BankOne:Card                                    -49.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00242"
+  Expenses:Acme:Software                                            49.00 USD
+
+2025-04-07 * "Pipeline Project Tools" "Pipeline Project Tools — monthly subscription"
+  lamella-txn-id: "f8cfd2e3-5229-4f10-9ffe-a835113c7089"
+  Liabilities:Acme:BankOne:Card                                    -29.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00243"
+  Expenses:Acme:Software                                            29.00 USD
+
+2025-04-08 * "DocuStream" "DocuStream — monthly subscription"
+  lamella-txn-id: "78d0e14e-17f1-42f8-bdd3-08a277875a22"
+  Liabilities:Acme:BankOne:Card                                    -19.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00244"
+  Expenses:Acme:Software                                            19.00 USD
+
+2025-04-09 * "Bytefield Hosting" "Bytefield Hosting — monthly subscription"
+  lamella-txn-id: "1a02dd4a-150c-4331-8658-193d22bf541e"
+  Liabilities:Acme:BankOne:Card                                    -22.50 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00245"
+  Expenses:Acme:Software                                            22.50 USD
+
+2025-05-06 * "Cloudvault SaaS" "Cloudvault SaaS — monthly subscription"
+  lamella-txn-id: "58c52299-d152-477f-905c-52a3ce7c7310"
+  Liabilities:Acme:BankOne:Card                                    -49.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00246"
+  Expenses:Acme:Software                                            49.00 USD
+
+2025-05-07 * "Pipeline Project Tools" "Pipeline Project Tools — monthly subscription"
+  lamella-txn-id: "f58308b4-c837-41a7-b1bf-6c6562a9d13a"
+  Liabilities:Acme:BankOne:Card                                    -29.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00247"
+  Expenses:Acme:Software                                            29.00 USD
+
+2025-05-08 * "DocuStream" "DocuStream — monthly subscription"
+  lamella-txn-id: "ba6ae666-7810-4005-96f0-eaccd991e7f0"
+  Liabilities:Acme:BankOne:Card                                    -19.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00248"
+  Expenses:Acme:Software                                            19.00 USD
+
+2025-05-09 * "Bytefield Hosting" "Bytefield Hosting — monthly subscription"
+  lamella-txn-id: "deaa0560-1c5e-49ca-a0fe-df427cc46815"
+  Liabilities:Acme:BankOne:Card                                    -22.50 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00249"
+  Expenses:Acme:Software                                            22.50 USD
+
+2025-06-06 * "Cloudvault SaaS" "Cloudvault SaaS — monthly subscription"
+  lamella-txn-id: "8360f408-f2f7-4432-bfc0-c22f02b43f84"
+  Liabilities:Acme:BankOne:Card                                    -49.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00250"
+  Expenses:Acme:Software                                            49.00 USD
+
+2025-06-07 * "Pipeline Project Tools" "Pipeline Project Tools — monthly subscription"
+  lamella-txn-id: "b9ccfd70-cc6f-4b8b-ba57-fa1390c191e3"
+  Liabilities:Acme:BankOne:Card                                    -29.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00251"
+  Expenses:Acme:Software                                            29.00 USD
+
+2025-06-08 * "DocuStream" "DocuStream — monthly subscription"
+  lamella-txn-id: "c5c16503-d8a9-49d9-b70c-ffcc50f4f526"
+  Liabilities:Acme:BankOne:Card                                    -19.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00252"
+  Expenses:Acme:Software                                            19.00 USD
+
+2025-06-09 * "Bytefield Hosting" "Bytefield Hosting — monthly subscription"
+  lamella-txn-id: "d4157309-1910-475e-a49a-3fc4b0e44c08"
+  Liabilities:Acme:BankOne:Card                                    -22.50 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00253"
+  Expenses:Acme:Software                                            22.50 USD
+
+2025-07-06 * "Cloudvault SaaS" "Cloudvault SaaS — monthly subscription"
+  lamella-txn-id: "25ca3b45-79e2-4b5c-9862-f3c8be234745"
+  Liabilities:Acme:BankOne:Card                                    -49.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00254"
+  Expenses:Acme:Software                                            49.00 USD
+
+2025-07-07 * "Pipeline Project Tools" "Pipeline Project Tools — monthly subscription"
+  lamella-txn-id: "9ef3b59e-e56a-492b-8616-83dc82e387c5"
+  Liabilities:Acme:BankOne:Card                                    -29.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00255"
+  Expenses:Acme:Software                                            29.00 USD
+
+2025-07-08 * "DocuStream" "DocuStream — monthly subscription"
+  lamella-txn-id: "96e7948d-1e9f-485b-94b7-0f058b962118"
+  Liabilities:Acme:BankOne:Card                                    -19.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00256"
+  Expenses:Acme:Software                                            19.00 USD
+
+2025-07-09 * "Bytefield Hosting" "Bytefield Hosting — monthly subscription"
+  lamella-txn-id: "3f9d82b5-f2ce-4c35-b869-7a14e6ab592d"
+  Liabilities:Acme:BankOne:Card                                    -22.50 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00257"
+  Expenses:Acme:Software                                            22.50 USD
+
+2025-08-06 * "Cloudvault SaaS" "Cloudvault SaaS — monthly subscription"
+  lamella-txn-id: "f9da80b3-df68-4a50-bdd3-fb3e7e6d5e1a"
+  Liabilities:Acme:BankOne:Card                                    -49.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00258"
+  Expenses:Acme:Software                                            49.00 USD
+
+2025-08-07 * "Pipeline Project Tools" "Pipeline Project Tools — monthly subscription"
+  lamella-txn-id: "3895d9ad-6558-4dec-a00d-4049925b7cea"
+  Liabilities:Acme:BankOne:Card                                    -29.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00259"
+  Expenses:Acme:Software                                            29.00 USD
+
+2025-08-08 * "DocuStream" "DocuStream — monthly subscription"
+  lamella-txn-id: "5a6196e8-48f4-4f9b-a01c-de5afd44f265"
+  Liabilities:Acme:BankOne:Card                                    -19.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00260"
+  Expenses:Acme:Software                                            19.00 USD
+
+2025-08-09 * "Bytefield Hosting" "Bytefield Hosting — monthly subscription"
+  lamella-txn-id: "1ce579c1-e682-4b38-8132-ac7215839f6d"
+  Liabilities:Acme:BankOne:Card                                    -22.50 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00261"
+  Expenses:Acme:Software                                            22.50 USD
+
+2025-09-06 * "Cloudvault SaaS" "Cloudvault SaaS — monthly subscription"
+  lamella-txn-id: "1fcb0d12-8ec6-44a3-9c95-63f768acc82f"
+  Liabilities:Acme:BankOne:Card                                    -49.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00262"
+  Expenses:Acme:Software                                            49.00 USD
+
+2025-09-07 * "Pipeline Project Tools" "Pipeline Project Tools — monthly subscription"
+  lamella-txn-id: "b4fdfe82-cd94-4c35-a008-a7e92c5820da"
+  Liabilities:Acme:BankOne:Card                                    -29.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00263"
+  Expenses:Acme:Software                                            29.00 USD
+
+2025-09-08 * "DocuStream" "DocuStream — monthly subscription"
+  lamella-txn-id: "382419d5-abea-4310-8b18-2da1cb893ae2"
+  Liabilities:Acme:BankOne:Card                                    -19.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00264"
+  Expenses:Acme:Software                                            19.00 USD
+
+2025-09-09 * "Bytefield Hosting" "Bytefield Hosting — monthly subscription"
+  lamella-txn-id: "2cd81e46-3d16-4c12-b4c5-f0e6a89fa042"
+  Liabilities:Acme:BankOne:Card                                    -22.50 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00265"
+  Expenses:Acme:Software                                            22.50 USD
+
+2025-10-06 * "Cloudvault SaaS" "Cloudvault SaaS — monthly subscription"
+  lamella-txn-id: "7bad50dc-0556-4cdb-a5b0-9d15a4d4e9c7"
+  Liabilities:Acme:BankOne:Card                                    -49.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00266"
+  Expenses:Acme:Software                                            49.00 USD
+
+2025-10-07 * "Pipeline Project Tools" "Pipeline Project Tools — monthly subscription"
+  lamella-txn-id: "cd20d7b6-aa47-4679-94f7-df7cb3e9d940"
+  Liabilities:Acme:BankOne:Card                                    -29.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00267"
+  Expenses:Acme:Software                                            29.00 USD
+
+2025-10-08 * "DocuStream" "DocuStream — monthly subscription"
+  lamella-txn-id: "b1e67652-0b54-43b3-a230-a377c35d8c62"
+  Liabilities:Acme:BankOne:Card                                    -19.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00268"
+  Expenses:Acme:Software                                            19.00 USD
+
+2025-10-09 * "Bytefield Hosting" "Bytefield Hosting — monthly subscription"
+  lamella-txn-id: "359251e2-6054-4e97-8ec3-70bacdb45a5d"
+  Liabilities:Acme:BankOne:Card                                    -22.50 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00269"
+  Expenses:Acme:Software                                            22.50 USD
+
+2025-11-06 * "Cloudvault SaaS" "Cloudvault SaaS — monthly subscription"
+  lamella-txn-id: "98b7d39d-c962-4fb1-8c3a-c640997062d7"
+  Liabilities:Acme:BankOne:Card                                    -49.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00270"
+  Expenses:Acme:Software                                            49.00 USD
+
+2025-11-07 * "Pipeline Project Tools" "Pipeline Project Tools — monthly subscription"
+  lamella-txn-id: "2a1f6fe8-c5a4-481d-88bd-f9f65a98d787"
+  Liabilities:Acme:BankOne:Card                                    -29.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00271"
+  Expenses:Acme:Software                                            29.00 USD
+
+2025-11-08 * "DocuStream" "DocuStream — monthly subscription"
+  lamella-txn-id: "f04da7bf-3b31-406f-a935-4e0ebacdac9d"
+  Liabilities:Acme:BankOne:Card                                    -19.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00272"
+  Expenses:Acme:Software                                            19.00 USD
+
+2025-11-09 * "Bytefield Hosting" "Bytefield Hosting — monthly subscription"
+  lamella-txn-id: "ba282f81-263d-4818-b657-d1d9c501f997"
+  Liabilities:Acme:BankOne:Card                                    -22.50 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00273"
+  Expenses:Acme:Software                                            22.50 USD
+
+2025-12-06 * "Cloudvault SaaS" "Cloudvault SaaS — monthly subscription"
+  lamella-txn-id: "b1c4aac2-dbf5-43ff-a791-2d65492c723b"
+  Liabilities:Acme:BankOne:Card                                    -49.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00274"
+  Expenses:Acme:Software                                            49.00 USD
+
+2025-12-07 * "Pipeline Project Tools" "Pipeline Project Tools — monthly subscription"
+  lamella-txn-id: "c7d8071c-048b-4a92-ba36-4e49083a9428"
+  Liabilities:Acme:BankOne:Card                                    -29.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00275"
+  Expenses:Acme:Software                                            29.00 USD
+
+2025-12-08 * "DocuStream" "DocuStream — monthly subscription"
+  lamella-txn-id: "412510ce-653f-4184-9241-7ceb4d643c0f"
+  Liabilities:Acme:BankOne:Card                                    -19.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00276"
+  Expenses:Acme:Software                                            19.00 USD
+
+2025-12-09 * "Bytefield Hosting" "Bytefield Hosting — monthly subscription"
+  lamella-txn-id: "60ad1190-c508-4fb7-b760-6309b64cdc29"
+  Liabilities:Acme:BankOne:Card                                    -22.50 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00277"
+  Expenses:Acme:Software                                            22.50 USD
+
+2025-08-25 * "GreyMatter Marketing" "Online advertising spend"
+  lamella-txn-id: "beb0f96e-61af-4665-84b6-f31cdebd357d"
+  Liabilities:Acme:BankOne:Card                                   -201.55 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00278"
+  Expenses:Acme:Advertising                                        201.55 USD
+
+2025-12-04 * "GreyMatter Marketing" "Online advertising spend"
+  lamella-txn-id: "c10a5365-6d3e-417d-8aee-5afbd4c71f5d"
+  Liabilities:Acme:BankOne:Card                                   -273.51 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00279"
+  Expenses:Acme:Advertising                                        273.51 USD
+
+2025-07-26 * "Northwind Ads" "Online advertising spend"
+  lamella-txn-id: "fa6b8511-f9d5-4b05-b289-1954f4f20116"
+  Liabilities:Acme:BankOne:Card                                   -223.45 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00280"
+  Expenses:Acme:Advertising                                        223.45 USD
+
+2025-06-05 * "GreyMatter Marketing" "Online advertising spend"
+  lamella-txn-id: "e01b3881-c3d6-4595-acac-3bfcc30bbb27"
+  Liabilities:Acme:BankOne:Card                                    -90.88 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00281"
+  Expenses:Acme:Advertising                                         90.88 USD
+
+2025-10-04 * "GreyMatter Marketing" "Online advertising spend"
+  lamella-txn-id: "bf71a7df-05e3-41cf-ba5a-3e234a814f4c"
+  Liabilities:Acme:BankOne:Card                                   -167.49 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00282"
+  Expenses:Acme:Advertising                                        167.49 USD
+
+2025-01-16 * "Northwind Ads" "Online advertising spend"
+  lamella-txn-id: "fea6c6e3-88cd-4eda-8069-a52cd3e0df92"
+  Liabilities:Acme:BankOne:Card                                    -88.37 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00283"
+  Expenses:Acme:Advertising                                         88.37 USD
+
+2025-07-04 * "GreyMatter Marketing" "Online advertising spend"
+  lamella-txn-id: "b2c9ef91-3798-4d3b-b6bc-eac8bb5f18b1"
+  Liabilities:Acme:BankOne:Card                                   -114.58 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00284"
+  Expenses:Acme:Advertising                                        114.58 USD
+
+2025-02-12 * "GreyMatter Marketing" "Online advertising spend"
+  lamella-txn-id: "25ad2e9e-4cc9-430e-91bf-ad0c85166811"
+  Liabilities:Acme:BankOne:Card                                   -300.92 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00285"
+  Expenses:Acme:Advertising                                        300.92 USD
+
+2025-06-14 * "GreyMatter Marketing" "Online advertising spend"
+  lamella-txn-id: "ecb26794-9efd-4ca9-b750-aa3198c88cfc"
+  Liabilities:Acme:BankOne:Card                                   -232.43 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00286"
+  Expenses:Acme:Advertising                                        232.43 USD
+
+2025-05-20 * "Citywide Office Supply" "Office supplies"
+  lamella-txn-id: "202cd6ca-4fa0-4d89-9b52-5a7cd696c8b1"
+  Liabilities:Acme:BankOne:Card                                   -103.68 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00287"
+  Expenses:Acme:Supplies                                           103.68 USD
+
+2025-03-15 * "PaperWorks Wholesale" "Office supplies"
+  lamella-txn-id: "1f6310ab-e2c1-4ac5-8e00-cc83bf2e9baa"
+  Liabilities:Acme:BankOne:Card                                    -38.86 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00288"
+  Expenses:Acme:Supplies                                            38.86 USD
+
+2025-02-22 * "PaperWorks Wholesale" "Office supplies"
+  lamella-txn-id: "a77b3bf9-7f20-4cbc-8d92-140e224959b2"
+  project: "ProjectAlpha"
+  Liabilities:Acme:BankOne:Card                                    -81.72 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00289"
+  Expenses:Acme:Supplies                                            81.72 USD
+
+2025-06-26 * "Citywide Office Supply" "Office supplies"
+  lamella-txn-id: "2235cccf-2582-4b77-b162-1e4c5bc8453a"
+  Liabilities:Acme:BankOne:Card                                    -58.44 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00290"
+  Expenses:Acme:Supplies                                            58.44 USD
+
+2025-12-27 * "Industrial Direct" "Office supplies"
+  lamella-txn-id: "ef6b3cde-2547-47cf-8bbc-f6cfcfe6fab5"
+  project: "ProjectAlpha"
+  Liabilities:Acme:BankOne:Card                                    -51.03 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00291"
+  Expenses:Acme:Supplies                                            51.03 USD
+
+2025-02-23 * "Citywide Office Supply" "Office supplies"
+  lamella-txn-id: "f95eeccb-f3f6-4d31-950d-44093670b1a7"
+  Liabilities:Acme:BankOne:Card                                    -62.57 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00292"
+  Expenses:Acme:Supplies                                            62.57 USD
+
+2025-06-05 * "Citywide Office Supply" "Office supplies"
+  lamella-txn-id: "07b633dc-225b-4f44-9bf3-525549562208"
+  Liabilities:Acme:BankOne:Card                                    -28.24 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00293"
+  Expenses:Acme:Supplies                                            28.24 USD
+
+2025-02-12 * "Citywide Office Supply" "Office supplies"
+  lamella-txn-id: "e48a3eb7-e6c2-4aee-9707-f0d2e4b0e122"
+  project: "ProjectAlpha"
+  Liabilities:Acme:BankOne:Card                                    -59.60 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00294"
+  Expenses:Acme:Supplies                                            59.60 USD
+
+2025-06-12 * "PaperWorks Wholesale" "Office supplies"
+  lamella-txn-id: "b84d42e4-7bd0-473f-b093-608ea0e56fbd"
+  Liabilities:Acme:BankOne:Card                                   -126.76 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00295"
+  Expenses:Acme:Supplies                                           126.76 USD
+
+2025-06-15 * "Citywide Office Supply" "Office supplies"
+  lamella-txn-id: "065d6ccb-a5f9-497b-bf7d-d4678e41fc08"
+  project: "ProjectAlpha"
+  Liabilities:Acme:BankOne:Card                                   -141.90 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00296"
+  Expenses:Acme:Supplies                                           141.90 USD
+
+2025-10-09 * "PaperWorks Wholesale" "Office supplies"
+  lamella-txn-id: "0d3e6ff4-d131-4bf8-9131-3583e32d73cc"
+  Liabilities:Acme:BankOne:Card                                   -124.46 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00297"
+  Expenses:Acme:Supplies                                           124.46 USD
+
+2025-01-13 * "Old Mill Pub" "Client meeting — meals"
+  lamella-txn-id: "efd5a828-ed15-49be-bdb7-b8f562304fef"
+  note: "50%-deductible client meal per IRS Pub 463."
+  Liabilities:Acme:BankOne:Card                                    -86.22 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00298"
+  Expenses:Acme:Meals                                               86.22 USD
+
+2025-08-04 * "Old Mill Pub" "Client meeting — meals"
+  lamella-txn-id: "4fed20be-6a08-49e0-bbe8-eb3c0666ddfc"
+  note: "50%-deductible client meal per IRS Pub 463."
+  Liabilities:Acme:BankOne:Card                                    -54.13 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00299"
+  Expenses:Acme:Meals                                               54.13 USD
+
+2025-02-08 * "Riverside Cafe" "Client meeting — meals"
+  lamella-txn-id: "efc026b3-096c-4979-a2c5-d19f179ca761"
+  note: "50%-deductible client meal per IRS Pub 463."
+  Liabilities:Acme:BankOne:Card                                    -89.20 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00300"
+  Expenses:Acme:Meals                                               89.20 USD
+
+2025-12-11 * "Aurora Bistro" "Client meeting — meals"
+  lamella-txn-id: "69a36d64-884e-4d54-9e5f-f930e4595c3e"
+  note: "50%-deductible client meal per IRS Pub 463."
+  Liabilities:Acme:BankOne:Card                                    -71.63 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00301"
+  Expenses:Acme:Meals                                               71.63 USD
+
+2025-01-15 * "Bluebird Diner" "Client meeting — meals"
+  lamella-txn-id: "5f141a6d-aabd-4a6d-9a28-af759a900688"
+  note: "50%-deductible client meal per IRS Pub 463."
+  Liabilities:Acme:BankOne:Card                                    -57.24 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00302"
+  Expenses:Acme:Meals                                               57.24 USD
+
+2025-12-09 * "Riverside Cafe" "Client meeting — meals"
+  lamella-txn-id: "2e567b55-07a7-47b7-b8bc-cc4e3c3c1f1c"
+  note: "50%-deductible client meal per IRS Pub 463."
+  Liabilities:Acme:BankOne:Card                                    -39.43 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00303"
+  Expenses:Acme:Meals                                               39.43 USD
+
+2025-07-20 * "Bluebird Diner" "Client meeting — meals"
+  lamella-txn-id: "c97f215d-9462-4750-8a2f-03a8fff27cc0"
+  note: "50%-deductible client meal per IRS Pub 463."
+  Liabilities:Acme:BankOne:Card                                    -63.58 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00304"
+  Expenses:Acme:Meals                                               63.58 USD
+
+2025-01-04 * "Aurora Bistro" "Client meeting — meals"
+  lamella-txn-id: "d8adc58f-f01a-48cc-9520-9c5a877acc78"
+  note: "50%-deductible client meal per IRS Pub 463."
+  Liabilities:Acme:BankOne:Card                                    -78.28 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00305"
+  Expenses:Acme:Meals                                               78.28 USD
+
+2025-02-18 * "Coastal Air" "Client visit airfare"
+  lamella-txn-id: "45d7ce9e-9ede-415e-86b7-c2cb439f2c0f"
+  note: "Business trip; see mileage log entry on or near 2025-02-18."
+  Liabilities:Acme:BankOne:Card                                   -385.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00306"
+  Expenses:Acme:Travel                                             385.00 USD
+
+2025-02-19 * "Skyline Lodging Inc." "Client visit lodging — 2 nights"
+  lamella-txn-id: "ce78c143-2730-41d8-a03f-95adf3b195da"
+  note: "Business trip; see mileage log entry on or near 2025-02-19."
+  Liabilities:Acme:BankOne:Card                                   -298.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00307"
+  Expenses:Acme:Travel                                             298.00 USD
+
+2025-05-14 * "TripStone Travel" "Conference registration + travel package"
+  lamella-txn-id: "1d592c99-0c06-4531-a6db-2538246dff6a"
+  note: "Business trip; see mileage log entry on or near 2025-05-14."
+  Liabilities:Acme:BankOne:Card                                   -625.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00308"
+  Expenses:Acme:Travel                                             625.00 USD
+
+2025-08-20 * "Coastal Air" "Vendor meeting airfare"
+  lamella-txn-id: "421df06c-abb2-4de6-9c5d-a31bfa1e4f76"
+  note: "Business trip; see mileage log entry on or near 2025-08-20."
+  Liabilities:Acme:BankOne:Card                                   -410.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00309"
+  Expenses:Acme:Travel                                             410.00 USD
+
+2025-08-21 * "Skyline Lodging Inc." "Vendor meeting hotel"
+  lamella-txn-id: "78d82f42-f521-4a74-afe0-1c922d5f6fd8"
+  note: "Business trip; see mileage log entry on or near 2025-08-21."
+  Liabilities:Acme:BankOne:Card                                   -185.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00310"
+  Expenses:Acme:Travel                                             185.00 USD
+
+2025-11-06 * "TripStone Travel" "Year-end client offsite"
+  lamella-txn-id: "4e61355c-bbc7-42b5-9273-0e5536842d10"
+  note: "Business trip; see mileage log entry on or near 2025-11-06."
+  Liabilities:Acme:BankOne:Card                                   -545.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00311"
+  Expenses:Acme:Travel                                             545.00 USD
+
+2025-03-31 * "Watershed CPA Group" "Quarterly bookkeeping retainer"
+  lamella-txn-id: "9217dd7e-7cff-4ef1-8791-fb2e30527522"
+  Assets:Acme:BankOne:Checking                                    -450.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00312"
+  Expenses:Acme:ProfessionalFees                                   450.00 USD
+
+2025-06-30 * "Watershed CPA Group" "Quarterly bookkeeping retainer"
+  lamella-txn-id: "71c16b10-f7f2-440c-a690-c626233458f3"
+  Assets:Acme:BankOne:Checking                                    -450.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00313"
+  Expenses:Acme:ProfessionalFees                                   450.00 USD
+
+2025-09-30 * "Watershed CPA Group" "Quarterly bookkeeping retainer"
+  lamella-txn-id: "9f0b9877-635e-4311-a46b-b9b78a3831b2"
+  Assets:Acme:BankOne:Checking                                    -450.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00314"
+  Expenses:Acme:ProfessionalFees                                   450.00 USD
+
+2025-12-31 * "Watershed CPA Group" "Quarterly bookkeeping retainer"
+  lamella-txn-id: "99beccc0-a947-4316-a2dc-5b7bd97c739d"
+  Assets:Acme:BankOne:Checking                                    -450.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00315"
+  Expenses:Acme:ProfessionalFees                                   450.00 USD
+
+2025-07-22 * "Bramble & Stone LLP" "Contract review"
+  lamella-txn-id: "47b84cfd-5ae4-49cf-a23f-3bf0c3b3acaa"
+  project: "ProjectAlpha"
+  note: "ProjectAlpha — MSA contract review."
+  Assets:Acme:BankOne:Checking                                    -385.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00316"
+  Expenses:Acme:ProfessionalFees                                   385.00 USD
+
+2025-01-18 * "Telemark Wireless" "Business cellular line"
+  lamella-txn-id: "85dc07a1-7e53-4eb5-b6a9-98f528fe96c3"
+  Liabilities:Acme:BankOne:Card                                    -65.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00317"
+  Expenses:Acme:Telephone                                           65.00 USD
+
+2025-02-18 * "Telemark Wireless" "Business cellular line"
+  lamella-txn-id: "e6e99b62-c7cb-4e88-825e-ac780b90cacb"
+  Liabilities:Acme:BankOne:Card                                    -65.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00318"
+  Expenses:Acme:Telephone                                           65.00 USD
+
+2025-03-18 * "Telemark Wireless" "Business cellular line"
+  lamella-txn-id: "2a7c0ba7-4451-4f49-9066-3d503247e4bf"
+  Liabilities:Acme:BankOne:Card                                    -65.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00319"
+  Expenses:Acme:Telephone                                           65.00 USD
+
+2025-04-18 * "Telemark Wireless" "Business cellular line"
+  lamella-txn-id: "b006ce2e-5594-4a5b-8049-7974f386c268"
+  Liabilities:Acme:BankOne:Card                                    -65.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00320"
+  Expenses:Acme:Telephone                                           65.00 USD
+
+2025-05-18 * "Telemark Wireless" "Business cellular line"
+  lamella-txn-id: "1906462d-9cb8-41dd-803c-1c80b22885bb"
+  Liabilities:Acme:BankOne:Card                                    -65.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00321"
+  Expenses:Acme:Telephone                                           65.00 USD
+
+2025-06-18 * "Telemark Wireless" "Business cellular line"
+  lamella-txn-id: "1510acbd-3491-4b77-be9a-006c1fbe7f9b"
+  Liabilities:Acme:BankOne:Card                                    -65.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00322"
+  Expenses:Acme:Telephone                                           65.00 USD
+
+2025-07-18 * "Telemark Wireless" "Business cellular line"
+  lamella-txn-id: "99be77c8-78a4-4f3b-8d82-784de5f5fa3b"
+  Liabilities:Acme:BankOne:Card                                    -65.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00323"
+  Expenses:Acme:Telephone                                           65.00 USD
+
+2025-08-18 * "Telemark Wireless" "Business cellular line"
+  lamella-txn-id: "686f9452-b096-4876-af83-33189efb0b14"
+  Liabilities:Acme:BankOne:Card                                    -65.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00324"
+  Expenses:Acme:Telephone                                           65.00 USD
+
+2025-09-18 * "Telemark Wireless" "Business cellular line"
+  lamella-txn-id: "4a47a0cf-1863-47f3-9671-b431890811a0"
+  Liabilities:Acme:BankOne:Card                                    -65.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00325"
+  Expenses:Acme:Telephone                                           65.00 USD
+
+2025-10-18 * "Telemark Wireless" "Business cellular line"
+  lamella-txn-id: "aada0506-9481-4db6-8fcf-42603b182b5e"
+  Liabilities:Acme:BankOne:Card                                    -65.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00326"
+  Expenses:Acme:Telephone                                           65.00 USD
+
+2025-11-18 * "Telemark Wireless" "Business cellular line"
+  lamella-txn-id: "15490553-304d-470e-b34b-b558d125d562"
+  Liabilities:Acme:BankOne:Card                                    -65.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00327"
+  Expenses:Acme:Telephone                                           65.00 USD
+
+2025-12-18 * "Telemark Wireless" "Business cellular line"
+  lamella-txn-id: "27db97a4-413d-4a5f-a7d4-eb500ae1c424"
+  Liabilities:Acme:BankOne:Card                                    -65.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00328"
+  Expenses:Acme:Telephone                                           65.00 USD
+
+2025-04-05 * "Acme Insurance Group" "General-liability + E&O insurance — annual"
+  lamella-txn-id: "07b96e62-81c8-4994-8679-1a8f1aef7306"
+  Assets:Acme:BankOne:Checking                                   -1185.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00329"
+  Expenses:Acme:Insurance                                         1185.00 USD
+
+2025-01-01 * "BankOne" "Business checking — monthly maintenance fee"
+  lamella-txn-id: "3bec8751-d977-4cf4-af2c-e56fb1ff9b3c"
+  Assets:Acme:BankOne:Checking                                     -12.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00330"
+  Expenses:Acme:Bank:BankOne:Fees                                   12.00 USD
+
+2025-02-01 * "BankOne" "Business checking — monthly maintenance fee"
+  lamella-txn-id: "a7ba7fe2-1d47-4928-aa28-b97a3f8665a5"
+  Assets:Acme:BankOne:Checking                                     -12.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00331"
+  Expenses:Acme:Bank:BankOne:Fees                                   12.00 USD
+
+2025-03-01 * "BankOne" "Business checking — monthly maintenance fee"
+  lamella-txn-id: "9c170081-7292-40db-91e5-0965d7c9566a"
+  Assets:Acme:BankOne:Checking                                     -12.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00332"
+  Expenses:Acme:Bank:BankOne:Fees                                   12.00 USD
+
+2025-04-01 * "BankOne" "Business checking — monthly maintenance fee"
+  lamella-txn-id: "8a7969f4-36a7-4d79-9d2b-cd6fe081c47e"
+  Assets:Acme:BankOne:Checking                                     -12.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00333"
+  Expenses:Acme:Bank:BankOne:Fees                                   12.00 USD
+
+2025-05-01 * "BankOne" "Business checking — monthly maintenance fee"
+  lamella-txn-id: "d5a0b519-32bf-4bbe-9b2e-eb0238ed72f6"
+  Assets:Acme:BankOne:Checking                                     -12.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00334"
+  Expenses:Acme:Bank:BankOne:Fees                                   12.00 USD
+
+2025-06-01 * "BankOne" "Business checking — monthly maintenance fee"
+  lamella-txn-id: "6ac4c601-84a0-4d41-95d7-c80dca9e1f26"
+  Assets:Acme:BankOne:Checking                                     -12.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00335"
+  Expenses:Acme:Bank:BankOne:Fees                                   12.00 USD
+
+2025-07-01 * "BankOne" "Business checking — monthly maintenance fee"
+  lamella-txn-id: "19ee6d03-a75e-4c11-a3cf-3e1a4b1b4998"
+  Assets:Acme:BankOne:Checking                                     -12.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00336"
+  Expenses:Acme:Bank:BankOne:Fees                                   12.00 USD
+
+2025-08-01 * "BankOne" "Business checking — monthly maintenance fee"
+  lamella-txn-id: "8445c929-cb64-44ce-b88d-0047253baa10"
+  Assets:Acme:BankOne:Checking                                     -12.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00337"
+  Expenses:Acme:Bank:BankOne:Fees                                   12.00 USD
+
+2025-09-01 * "BankOne" "Business checking — monthly maintenance fee"
+  lamella-txn-id: "61fe6467-506c-445b-a08d-248a71f8bce4"
+  Assets:Acme:BankOne:Checking                                     -12.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00338"
+  Expenses:Acme:Bank:BankOne:Fees                                   12.00 USD
+
+2025-10-01 * "BankOne" "Business checking — monthly maintenance fee"
+  lamella-txn-id: "d150edab-2b52-49f2-9bf3-630d537358a7"
+  Assets:Acme:BankOne:Checking                                     -12.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00339"
+  Expenses:Acme:Bank:BankOne:Fees                                   12.00 USD
+
+2025-11-01 * "BankOne" "Business checking — monthly maintenance fee"
+  lamella-txn-id: "982319a4-ad3c-4f0f-a66c-d4da1fe57437"
+  Assets:Acme:BankOne:Checking                                     -12.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00340"
+  Expenses:Acme:Bank:BankOne:Fees                                   12.00 USD
+
+2025-12-01 * "BankOne" "Business checking — monthly maintenance fee"
+  lamella-txn-id: "99d3ef85-b9e6-4360-a2cb-12cacc52415d"
+  Assets:Acme:BankOne:Checking                                     -12.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00341"
+  Expenses:Acme:Bank:BankOne:Fees                                   12.00 USD
+
+2025-01-24 * "Acme card auto-pay (January)"
+  lamella-txn-id: "67eaecf3-a3fa-4cd5-a3d4-c719a2ddbba2"
+  Assets:Acme:BankOne:Checking                                    -520.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00342"
+  Liabilities:Acme:BankOne:Card                                    520.00 USD
+
+2025-02-24 * "Acme card auto-pay (February)"
+  lamella-txn-id: "80fe35f9-e0d6-4f0c-9ec6-9426daef89ab"
+  Assets:Acme:BankOne:Checking                                    -612.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00343"
+  Liabilities:Acme:BankOne:Card                                    612.00 USD
+
+2025-03-24 * "Acme card auto-pay (March)"
+  lamella-txn-id: "2034dbd4-82d0-4c05-9721-d15f17039fda"
+  Assets:Acme:BankOne:Checking                                    -488.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00344"
+  Liabilities:Acme:BankOne:Card                                    488.00 USD
+
+2025-04-24 * "Acme card auto-pay (April)"
+  lamella-txn-id: "2bc2e5e4-0adc-4b12-bcd2-0c17b2c091d8"
+  Assets:Acme:BankOne:Checking                                   -1245.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00345"
+  Liabilities:Acme:BankOne:Card                                   1245.00 USD
+
+2025-05-24 * "Acme card auto-pay (May)"
+  lamella-txn-id: "2e4f0ed3-0370-40a7-a6d1-e7fd1bec2be2"
+  Assets:Acme:BankOne:Checking                                    -675.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00346"
+  Liabilities:Acme:BankOne:Card                                    675.00 USD
+
+2025-06-24 * "Acme card auto-pay (June)"
+  lamella-txn-id: "9eb3d41f-4ca5-4576-ad67-154d4c3354d6"
+  Assets:Acme:BankOne:Checking                                    -840.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00347"
+  Liabilities:Acme:BankOne:Card                                    840.00 USD
+
+2025-07-24 * "Acme card auto-pay (July)"
+  lamella-txn-id: "dd71f639-0271-4a50-ac61-5256db507c24"
+  Assets:Acme:BankOne:Checking                                    -520.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00348"
+  Liabilities:Acme:BankOne:Card                                    520.00 USD
+
+2025-08-24 * "Acme card auto-pay (August)"
+  lamella-txn-id: "932ab147-a439-4680-b2a8-0ba33a82100c"
+  Assets:Acme:BankOne:Checking                                    -930.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00349"
+  Liabilities:Acme:BankOne:Card                                    930.00 USD
+
+2025-09-24 * "Acme card auto-pay (September)"
+  lamella-txn-id: "d0a0cc62-fdf6-44c5-86aa-afa07eb7e16f"
+  Assets:Acme:BankOne:Checking                                    -710.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00350"
+  Liabilities:Acme:BankOne:Card                                    710.00 USD
+
+2025-10-24 * "Acme card auto-pay (October)"
+  lamella-txn-id: "2606a724-416e-4d8a-9c26-86fe57ab41cd"
+  Assets:Acme:BankOne:Checking                                    -615.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00351"
+  Liabilities:Acme:BankOne:Card                                    615.00 USD
+
+2025-11-24 * "Acme card auto-pay (November)"
+  lamella-txn-id: "d7eec435-452d-46f3-b619-d5d5977692e1"
+  Assets:Acme:BankOne:Checking                                    -805.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00352"
+  Liabilities:Acme:BankOne:Card                                    805.00 USD
+
+2025-12-24 * "Acme card auto-pay (December)"
+  lamella-txn-id: "ea6a2461-4637-4f22-b0aa-7fc2cba3695d"
+  Assets:Acme:BankOne:Checking                                    -780.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00353"
+  Liabilities:Acme:BankOne:Card                                    780.00 USD
+
+2025-02-07 * "GreyDesk Furniture" "Standing desk + chair"
+  lamella-txn-id: "c450419b-afe7-4e00-a37b-ccd7d95eec3c"
+  note: "Home-office equipment purchase."
+  Liabilities:Acme:BankOne:Card                                   -685.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00354"
+  Expenses:Acme:Office                                             685.00 USD
+
+2025-09-18 * "PrintLab Print Shop" "Business cards + brochures"
+  lamella-txn-id: "7b8c4271-e603-4f2b-b5a6-b22400376085"
+  project: "ProjectAlpha"
+  Liabilities:Acme:BankOne:Card                                   -148.00 USD
+    lamella-source-0: "simplefin"
+    lamella-source-reference-id-0: "acme-00355"
+  Expenses:Acme:Office                                             148.00 USD

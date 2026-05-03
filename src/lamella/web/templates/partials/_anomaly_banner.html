@@ -1,0 +1,71 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Shared anomaly-banner partial.
+
+   Pages pass a list of AnomalyFinding objects as `anomalies`.
+   Each renders as a severity-colored card with title + description
+   + optional per-fix actions. No anomalies → nothing renders.
+
+   Usage in a page template:
+
+     {% with anomalies=anomalies %}
+       {% include "partials/_anomaly_banner.html" %}
+     {% endwith %}
+#}
+{% if anomalies %}
+<section class="anomaly-stack" style="margin:1em 0;">
+{% for f in anomalies %}
+  {% set border = '#f59e0b' %}
+  {% set bg = '#fffbeb' %}
+  {% set fg = '#78350f' %}
+  {% if f.severity == 'error' %}
+    {% set border = '#dc2626' %}
+    {% set bg = '#fef2f2' %}
+    {% set fg = '#7f1d1d' %}
+  {% elif f.severity == 'info' %}
+    {% set border = '#2b6cb0' %}
+    {% set bg = '#eff6ff' %}
+    {% set fg = '#1e3a8a' %}
+  {% endif %}
+  <div class="anomaly-card"
+       style="border-left:4px solid {{ border }}; background:{{ bg }}; padding:0.8em 1em; border-radius:4px; margin-bottom:0.6em;">
+    <div style="color:{{ fg }};">
+      <strong>
+        {% if f.severity == 'error' %}✗{% elif f.severity == 'warn' %}⚠{% else %}ℹ{% endif %}
+        {{ f.title }}
+      </strong>
+    </div>
+    {% if f.description %}
+      <div class="small" style="margin-top:0.3em; color:{{ fg }}; opacity:0.9; line-height:1.45;">
+        {{ f.description }}
+      </div>
+    {% endif %}
+    {% if f.actions %}
+      <div class="anomaly-actions" style="margin-top:0.5em; display:flex; flex-wrap:wrap; gap:0.4em;">
+        {% for a in f.actions %}
+          {% if a.method == 'post' %}
+            <form method="post" action="{{ a.href }}" style="margin:0; display:inline;">
+              <button type="submit"{% if a.primary %} class="primary"{% endif %}>
+                {{ a.label }}
+              </button>
+            </form>
+          {% else %}
+            <a href="{{ a.href }}">
+              <button type="button"{% if a.primary %} class="primary"{% endif %}>
+                {{ a.label }}
+              </button>
+            </a>
+          {% endif %}
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+{% endfor %}
+</section>
+{% endif %}

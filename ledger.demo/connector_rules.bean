@@ -1,0 +1,79 @@
+;; ---------------------------------------------------------------
+;; Managed by Lamella. Do not edit by hand.
+;;
+;; This file is regenerated from user actions in the web UI. Manual
+;; edits may be reverted silently on the next write.
+;;
+;; File:      connector_rules.bean
+;; Owner:     lamella
+;; Schema:    lamella-ledger-version=3
+;; Generated: 2026-04-29 by Lamella demo generator
+;; ---------------------------------------------------------------
+
+
+2025-01-01 custom "classification-rule" "rule-utilities-electric"
+  pattern-type: "merchant_contains"
+  pattern-value: "Greenline Power"
+  target-account: "Expenses:Personal:Properties:MainHouse:Utilities"
+  source: "user"
+
+2025-01-01 custom "classification-rule" "rule-utilities-gas"
+  pattern-type: "merchant_contains"
+  pattern-value: "Northland Natural Gas"
+  target-account: "Expenses:Personal:Properties:MainHouse:Utilities"
+  source: "user"
+
+2025-01-01 custom "classification-rule" "rule-internet"
+  pattern-type: "merchant_contains"
+  pattern-value: "FiberOne ISP"
+  target-account: "Expenses:Personal:Internet"
+  source: "user"
+
+2025-01-01 custom "classification-rule" "rule-cell"
+  pattern-type: "merchant_contains"
+  pattern-value: "Telemark Wireless"
+  target-account: "Expenses:Personal:Phone"
+  source: "user"
+
+2025-01-01 custom "classification-rule" "rule-vehicle-ins"
+  pattern-type: "merchant_contains"
+  pattern-value: "Coastal Mutual Auto"
+  target-account: "Expenses:Personal:Vehicles:V2018Sedan:Insurance"
+  source: "user"
+
+2025-01-01 custom "classification-rule" "rule-hoa"
+  pattern-type: "merchant_contains"
+  pattern-value: "Maple Hollow HOA"
+  target-account: "Expenses:Personal:Properties:MainHouse:HOA"
+  source: "user"
+
+2025-01-01 custom "classification-rule" "rule-acme-saas-cv"
+  pattern-type: "merchant_contains"
+  pattern-value: "Cloudvault SaaS"
+  target-account: "Expenses:Acme:Software"
+  source: "user"
+
+2025-01-01 custom "classification-rule" "rule-acme-saas-pp"
+  pattern-type: "merchant_contains"
+  pattern-value: "Pipeline Project Tools"
+  target-account: "Expenses:Acme:Software"
+  source: "user"
+
+2025-01-01 custom "classification-rule" "rule-acme-saas-ds"
+  pattern-type: "merchant_contains"
+  pattern-value: "DocuStream"
+  target-account: "Expenses:Acme:Software"
+  source: "user"
+
+2025-01-01 custom "classification-rule" "rule-acme-hosting"
+  pattern-type: "merchant_contains"
+  pattern-value: "Bytefield Hosting"
+  target-account: "Expenses:Acme:Software"
+  source: "user"
+
+2025-01-01 custom "classification-rule" "rule-acme-cpa"
+  pattern-type: "merchant_contains"
+  pattern-value: "Watershed CPA Group"
+  target-account: "Expenses:Acme:ProfessionalFees"
+  source: "user"
+

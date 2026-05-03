@@ -1,0 +1,15 @@
+;; ---------------------------------------------------------------
+;; Managed by Lamella. Do not edit by hand.
+;;
+;; This file is regenerated from user actions in the web UI. Manual
+;; edits may be reverted silently on the next write.
+;;
+;; File:      connector_transfers.bean
+;; Owner:     lamella
+;; Schema:    lamella-ledger-version=3
+;; Generated: 2026-04-29 by Lamella demo generator
+;; ---------------------------------------------------------------
+
+; connector_transfers.bean — no Lamella-managed entries yet.
+; This file is created on first run and stays empty until the
+; first relevant action (e.g. linking a receipt for connector_links.bean).

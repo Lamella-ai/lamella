@@ -1,0 +1,14 @@
+;; ---------------------------------------------------------------
+;; User-authored file. Edit freely.
+;;
+;; Lamella reads this file every parse but never rewrites it.
+;;
+;; File:      events.bean
+;; Owner:     user
+;; Schema:    lamella-ledger-version=3
+;; Generated: 2026-04-29 by Lamella demo generator
+;; ---------------------------------------------------------------
+
+2010-06-15 event "home-purchased" "123 Main St, Anytown, ST 00000"
+2018-03-10 event "vehicle-acquired" "2018 sedan; primary household vehicle"
+2025-01-01 event "tax-year-start" "2025 — calendar year"

@@ -1,0 +1,119 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Projects — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Projects{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Projects',
+     subtitle='Named, dated classification contexts. A project’s description becomes STRONG CONTEXT on every classify call during its window for txns at its expected merchants. Cross-cuts entities — a Personal project can have deductibility implications for a business. Multiple projects can be active simultaneously.'
+) %}
+  {{ B.btn('New project', href='#new-project', variant='primary', icon=icon.plus()) }}
+{% endcall %}
+
+<datalist id="proj-types-datalist">
+  {% for val, lbl in project_types %}<option value="{{ val }}" label="{{ lbl }}">{% endfor %}
+</datalist>
+<datalist id="proj-entities-datalist">
+  {% for e in entities %}<option value="{{ e.slug }}" label="{{ e.display_name or e.slug }}">{% endfor %}
+</datalist>
+<datalist id="proj-properties-datalist">
+  {% for p in properties %}<option value="{{ p.slug }}" label="{{ p.display_name or p.slug }}">{% endfor %}
+</datalist>
+<datalist id="proj-prev-datalist">
+  {% for p in all_projects %}<option value="{{ p.slug }}" label="{{ p.display_name }} ({{ p.start_date }})">{% endfor %}
+</datalist>
+
+{% if rows %}
+<div style="display:grid; gap:0.75rem">
+  {% for row in rows %}
+  {% set p = row.p %}
+  {% set tone = '' %}
+  {% if not p.is_active %}{% set tone = 'muted' %}
+  {% elif p.budget_amount and row.spent > p.budget_amount|float %}{% set tone = 'err' %}
+  {% else %}{% set tone = 'ok' %}{% endif %}
+
+  {% call C.card(tone=tone) %}
+  <h2 style="margin:0 0 0.25rem; font-size:1.1rem">
+    <a href="/projects/{{ p.slug }}" style="color:inherit; text-decoration:none">{{ p.display_name }}</a>
+    {% if not p.is_active %}{{ D.badge('closed', tone='muted') }}{% endif %}
+  </h2>
+  <div class="subtle" style="margin-bottom:0.5rem; font-size:0.85rem">
+    {% if p.entity_slug %}Entity: <code>{{ p.entity_slug | entity }}</code>{% endif %}
+    {% if p.property_slug %} · Property: <code>{{ p.property_slug }}</code>{% endif %}
+    {% if p.project_type %} · Type: {{ p.project_type }}{% endif %}
+    {% if p.start_date %} · {{ p.start_date }}{% if p.end_date %} → {{ p.end_date }}{% else %} → ongoing{% endif %}{% endif %}
+  </div>
+  <div style="display:flex; gap:1.5rem; flex-wrap:wrap">
+    <div><strong>{{ row.txn_count }}</strong> <span class="subtle" style="font-size:0.85rem">txns attributed</span></div>
+    <div><strong>{{ D.money(row.spent, signed=false) }}</strong> <span class="subtle" style="font-size:0.85rem">spent</span></div>
+    {% if p.budget_amount %}<div><strong>${{ p.budget_amount }}</strong> <span class="subtle" style="font-size:0.85rem">budget</span></div>{% endif %}
+  </div>
+  {% if p.description %}
+    <p class="subtle" style="margin:0.5rem 0 0; font-size:0.85rem">{{ p.description[:200] }}{% if p.description|length > 200 %}…{% endif %}</p>
+  {% endif %}
+  {% endcall %}
+  {% endfor %}
+</div>
+{% else %}
+{{ F.empty_state('No projects yet. Projects shine when you have something multi-day or cross-cutting that needs context — a home improvement project, a business trip, a medical procedure spanning several visits.') }}
+{% endif %}
+
+<section id="new-project" style="margin-top:2rem"></section>
+{% call L.section(title='New project') %}
+{% call C.card() %}
+<form method="post" action="/projects" class="form-grid" style="max-width:none">
+  <div class="field">
+    <label class="field-label">Display name</label>
+    <input class="field-input" type="text" name="display_name" required placeholder="e.g. Office renovation" />
+  </div>
+  <div class="form-row-2">
+    <div class="field"><label class="field-label">Slug</label><input class="field-input" type="text" name="slug" required pattern="[a-z0-9][a-z0-9_-]*" placeholder="office-reno" /></div>
+    <div class="field"><label class="field-label">Type</label><input class="field-input" type="text" name="project_type" list="proj-types-datalist" /></div>
+  </div>
+  <div class="form-row-2">
+    <div class="field"><label class="field-label">Entity</label><input class="field-input" type="text" name="entity_slug" list="proj-entities-datalist" placeholder="(none)" /></div>
+    <div class="field"><label class="field-label">Property</label><input class="field-input" type="text" name="property_slug" list="proj-properties-datalist" placeholder="(none)" /></div>
+  </div>
+  <div class="form-row-2">
+    <div class="field"><label class="field-label">Start date</label><input class="field-input" type="date" name="start_date" value="{{ today }}" required /></div>
+    <div class="field"><label class="field-label">End date</label><input class="field-input" type="date" name="end_date" placeholder="blank = ongoing" /></div>
+  </div>
+  <div class="field">
+    <label class="field-label">Budget (USD, optional)</label>
+    <input class="field-input" type="text" name="budget_amount" placeholder="e.g. 6500.00" />
+  </div>
+  <div class="field">
+    <label class="field-label">Expected merchants (comma or newline separated)</label>
+    <textarea class="field-textarea" name="expected_merchants" rows="2" placeholder="Hardware Store, Home Center, Lumber Yard"></textarea>
+  </div>
+  <div class="field">
+    <label class="field-label">Description</label>
+    <textarea class="field-textarea" name="description" rows="5"
+              placeholder="What is this project, its business purpose, and any tax notes? E.g. capital improvement vs. repair, deductibility, split personal/business, CPA notes."></textarea>
+  </div>
+  <div class="field">
+    <label class="field-label">Continuation of (optional — paused-then-restarted project?)</label>
+    <input class="field-input" type="text" name="previous_project_slug" list="proj-prev-datalist" placeholder="(none — fresh project)" />
+    <p class="subtle" style="margin:6px 0 0">Pick the prior project if this one is resuming it. Chain totals roll across both.</p>
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Create project', type='submit', variant='primary', icon=icon.plus()) }}</div>
+</form>
+{% endcall %}
+{% endcall %}
+{% endblock %}
