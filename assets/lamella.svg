@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="510.1" viewBox="-155 141.9 300 510.1" role="img" aria-label="Lamella">
+  <title>Lamella</title>
+  <polygon points="-75,574 132,454.5 63,414.6 -144.1,534.2" fill="#312e81"></polygon>
+  <polygon points="-144.1,474.4 63,354.8 63,415.4 -144.1,535" fill="#4338ca"></polygon>
+  <polygon points="63,354.8 132,394.7 132,455.3 63,415.4" fill="#4338ca"></polygon>
+  <polygon points="-75,514.2 132,394.7 63,354.8 -144.1,474.4" fill="#6366f1"></polygon>
+  <polygon points="-144.1,402.7 -75,362.8 -75,435.3 -144.1,475.2" fill="#4f46e5"></polygon>
+  <polygon points="-75,362.8 -6,402.7 -6,475.2 -75,435.3" fill="#4f46e5"></polygon>
+  <polygon points="-75,442.5 -6,402.7 -75,362.8 -144.1,402.7" fill="#6366f1"></polygon>
+  <polygon points="-144.1,330.9 -75,291.1 -75,363.6 -144.1,403.5" fill="#6366f1"></polygon>
+  <polygon points="-75,291.1 -6,330.9 -6,403.5 -75,363.6" fill="#6366f1"></polygon>
+  <polygon points="-75,370.8 -6,330.9 -75,291.1 -144.1,330.9" fill="#818cf8"></polygon>
+  <polygon points="-144.1,259.2 -75,219.4 -75,291.9 -144.1,331.7" fill="#818cf8"></polygon>
+  <polygon points="-75,219.4 -6,259.2 -6,331.7 -75,291.9" fill="#818cf8"></polygon>
+  <polygon points="-75,299.1 -6,259.2 -75,219.4 -144.1,259.2" fill="#a5b4fc"></polygon>
+  <polygon points="-144.1,187.5 -75,147.6 -75,220.2 -144.1,260" fill="#a5b4fc"></polygon>
+  <polygon points="-75,147.6 -6,187.5 -6,260 -75,220.2" fill="#a5b4fc"></polygon>
+  <polygon points="-75,227.3 -6,187.5 -75,147.6 -144.1,187.5" fill="#c7d2fe"></polygon>
+</svg>
