@@ -1,0 +1,35 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<li class="phone-list-item">
+  <div class="phone-list-meta">
+    <time>{{ r.entry_date.isoformat() }}</time>
+    <span class="status status-linked">{{ "%.1f"|format(r.miles) }} mi</span>
+    <span class="muted">{{ r.vehicle }} · {{ r.entity | entity }}</span>
+    {% if r.csv_row_index and r.csv_row_index > 0 %}
+      <a href="/mileage/{{ r.csv_row_index }}/edit" class="muted small">edit</a>
+    {% endif %}
+  </div>
+  {% if r.purpose or r.from_loc or r.to_loc or r.notes %}
+    <p class="phone-list-body">
+      {% if r.purpose %}{{ r.purpose }}{% endif %}
+      {% if r.from_loc or r.to_loc %}
+        <small class="muted">
+          {% if r.purpose %}<br/>{% endif %}
+          {{ r.from_loc or "" }}{% if r.from_loc and r.to_loc %} → {% endif %}{{ r.to_loc or "" }}
+        </small>
+      {% endif %}
+      {% if r.notes %}
+        <small class="muted">
+          {% if r.purpose or r.from_loc or r.to_loc %}<br/>{% endif %}
+          {{ r.notes }}
+        </small>
+      {% endif %}
+    </p>
+  {% endif %}
+</li>

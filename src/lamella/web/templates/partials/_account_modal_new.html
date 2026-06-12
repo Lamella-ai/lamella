@@ -1,0 +1,243 @@
+{# "+ Add account" modal — HTMX fragment.
+
+   Flow: type display name + entity + (optionally) kind first, and the
+   account path auto-derives in the read-write field below. The user
+   can override the suggestion, but live validation flags any path
+   that doesn't match ``Top:Entity:…`` shape (Top in {Assets,
+   Liabilities, Income, Expenses, Equity}; Entity matches the form's
+   entity_slug exactly). Bank-only fields auto-hide for Expenses /
+   Income / Equity. SimpleFIN linking lives on /settings/accounts. #}
+{% import "_components/_modal.html" as M %}
+
+{% call M.modal(
+     id='account-new-modal',
+     title='Add an account',
+     subtitle='Type a display name + entity + kind; the account path auto-fills below. Bank-only fields hide for Expenses / Income / Equity.',
+     open=true,
+     size='md'
+) %}
+<form method="post" action="/settings/accounts-new"
+      hx-post="/settings/accounts-new"
+      hx-target="this"
+      autocomplete="off"
+      class="form-grid acct-new-form"
+      data-account-root=""
+      data-path-touched="0"
+      style="max-width:none">
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Display name <span class="subtle">required</span></label>
+      <input class="field-input acct-new-form__display" type="text" name="display_name"
+             required
+             placeholder="e.g. Personal Checking" />
+    </div>
+    <div class="field">
+      <label class="field-label">Entity <span class="subtle">required</span></label>
+      <input class="field-input acct-new-form__entity" type="text" name="entity_slug"
+             required
+             list="account-modal-entities"
+             placeholder="Personal, Acme, …" />
+      <datalist id="account-modal-entities">
+        {% for e in entities %}<option value="{{ e.slug }}" label="{{ e.display_name or e.slug }}">{% endfor %}
+      </datalist>
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Kind</label>
+      <input class="field-input acct-new-form__kind" type="text" name="kind"
+             list="account-modal-kinds"
+             placeholder="Checking, Credit Card, Savings…" />
+      <datalist id="account-modal-kinds">
+        <option value="checking" label="Checking">
+        <option value="savings" label="Savings">
+        <option value="credit_card" label="Credit Card">
+        <option value="loan" label="Loan">
+        <option value="cash" label="Cash">
+        <option value="investment" label="Investment">
+        <option value="line_of_credit" label="Line of Credit">
+        <option value="money_market" label="Money Market">
+        <option value="hsa" label="HSA">
+        <option value="brokerage" label="Brokerage">
+      </datalist>
+    </div>
+    <div class="field">
+      <label class="field-label">Institution</label>
+      <input class="field-input acct-new-form__inst" type="text" name="institution"
+             placeholder="e.g. First Bank" />
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="field-label">Account path <span class="subtle">auto-derives — edit if needed</span></label>
+    <input class="field-input acct-new-form__path" type="text" name="account_path" required
+           pattern="[A-Z][A-Za-z0-9:_-]*"
+           placeholder="Assets:Personal:Checking" />
+    <p class="acct-new-form__path-hint subtle" style="font-size:0.78rem; margin:0.25rem 0 0">
+      Auto-fills from display name + entity + kind. Beancount-style
+      colon-separated. Top segment must be Assets, Liabilities, Income,
+      Expenses, or Equity; second segment must match the entity slug.
+    </p>
+    <p class="acct-new-form__path-warn" role="alert"
+       style="font-size:0.82rem; margin:0.35rem 0 0; color:var(--warn); display:none"></p>
+  </div>
+
+  {# Bank-only block — hidden via CSS when root is Expenses / Income /
+     Equity. The fields submit empty when hidden so the server-side
+     handler treats them as "not provided" without special-casing. #}
+  <div class="acct-new-form__bank-only">
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label">Last 4 digits <span class="subtle">(optional)</span></label>
+        <input class="field-input" type="text" name="last_four"
+               pattern="\d{4}" maxlength="4"
+               placeholder="1234" />
+      </div>
+      <div class="field">
+        <label class="field-label">Opened on</label>
+        <input class="field-input" type="date" name="opened_on" />
+      </div>
+    </div>
+
+    <div class="field">
+      <label style="display:flex; align-items:center; gap:6px">
+        <input type="checkbox" name="create_bundle" value="1" />
+        <span class="subtle">Also scaffold companion accounts (interest, fees, opening balance)</span>
+      </label>
+    </div>
+  </div>
+
+  <style>
+    form.acct-new-form[data-account-root="Expenses"] .acct-new-form__bank-only,
+    form.acct-new-form[data-account-root="Income"]   .acct-new-form__bank-only,
+    form.acct-new-form[data-account-root="Equity"]   .acct-new-form__bank-only {
+      display: none;
+    }
+  </style>
+
+  <script>
+    /* Account-path auto-derivation. The user types display name +
+       entity + kind in the friendly fields above; this script fills
+       the canonical Beancount path in `account_path` — but only as
+       long as the user hasn't edited it manually. Editing the path
+       sets data-path-touched=1 and the script stops overwriting.
+
+       Validation: if the path doesn't start with one of the five
+       valid roots, or its second segment doesn't match the entity
+       slug, an inline warning surfaces below the field. The pattern
+       attribute on the input still enforces basic Beancount shape
+       at submit time. */
+    (function() {
+      var f = document.querySelector('form.acct-new-form');
+      if (!f || f.__lamellaBoot) return;
+      f.__lamellaBoot = true;
+
+      var displayInput = f.querySelector('.acct-new-form__display');
+      var entityInput  = f.querySelector('.acct-new-form__entity');
+      var kindInput    = f.querySelector('.acct-new-form__kind');
+      var pathInput    = f.querySelector('.acct-new-form__path');
+      var warnEl       = f.querySelector('.acct-new-form__path-warn');
+
+      var ASSET_KINDS = {checking:1, savings:1, cash:1, investment:1, brokerage:1, money_market:1, hsa:1, asset:1};
+      var LIAB_KINDS  = {credit_card:1, loan:1, line_of_credit:1, tax_liability:1};
+
+      function rootForKind(k) {
+        if (!k) return 'Assets';
+        var lk = k.toLowerCase().replace(/[\s\-]+/g, '_');
+        if (LIAB_KINDS[lk]) return 'Liabilities';
+        if (ASSET_KINDS[lk]) return 'Assets';
+        return 'Assets';
+      }
+
+      function leafFromDisplay(s) {
+        if (!s) return '';
+        /* Strip non-word chars, capitalize segments. "Personal Checking"
+           → "Checking" if entity is Personal (deduped); else "PersonalChecking".
+           Just use the whole display name with spaces removed. */
+        return s.split(/[\s\-_]+/).filter(Boolean).map(function(w){
+          return w.charAt(0).toUpperCase() + w.slice(1);
+        }).join('');
+      }
+
+      function derivePath() {
+        var entity = (entityInput.value || '').trim();
+        var display = (displayInput.value || '').trim();
+        var kind = (kindInput.value || '').trim();
+        if (!entity || !display) return '';
+        var root = rootForKind(kind);
+        var leaf = leafFromDisplay(display);
+        /* If the leaf already starts with the entity slug (user typed
+           "Personal Checking" with entity Personal), strip the entity
+           prefix to avoid Assets:Personal:PersonalChecking. */
+        var entityPrefixRe = new RegExp('^' + entity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        if (entityPrefixRe.test(leaf)) {
+          leaf = leaf.replace(entityPrefixRe, '');
+          if (!leaf) leaf = display.replace(/[\s\-_]+/g, '');
+        }
+        if (!leaf) leaf = 'Account';
+        return root + ':' + entity + ':' + leaf;
+      }
+
+      function validate() {
+        var p = (pathInput.value || '').trim();
+        f.setAttribute('data-account-root', (p.split(':')[0] || ''));
+        if (!p) { warnEl.style.display = 'none'; return; }
+        var parts = p.split(':');
+        var validRoots = {Assets:1, Liabilities:1, Income:1, Expenses:1, Equity:1};
+        if (!validRoots[parts[0]]) {
+          warnEl.textContent = '⚠ Top segment "' + parts[0] + '" is not one of Assets, Liabilities, Income, Expenses, or Equity.';
+          warnEl.style.display = '';
+          return;
+        }
+        var ent = (entityInput.value || '').trim();
+        if (parts.length < 2 || !parts[1]) {
+          warnEl.textContent = '⚠ Path needs at least Top:Entity:Leaf.';
+          warnEl.style.display = '';
+          return;
+        }
+        if (ent && parts[1] !== ent) {
+          warnEl.textContent = '⚠ Entity segment "' + parts[1] + '" doesn\'t match selected entity "' + ent + '". Fix one or the other.';
+          warnEl.style.display = '';
+          return;
+        }
+        if (parts.length < 3 || !parts[2]) {
+          warnEl.textContent = '⚠ Add a leaf segment after the entity, e.g. ":Checking" or ":Office:Supplies".';
+          warnEl.style.display = '';
+          return;
+        }
+        warnEl.style.display = 'none';
+      }
+
+      function refreshPath() {
+        if (f.getAttribute('data-path-touched') === '1') {
+          validate();
+          return;
+        }
+        var derived = derivePath();
+        if (derived) pathInput.value = derived;
+        validate();
+      }
+
+      displayInput.addEventListener('input', refreshPath);
+      entityInput.addEventListener('input', refreshPath);
+      kindInput.addEventListener('input', refreshPath);
+      pathInput.addEventListener('input', function() {
+        f.setAttribute('data-path-touched', '1');
+        validate();
+      });
+      /* Initial render in case the form was reopened with values. */
+      refreshPath();
+    })();
+  </script>
+
+  {% call M.actions() %}
+    <button type="button" class="btn btn-ghost"
+            onclick="this.closest('.modal-backdrop').classList.remove('is-open')">
+      Cancel
+    </button>
+    <button type="submit" class="btn btn-primary">Add account</button>
+  {% endcall %}
+</form>
+{% endcall %}

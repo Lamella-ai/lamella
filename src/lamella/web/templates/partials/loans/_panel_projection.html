@@ -1,0 +1,106 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# WP9 — Prepayment / payoff projection.
+
+   Two sliders (extra-per-month, one-time lump sum) debounced-fetch
+   /projection.json and update the summary. No server round-trip for
+   tweaks; the route is pure-read.
+
+   The chart itself is deferred — a bar-per-year breakdown or inline
+   SVG curve wants more UI scaffolding than WP9 needs. Summary
+   numbers are the 90% payoff. #}
+<h3>Payoff projection</h3>
+
+<div class="projection-panel" data-loan-slug="{{ loan.slug }}">
+  <div class="projection-sliders">
+    <label>
+      Extra per month
+      <input type="range" name="extra"
+             min="0" max="2000" step="25" value="0"
+             oninput="bcgLoanProject(this)" />
+      <output>$0</output>
+    </label>
+    <label>
+      One-time lump sum (applied today)
+      <input type="range" name="lump"
+             min="0" max="50000" step="500" value="0"
+             oninput="bcgLoanProject(this)" />
+      <output>$0</output>
+    </label>
+  </div>
+
+  <dl class="projection-summary inline-dl">
+    <dt>Baseline payoff</dt>
+    <dd data-field="baseline_payoff_date">—</dd>
+    <dt>Baseline interest</dt>
+    <dd data-field="baseline_total_interest">—</dd>
+    <dt>Scenario payoff</dt>
+    <dd data-field="scenario_payoff_date">—</dd>
+    <dt>Scenario interest</dt>
+    <dd data-field="scenario_total_interest">—</dd>
+    <dt>Months saved</dt>
+    <dd data-field="months_saved">—</dd>
+    <dt>Interest saved</dt>
+    <dd data-field="interest_saved">—</dd>
+  </dl>
+</div>
+
+<script>
+(function () {
+  // One handler for both sliders. Debounce so dragging doesn't
+  // fire the request on every tick.
+  let timer = null;
+  window.bcgLoanProject = function (el) {
+    const panel = el.closest(".projection-panel");
+    if (!panel) return;
+    // Update the slider's readout immediately.
+    const out = el.parentElement.querySelector("output");
+    if (out) out.textContent = "$" + Number(el.value).toLocaleString();
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(function () { fetchProjection(panel); }, 200);
+  };
+
+  function fetchProjection(panel) {
+    const slug = panel.dataset.loanSlug;
+    const extra = panel.querySelector("input[name=extra]").value;
+    const lump = panel.querySelector("input[name=lump]").value;
+    fetch(`/settings/loans/${encodeURIComponent(slug)}/projection.json?extra=${extra}&lump=${lump}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) render(panel, data); })
+      .catch(() => {});
+  }
+
+  function fmt(val) {
+    const n = Number(val);
+    if (Number.isFinite(n)) {
+      return n.toLocaleString(undefined, {
+        minimumFractionDigits: 2, maximumFractionDigits: 2,
+      });
+    }
+    return val || "—";
+  }
+
+  function render(panel, d) {
+    const set = (k, v) => {
+      const el = panel.querySelector(`[data-field="${k}"]`);
+      if (el) el.textContent = v;
+    };
+    set("baseline_payoff_date", d.baseline_payoff_date || "—");
+    set("baseline_total_interest", "$" + fmt(d.baseline_total_interest));
+    set("scenario_payoff_date", d.scenario_payoff_date || "—");
+    set("scenario_total_interest", "$" + fmt(d.scenario_total_interest));
+    set("months_saved", d.months_saved);
+    set("interest_saved", "$" + fmt(d.interest_saved));
+  }
+
+  // Kick off an initial fetch so the dl fills in with baseline
+  // numbers even before the user drags anything.
+  document.querySelectorAll(".projection-panel").forEach(fetchProjection);
+})();
+</script>

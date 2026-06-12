@@ -1,0 +1,23 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+-->
+{# Manual Paperless search results — rendered into the per-row search
+   slot. Each <li> reuses the candidate_li macro with search_mode=true
+   so its checkbox carries form="link-form-{hash}", letting the user
+   submit ticked search results through the row's normal Link button. #}
+{%- import "_components/_needs_candidate.html" as CandMacro -%}
+{% if row.candidates %}
+  <li class="muted small candidate-search-summary"
+      style="list-style:none; padding:0.3rem 0">
+    {{ row.candidates | length }} match{% if row.candidates|length != 1 %}es{% endif %} for
+    "<strong>{{ search_query }}</strong>". Tick to attach &mdash; submit with the Link button above.
+  </li>
+  {% for cand in row.candidates %}
+    {{ CandMacro.candidate_li(cand, row, search_mode=true, is_first=loop.first) }}
+  {% endfor %}
+{% else %}
+  <li class="muted small" style="list-style:none; padding:0.3rem 0">
+    No documents in Paperless matched "<strong>{{ search_query }}</strong>".
+  </li>
+{% endif %}

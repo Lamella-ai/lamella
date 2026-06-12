@@ -1,0 +1,89 @@
+# Copyright 2026 Lamella LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+# https://lamella.ai
+
+services:
+  lamella:
+    # Default to the published image so `docker compose up -d` works on
+    # a fresh clone of just this file. Override with `image: lamella:local`
+    # + `build: .` if you want to develop against a local checkout.
+    image: ghcr.io/lamella-ai/lamella:latest
+    # Uncomment to build from local source instead of pulling the image.
+    # build: .
+    container_name: lamella
+    # The Dockerfile drops privileges to the in-image `app` user by
+    # default. Deployments that need to override the runtime uid/gid
+    # (self-hosted images, NAS hosts that map containers to a fixed
+    # unprivileged uid) can set PUID + PGID in the environment;
+    # both default to `app` so unset env on a normal Docker host is a
+    # no-op. See `docker-compose.unraid.yml` for the override example.
+    user: "${PUID:-app}:${PGID:-app}"
+    # Hardening trio (see audits/docker/2026-04-26.md):
+    #   - read_only: rootfs is immutable; legitimate writes go to the
+    #     volume mounts below or the explicit tmpfs entries.
+    #   - cap_drop ALL: lamella never binds a privileged port, never
+    #     opens raw sockets — no capabilities required.
+    #   - no-new-privileges: blocks setuid escalation paths inside the
+    #     container.
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Ports bound to 127.0.0.1 only — the Cloudflare Tunnel sidecar runs
+    # on the same host and reaches the app over loopback, so there is no
+    # reason to expose these to the LAN.
+    ports:
+      - "127.0.0.1:8080:8080"   # primary app (uvicorn)
+      - "127.0.0.1:5003:5003"   # fava fallback UI (backgrounded by the image's entrypoint)
+    volumes:
+      # Adjust the host paths (left side of `:`) to whatever directories
+      # exist on your deploy host. The container always reads /data
+      # and /ledger; how you map those is up to your environment.
+      - ./data:/data
+      - ./ledger:/ledger
+    # tmpfs entries make read_only:true safe at runtime:
+    #   - /tmp: fava's stdout log (docker-entrypoint.sh writes
+    #     /tmp/fava.log), tempfile.TemporaryDirectory() default,
+    #     and the HF cache fallback in main.py if /data/* isn't
+    #     writable.
+    #   - /run, /var/run: PID files and lock files that some libc /
+    #     subprocess paths touch even when not strictly needed.
+    #   - /var/cache: belt-and-suspenders for any stray apt / fontconfig
+    #     cache writes (libpango + fonts-dejavu pull in fontconfig at
+    #     runtime, which builds caches under /var/cache/fontconfig the
+    #     first time it's invoked).
+    tmpfs:
+      - /tmp
+      - /run
+      - /var/run
+      - /var/cache
+    environment:
+      - LAMELLA_DATA_DIR=/data
+      - LEDGER_DIR=/ledger
+      - LOG_LEVEL=INFO
+      # ----- Authentication (optional but strongly recommended) -----
+      # Set these on first run; the plaintext is hashed (Argon2id) and
+      # discarded after bootstrap. After that, change the password from
+      # /account/password inside the app. See ADR-0050 for the threat
+      # model. Leaving them unset means the app runs without auth — fine
+      # behind a tunnel that authenticates upstream, dangerous on a LAN.
+      - AUTH_USERNAME=${AUTH_USERNAME:-}
+      - AUTH_PASSWORD=${AUTH_PASSWORD:-}
+      # ----- Paperless-ngx (optional) -----
+      - PAPERLESS_URL=${PAPERLESS_URL:-}
+      - PAPERLESS_API_TOKEN=${PAPERLESS_API_TOKEN:-}
+      # ----- AI classification (optional) -----
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      # ----- SimpleFIN bank sync (optional) -----
+      - SIMPLEFIN_ACCESS_URL=${SIMPLEFIN_ACCESS_URL:-}
+      - SIMPLEFIN_MODE=${SIMPLEFIN_MODE:-disabled}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    restart: unless-stopped

@@ -1,0 +1,150 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}AI audit — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}AI audit{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='AI audit',
+     subtitle='%d decision%s · prompts, outcomes, retries' % (rows|length, '' if rows|length == 1 else 's'),
+     kicker='Insights'
+) %}
+  {{ B.btn('AI cost', href='/ai/cost', icon=icon.activity()) }}
+  {{ B.btn('AI suggestions', href='/ai/suggestions', icon=icon.sparkles()) }}
+{% endcall %}
+
+{% if not ai_enabled %}
+{% call F.banner(tone='info', title='AI is disabled') %}
+  Set <code>OPENROUTER_API_KEY</code> to enable AI features.
+{% endcall %}
+{% elif spend_cap_reached %}
+{% call F.banner(tone='warn', title='AI budget exhausted for this month') %}
+  Requests will fall back to deterministic behavior until the cap resets.
+{% endcall %}
+{% endif %}
+
+{% call C.card(title='Filter') %}
+<form method="get" action="/ai/audit" class="audit-filter-bar">
+  <div class="field" style="min-width:160px">
+    <label class="field-label">Type</label>
+    <input class="field-input" type="text" name="decision_type" list="audit-type-datalist" value="{{ decision_type or '' }}" placeholder="all" />
+    <datalist id="audit-type-datalist">
+      <option value="" label="all">
+      {% for dt in decision_types %}<option value="{{ dt }}">{% endfor %}
+    </datalist>
+  </div>
+  <div class="field" style="min-width:140px">
+    <label class="field-label">Last</label>
+    <input class="field-input" type="text" name="days" list="audit-days-datalist" value="{{ days }}" />
+    <datalist id="audit-days-datalist">
+      {% for d in [1, 7, 30, 90, 365] %}<option value="{{ d }}" label="{{ d }} day{{ '' if d == 1 else 's' }}">{% endfor %}
+    </datalist>
+  </div>
+  <div class="field" style="min-width:140px">
+    <label class="field-label">User corrected</label>
+    <input class="field-input" type="text" name="user_corrected" list="audit-corrected-datalist" value="{{ user_corrected or '' }}" placeholder="any" />
+    <datalist id="audit-corrected-datalist">
+      <option value="" label="any">
+      <option value="true" label="yes">
+      <option value="false" label="no">
+    </datalist>
+  </div>
+  {{ B.btn('Filter', type='submit', variant='primary') }}
+</form>
+{% endcall %}
+
+{% if rows %}
+{# Two-row-per-decision layout. Row 1 carries metadata, row 2 carries
+   the outcome spanning full width so long error bodies / JSON blobs
+   don't squeeze a column. The outcome row is a <details>: only the
+   first line shows until clicked. #}
+<div style="margin-top:1.5rem">
+{% call C.card(flush=true) %}
+<table class="audit-table">
+  <thead>
+    <tr>
+      <th>When</th>
+      <th>Type</th>
+      <th>Input</th>
+      <th>Model</th>
+      <th class="num">Tokens</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    {% set is_error = 'error' in row.result %}
+    {% if is_error %}
+      {% set outcome_full = row.result.error %}
+    {% elif row.user_corrected %}
+      {% set outcome_full = 'corrected → ' ~ (row.user_correction or '(n/a)') %}
+    {% else %}
+      {% set outcome_full = row.result | tojson %}
+    {% endif %}
+    {% set outcome_first = outcome_full.split('\n')[0] %}
+    <tr class="{% if row.user_corrected %}corrected{% endif %}{% if is_error %} has-error{% endif %}">
+      <td>
+        <time>{{ row.decided_at|local_ts }}</time>
+        · <a href="/ai/decisions/{{ row.id }}" class="muted-text" style="font-size:0.82rem">prompt →</a>
+      </td>
+      <td>{{ row.decision_type }}</td>
+      <td>
+        {% if row.source_href %}
+          <a href="{{ row.source_href }}"><code>{{ row.input_ref }}</code></a>
+        {% else %}
+          <code>{{ row.input_ref }}</code>
+        {% endif %}
+      </td>
+      <td><span class="subtle">{{ row.model }}</span></td>
+      <td class="num">{{ row.prompt_tokens }}/{{ row.completion_tokens }}</td>
+      <td>
+        <form method="post" action="/ai/retry/{{ row.id }}"
+              hx-post="/ai/retry/{{ row.id }}"
+              hx-target="#retry-result-{{ row.id }}" hx-swap="innerHTML">
+          {{ B.btn('Retry', type='submit', size='sm') }}
+          <span id="retry-result-{{ row.id }}" class="subtle"></span>
+        </form>
+      </td>
+    </tr>
+    <tr class="outcome-row{% if is_error %} has-error{% endif %}">
+      <td colspan="6">
+        <details class="outcome-details">
+          <summary class="outcome-summary {% if is_error %}error{% endif %}">
+            {% if is_error %}<span class="outcome-label">error:</span> {% endif %}{{ outcome_first }}
+          </summary>
+          <pre class="outcome-full {% if is_error %}error{% endif %}">{{ outcome_full }}</pre>
+        </details>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+</div>
+{% else %}
+{{ F.empty_state('No decisions in this window.', 'Adjust the filters above', '/ai/audit') }}
+{% endif %}
+
+<style>
+  .audit-filter-bar {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+</style>
+{% endblock %}

@@ -1,0 +1,43 @@
+;; ---------------------------------------------------------------
+;; Managed by Lamella. Do not edit by hand.
+;;
+;; This file is regenerated from user actions in the web UI. Manual
+;; edits may be reverted silently on the next write.
+;;
+;; File:      connector_budgets.bean
+;; Owner:     lamella
+;; Schema:    lamella-ledger-version=3
+;; Generated: 2026-04-29 by Lamella demo generator
+;; ---------------------------------------------------------------
+
+
+2025-01-01 custom "budget" "Expenses:Personal:Groceries"
+  cadence: "monthly"
+  target: 550.00 USD
+  alert-at: 0.90
+
+2025-01-01 custom "budget" "Expenses:Personal:Restaurants"
+  cadence: "monthly"
+  target: 180.00 USD
+  alert-at: 0.90
+
+2025-01-01 custom "budget" "Expenses:Personal:Entertainment"
+  cadence: "monthly"
+  target: 60.00 USD
+  alert-at: 0.90
+
+2025-01-01 custom "budget" "Expenses:Personal:Properties:MainHouse:Utilities"
+  cadence: "monthly"
+  target: 280.00 USD
+  alert-at: 0.90
+
+2025-01-01 custom "budget" "Expenses:Acme:Advertising"
+  cadence: "monthly"
+  target: 250.00 USD
+  alert-at: 0.90
+
+2025-01-01 custom "budget" "Expenses:Acme:Software"
+  cadence: "monthly"
+  target: 150.00 USD
+  alert-at: 0.90
+

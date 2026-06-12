@@ -1,0 +1,114 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% block title %}Migrate postings — {{ vehicle.slug }}{% endblock %}
+{% block layout %}setup{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block content %}
+<h1>Migrate postings to <code>{{ vehicle.display_name or vehicle.slug }}</code></h1>
+<p class="muted">
+  Pick a canonical target account under this vehicle and check the
+  transactions you want to move. Each checked row gets an override
+  block redirecting its posting from the orphan path to the chosen
+  canonical path. Non-destructive: the original source txn stays
+  where it is, the override moves the effective posting.
+</p>
+
+{% if error %}
+<div class="banner warn" style="background:var(--err-soft);border:1px solid var(--err-soft);">
+  ✗ {{ error }}
+</div>
+{% endif %}
+
+<section class="entity-group" style="max-width:900px;">
+  <p>
+    <strong>Orphan source path:</strong>
+    {% if orphan %}<code>{{ orphan }}</code>{% else %}<em class="muted">(none selected)</em>{% endif %}
+  </p>
+  {% if not orphan %}
+  <form method="get" action="/setup/vehicles/{{ vehicle.slug }}/migrate">
+    <label>
+      Orphan path to migrate
+      <input type="text" name="orphan" placeholder="Expenses:Personal:Custom:VehicleFabrikamFuel"
+             list="accounts-datalist" required style="min-width:26em;" />
+    </label>
+    <button type="submit">Load postings</button>
+  </form>
+  {% endif %}
+</section>
+
+{% if orphan and target_options %}
+<form method="post" action="/setup/vehicles/{{ vehicle.slug }}/migrate"
+      hx-post="/setup/vehicles/{{ vehicle.slug }}/migrate"
+      hx-target="body" hx-swap="beforeend">
+  <input type="hidden" name="orphan" value="{{ orphan }}" />
+
+  <section class="entity-group" style="max-width:900px;">
+    <h2>1. Pick canonical target</h2>
+    {% for t in target_options %}
+      <label style="display:block; margin:0.2em 0;">
+        <input type="radio" name="target" value="{{ t.path }}" required />
+        <code>{{ t.path }}</code>
+        <span class="muted small"> — {{ t.purpose }}</span>
+      </label>
+    {% endfor %}
+  </section>
+
+  <section class="entity-group" style="max-width:900px;">
+    <h2>2. Select postings to migrate ({{ affected | length }} found)</h2>
+    {% if affected %}
+    <p>
+      <button type="button" onclick="document.querySelectorAll('.migrate-cb').forEach(cb=>cb.checked=true);" class="secondary small">Select all</button>
+      <button type="button" onclick="document.querySelectorAll('.migrate-cb').forEach(cb=>cb.checked=false);" class="secondary small">Select none</button>
+    </p>
+    <table class="field-map">
+      <thead>
+        <tr><th></th><th>Date</th><th>Payee / narration</th><th>Amount</th></tr>
+      </thead>
+      <tbody>
+        {% for a in affected %}
+        <tr>
+          <td><input type="checkbox" name="txn_hash" value="{{ a.txn_hash }}" class="migrate-cb" checked /></td>
+          <td>{{ a.date }}</td>
+          <td>
+            {% if a.payee %}<strong>{{ a.payee }}</strong> · {% endif %}
+            <span class="small muted">{{ a.narration }}</span>
+          </td>
+          <td class="num">{{ a.amount | money(a.currency) if a.amount is not none else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <button type="submit" class="primary">Apply migration (writes N overrides)</button>
+    {% else %}
+    <p class="muted">No postings found on <code>{{ orphan }}</code>.</p>
+    {% endif %}
+  </section>
+</form>
+{% endif %}
+
+<datalist id="accounts-datalist"></datalist>
+<script>
+  fetch('/api/accounts', {credentials:'same-origin'})
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      if (!d || !Array.isArray(d.all)) return;
+      const dl = document.getElementById('accounts-datalist');
+      for (const n of d.all) {
+        const o = document.createElement('option');
+        o.value = n;
+        dl.appendChild(o);
+      }
+    }).catch(() => undefined);
+</script>
+
+<p style="margin-top:1.5em;">
+  <a href="/setup/vehicles">← back to vehicle setup</a>
+</p>
+{% endblock %}

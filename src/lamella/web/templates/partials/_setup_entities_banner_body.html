@@ -1,0 +1,39 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{#
+  Banner body for /setup/entities — extracted so save handlers can
+  re-render just this block via hx-swap-oob after a successful save,
+  decrementing the "N still need entity_type" count without blowing
+  away the form.
+#}
+{% if all_labeled %}
+  <strong style="color:var(--ok);">✓ All {{ total }} active entities have an entity_type.</strong>
+  <p style="margin:0.3em 0 0;">
+    <form method="post" action="/setup/refresh-progress" style="display:inline;">
+      <button type="submit" class="primary">Next: accounts →</button>
+    </form>
+  </p>
+{% elif total == 0 %}
+  <strong>No entities registered yet.</strong>
+  <p class="small" style="margin:0.3em 0 0.6em;">
+    Add at least one entity — typically a "Personal" entity for
+    household finances plus one per business (LLC, sole proprietorship,
+    etc.). The setup gate stays red until at least one exists.
+  </p>
+  <p style="margin:0.3em 0 0;">
+    <a href="/setup/entities?add=person"><button type="button" class="primary">+ Add a person →</button></a>
+    <a href="/setup/entities?add=business" style="margin-left:0.4em;"><button type="button" class="primary">+ Add a business →</button></a>
+  </p>
+{% else %}
+  <strong style="color:var(--warn);">⚠ {{ needs_type }} of {{ total }} still need entity_type.</strong>
+  <p class="small" style="margin:0.3em 0 0;">
+    Pick a type for each row below, or use <strong>Skip</strong> on vestigial
+    slugs. The form stays on this page — no navigating back and forth.
+  </p>
+{% endif %}

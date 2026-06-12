@@ -1,0 +1,88 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Inbox — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Inbox{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Inbox',
+     subtitle=(
+       (total|string) + ' item' + ('' if total == 1 else 's') + ' pending'
+       + ((' · ' + pair_count|string + ' transfer pair' + ('' if pair_count == 1 else 's') + ' detected') if pair_count else '')
+     ),
+     kicker='Daily'
+) %}
+  <form method="post" action="/review/rescan"
+        hx-post="/review/rescan" hx-target="#rescan-result" hx-swap="innerHTML"
+        style="display:inline">
+    {{ B.btn('Re-scan uncategorized', type='submit', icon=icon.refresh()) }}
+  </form>
+  <span id="rescan-result" class="subtle"></span>
+{% endcall %}
+
+{% call F.banner(tone='info', title='What is this?') %}
+  Your bank feed imported transactions it couldn't automatically categorize.
+  Pick a real category for each row below — or mark it as a transfer if it's
+  just money moving between your own accounts.
+{% endcall %}
+
+{% if not grouped %}
+{{ F.empty_state(
+    'Empty queue. Nothing to review.',
+    icon=icon.checkcircle(28)
+) }}
+{% endif %}
+
+<datalist id="accounts-datalist"></datalist>
+
+{% for kind, entries in grouped.items() %}
+{% call L.section(
+     title=kind.replace('_', ' ').title(),
+     subtitle='%d item%s' % (entries|length, '' if entries|length == 1 else 's')
+) %}
+<ul class="review-list list-clean">
+  {% for entry in entries %}
+    {% include "partials/review_item.html" %}
+  {% endfor %}
+</ul>
+{% endcall %}
+{% endfor %}
+
+<script>
+  /* Populate the accounts datalist for target-account inputs. */
+  (function () {
+    const dl = document.getElementById('accounts-datalist');
+    if (!dl) return;
+    fetch('/api/accounts', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data || !Array.isArray(data.all)) return;
+        const labels = (data.labels && typeof data.labels === 'object') ? data.labels : {};
+        window.__acctLabels = labels;
+        const frag = document.createDocumentFragment();
+        for (const name of data.all) {
+          const opt = document.createElement('option');
+          opt.value = name;
+          if (labels[name] && labels[name] !== name) opt.label = labels[name];
+          frag.appendChild(opt);
+        }
+        dl.appendChild(frag);
+      })
+      .catch(() => undefined);
+  })();
+</script>
+{% endblock %}

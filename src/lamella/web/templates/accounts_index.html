@@ -1,0 +1,213 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Accounts — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Accounts{% endblock %}
+
+{% block content %}
+{%- set _subtitles = {
+    'bank':    'Bank, credit, savings, loans — the accounts where your money actually sits.',
+    'expense': 'Expense categories — where money flows when you spend.',
+    'income':  'Income categories — where money flows when you earn.',
+    'equity':  'Equity / opening balances — the contra side of pre-ledger anchors.',
+    'all':     'Every Beancount account in the ledger, all roots.',
+} -%}
+{% call L.page_head(
+     title='Accounts',
+     subtitle=_subtitles[show],
+     kicker='Records'
+) %}
+  <button type="button"
+          class="btn btn-primary"
+          hx-get="/accounts/new-modal"
+          hx-target="body"
+          hx-swap="beforeend">
+    + New account
+  </button>
+  {{ B.btn('Balance audit', href='/reports/balance-audit', icon=icon.checkcircle()) }}
+{% endcall %}
+
+{# Segmented control — the default is "bank" because that's the
+   "show me my balances" mental model the user reaches for. Expense
+   and Income trees live behind a deliberate click; ledger junkies
+   can land on "All" via a bookmarkable URL (?show=all). #}
+<nav class="acct-show-nav" role="tablist" aria-label="Account category">
+  {%- for key, label in [
+      ('bank',    'Bank accounts'),
+      ('expense', 'Expense'),
+      ('income',  'Income'),
+      ('equity',  'Equity'),
+      ('all',     'All'),
+  ] %}
+    <a class="acct-show-tab {% if show == key %}is-active{% endif %}"
+       href="/accounts?show={{ key }}"
+       role="tab" aria-selected="{{ 'true' if show == key else 'false' }}">
+      {{ label }}
+      {% if show_counts[key] is defined %}
+        <span class="acct-show-count">{{ show_counts[key] }}</span>
+      {% endif %}
+    </a>
+  {%- endfor %}
+</nav>
+
+{% if not groups %}
+<div class="card" style="padding:2rem; text-align:center">
+  <p class="muted">No {{ show if show != 'bank' else 'bank' }} accounts in this view.</p>
+  {% if show != 'all' %}
+    <p class="subtle"><a href="/accounts?show=all">Show all accounts →</a></p>
+  {% endif %}
+</div>
+{% endif %}
+
+{% for g in groups %}
+{% set _entity_actions %}
+  {% if g.slug %}
+  {{ B.btn('Bulk edit', href='/businesses/' + g.slug + '/accounts/edit', icon=icon.edit(), size='sm') }}
+  {% endif %}
+{% endset %}
+{% call C.card(
+    title=(g.entity_label + ' (' + g.count|string + ' accounts)'),
+    actions=_entity_actions
+) %}
+  <div class="acct-rollup">
+    {% for root, amount in g.rollup %}
+    <span class="acct-rollup-item">
+      <span class="acct-rollup-label">{{ root }}</span>
+      <span class="num">{{ '{:,.2f}'.format(amount) }}</span>
+    </span>
+    {% endfor %}
+  </div>
+{% endcall %}
+
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Account</th>
+      <th>Kind</th>
+      <th class="num">Balance</th>
+      <th class="shrink"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for a in g.accounts %}
+    <tr {% if a.closed_on %}class="acct-row-closed"{% endif %}>
+      <td>
+        <a href="/accounts/{{ a.account_path }}" class="acct-name-link">
+          <strong>{{ a.label }}</strong>
+        </a>
+        <div class="acct-path-sub">{{ a.account_path }}</div>
+      </td>
+      <td>
+        {% if a.kind %}
+          {{ D.badge(a.kind | humanize, tone='muted') }}
+        {% else %}
+          {{ D.badge('Unlabeled', tone='warn') }}
+        {% endif %}
+      </td>
+      <td class="num {% if a.balance < 0 %}money money--neg{% endif %}">
+        {{ '{:,.2f}'.format(a.balance) }}
+      </td>
+      <td class="shrink">
+        {% if a.kind or a.display_name or a.institution %}
+        <button type="button" class="muted-text"
+                style="font-size:0.82rem; background:none; border:none; padding:0; cursor:pointer; color:inherit; text-decoration:underline;"
+                hx-get="/accounts/{{ a.account_path }}/edit-modal"
+                hx-target="body"
+                hx-swap="beforeend">edit</button>
+        {% else %}
+        <a href="/settings/accounts" class="muted-text" style="font-size:0.82rem"
+           title="Unregistered — register on /settings/accounts to assign kind/institution">register</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% if not loop.last %}<div style="margin-bottom:1.5rem"></div>{% endif %}
+{% endfor %}
+
+{% endblock %}
+
+{% block head_extra %}
+<style>
+  .acct-rollup { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.88rem; }
+  .acct-rollup-item { display: inline-flex; gap: 6px; align-items: baseline; }
+  .acct-rollup-label { color: var(--muted); }
+  .acct-rollup .num { font-weight: 600; }
+
+  .acct-name-link { text-decoration: none; color: var(--fg); }
+  .acct-name-link:hover { color: var(--accent); text-decoration: none; }
+  .acct-path-sub {
+    color: var(--muted-soft);
+    font-size: 0.78rem;
+    font-family: var(--font-mono);
+    margin-top: 2px;
+    word-break: break-all;
+  }
+  .acct-row-closed { color: var(--muted); }
+  .acct-row-closed td { font-style: italic; }
+
+  .page-section + .page-section { margin-top: 1.5rem; }
+  .page-section .card + .card { margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; border-top: 0; }
+  .page-section .card:not(:last-child) { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+
+  /* Segmented tab control for the bank/expense/income/equity/all
+     filter. Visually a tab strip; clicks reload the page with
+     ?show=<key> so each view is bookmarkable. */
+  .acct-show-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px;
+    margin: 0 0 1.2rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: fit-content;
+  }
+  .acct-show-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    border-radius: 5px;
+    font-size: 0.88rem;
+    text-decoration: none;
+    color: var(--muted);
+    transition: background 0.15s, color 0.15s;
+  }
+  .acct-show-tab:hover { background: var(--border); color: var(--fg); }
+  .acct-show-tab.is-active {
+    background: var(--accent);
+    color: var(--panel);
+    font-weight: 600;
+  }
+  .acct-show-count {
+    font-size: 0.78rem;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--border);
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .acct-show-tab.is-active .acct-show-count {
+    background: rgba(255, 255, 255, 0.25);
+    color: var(--panel);
+  }
+</style>
+{% endblock %}

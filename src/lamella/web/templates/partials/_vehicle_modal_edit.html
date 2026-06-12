@@ -1,0 +1,111 @@
+{# Per-vehicle quick-edit modal — HTMX fragment swapped into <body>.
+
+   Form posts to /vehicles, targets the card by id for the in-place swap,
+   and uses the HX-Trigger "vehicle-saved" event the server fires to close
+   the modal (handler in vehicles_index.html). Only the basic identity
+   fields are exposed here — VIN, GVWR, fuel type, purchase price, asset
+   account, depreciation, disposal, Schedule C Part IV all stay on the
+   focused detail page. #}
+{% import "_components/_modal.html" as M %}
+
+{% call M.modal(
+     id='vehicle-edit-modal',
+     title='Edit ' ~ (vehicle.display_name or vehicle.slug),
+     subtitle='Slug: ' ~ vehicle.slug ~ ' · For VIN, fuel type, depreciation, disposal — open the detail page.',
+     open=true,
+     size='md'
+) %}
+<form method="post" action="/vehicles"
+      hx-post="/vehicles"
+      hx-target="#vehicle-card-{{ vehicle.slug }}"
+      hx-swap="outerHTML"
+      autocomplete="off"
+      class="form-grid"
+      style="max-width:none">
+
+  <input type="hidden" name="slug" value="{{ vehicle.slug }}" />
+  {# entity_slug is read-only on edit — see save_vehicle: change-of-ownership
+     is a real-world event with a dedicated flow. The hidden input keeps
+     the existing value through round-trip. #}
+  <input type="hidden" name="entity_slug" value="{{ vehicle.entity_slug or '' }}" />
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Display name</label>
+      <input class="field-input" type="text" name="display_name"
+             value="{{ vehicle.display_name or '' }}"
+             placeholder="e.g. 2018 work truck" />
+    </div>
+    <div class="field">
+      <label class="field-label">Owner</label>
+      <div style="padding:6px 0;">
+        {% if vehicle.entity_slug %}
+        <code>{{ vehicle.entity_slug }}</code>
+        <span class="subtle" style="font-size:0.8rem">
+          (locked — change via <a href="/vehicles/{{ vehicle.slug }}/change-ownership">ownership flow</a>)
+        </span>
+        {% else %}
+        <span class="subtle">— personal —</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Year</label>
+      <input class="field-input" type="number" name="year" min="1900" max="2099"
+             value="{{ vehicle.year or '' }}" />
+    </div>
+    <div class="field">
+      <label class="field-label">Make</label>
+      <input class="field-input" type="text" name="make"
+             value="{{ vehicle.make or '' }}" placeholder="make" />
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Model</label>
+      <input class="field-input" type="text" name="model"
+             value="{{ vehicle.model or '' }}" placeholder="model" />
+    </div>
+    <div class="field">
+      <label class="field-label">License plate</label>
+      <input class="field-input" type="text" name="license_plate"
+             value="{{ vehicle.license_plate or '' }}" />
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Current mileage</label>
+      <input class="field-input" type="number" name="current_mileage"
+             value="{{ vehicle.current_mileage or '' }}" />
+    </div>
+    <div class="field">
+      <label class="field-label">Active?</label>
+      <label style="display:flex; align-items:center; gap:6px; padding-top:6px">
+        <input type="checkbox" name="is_active" value="1"
+               {% if vehicle.is_active %}checked{% endif %} />
+        <span class="subtle">Include in pickers + reports</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="field-label">Notes</label>
+    <textarea class="field-input" name="notes" rows="2"
+              placeholder="Internal notes — quirks, recall history…">{{ vehicle.notes or '' }}</textarea>
+  </div>
+
+  {% call M.actions() %}
+    <button type="button" class="btn btn-ghost"
+            onclick="this.closest('.modal-backdrop').classList.remove('is-open')">
+      Cancel
+    </button>
+    <a class="btn btn-ghost" href="/vehicles/{{ vehicle.slug }}/edit">Open full editor</a>
+    <button type="submit" class="btn btn-primary">Save changes</button>
+  {% endcall %}
+</form>
+{% endcall %}

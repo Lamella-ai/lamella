@@ -1,0 +1,103 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Schedule C Part IV worksheet. One row per vehicle owned/used by
+   the entity. Yes/No tri-states render as ☑ / ☐; unanswered (NULL)
+   renders as an empty box so the user can hand-mark it. #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Schedule C Part IV — {{ ctx.entity }} {{ ctx.year }}</title>
+  <style>{% include "_print_base.css" %}
+    .yn { text-align:center; font-family:"Courier New", monospace; }
+  </style>
+</head>
+<body>
+  <h1>Schedule C Part IV — Vehicles</h1>
+  <p class="muted">Entity {{ ctx.entity }} · tax year {{ ctx.year }}</p>
+  <p class="muted small">
+    Worksheet — transcribe to line 43 + 44(a/b/c) + 45/46/47a/47b of
+    your return. Checkbox column meanings: Y = yes, N = no, blank =
+    unanswered (hand-mark at filing).
+  </p>
+
+  {% if ctx.rows %}
+  {% for r in ctx.rows %}
+  <h2>{{ r.vehicle_display_name }} <span class="muted small">({{ r.vehicle_slug }})</span></h2>
+  <table class="lines">
+    <tbody>
+      <tr>
+        <td class="line">43</td>
+        <td>Date placed in service</td>
+        <td class="amt">{{ r.placed_in_service_date or '—' }}</td>
+      </tr>
+      <tr>
+        <td class="line">44a</td>
+        <td>Business miles</td>
+        <td class="amt">{{ '{:,}'.format(r.business_miles) }}</td>
+      </tr>
+      <tr>
+        <td class="line">44b</td>
+        <td>
+          Commuting miles
+          {% if r.avg_daily_commute %}
+            · <span class="muted small">avg daily commute {{ '%.1f'|format(r.avg_daily_commute) }} mi ({{ r.commute_days }} days)</span>
+          {% endif %}
+        </td>
+        <td class="amt">{{ '{:,}'.format(r.commuting_miles) }}</td>
+      </tr>
+      <tr>
+        <td class="line">44c</td>
+        <td>Other personal miles</td>
+        <td class="amt">{{ '{:,}'.format(r.personal_miles) }}</td>
+      </tr>
+      <tr>
+        <td class="line">45</td>
+        <td>Is another vehicle available for personal use?</td>
+        <td class="yn">
+          {% if r.other_vehicle_available_personal == 1 %}☑ Yes · ☐ No
+          {% elif r.other_vehicle_available_personal == 0 %}☐ Yes · ☑ No
+          {% else %}☐ Yes · ☐ No{% endif %}
+        </td>
+      </tr>
+      <tr>
+        <td class="line">46</td>
+        <td>Was the vehicle available for personal use off-duty?</td>
+        <td class="yn">
+          {% if r.vehicle_available_off_duty == 1 %}☑ Yes · ☐ No
+          {% elif r.vehicle_available_off_duty == 0 %}☐ Yes · ☑ No
+          {% else %}☐ Yes · ☐ No{% endif %}
+        </td>
+      </tr>
+      <tr>
+        <td class="line">47a</td>
+        <td>Do you have evidence to support your deduction?</td>
+        <td class="yn">
+          {% if r.has_evidence == 1 %}☑ Yes · ☐ No
+          {% elif r.has_evidence == 0 %}☐ Yes · ☑ No
+          {% else %}☐ Yes · ☐ No{% endif %}
+        </td>
+      </tr>
+      <tr>
+        <td class="line">47b</td>
+        <td>Is the evidence written?</td>
+        <td class="yn">
+          {% if r.evidence_is_written == 1 %}☑ Yes · ☐ No
+          {% elif r.evidence_is_written == 0 %}☐ Yes · ☑ No
+          {% else %}☐ Yes · ☐ No{% endif %}
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  {% endfor %}
+  {% else %}
+  <p class="muted">No vehicles with recorded yearly totals for {{ ctx.year }}.</p>
+  {% endif %}
+</body>
+</html>

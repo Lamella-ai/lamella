@@ -1,0 +1,31 @@
+;; ---------------------------------------------------------------
+;; Managed by Lamella. Do not edit by hand.
+;;
+;; This file is regenerated from user actions in the web UI. Manual
+;; edits may be reverted silently on the next write.
+;;
+;; File:      connector_config.bean
+;; Owner:     lamella
+;; Schema:    lamella-ledger-version=3
+;; Generated: 2026-04-29 by Lamella demo generator
+;; ---------------------------------------------------------------
+
+2025-01-01 custom "setting" "ai-classification-enabled" "TRUE"
+2025-01-01 custom "setting" "auto-match-receipts" "TRUE"
+2025-01-01 custom "setting" "default-currency" "USD"
+
+2025-01-01 custom "entity" "Personal"
+  lamella-display-name: "John Smith"
+  lamella-entity-type: "personal"
+  lamella-tax-schedule: "A"
+  lamella-start-date: "2010-01-01"
+  lamella-modified-at: "2025-01-01T00:00:00+00:00"
+
+2025-01-01 custom "entity" "Acme"
+  lamella-display-name: "Acme Co."
+  lamella-entity-type: "sole_proprietorship"
+  lamella-tax-schedule: "C"
+  lamella-start-date: "2018-01-01"
+  lamella-notes: "Single-member consulting + product sales (Schedule C)."
+  lamella-modified-at: "2025-01-01T00:00:00+00:00"
+

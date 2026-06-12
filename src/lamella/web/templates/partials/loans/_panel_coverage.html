@@ -1,0 +1,226 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# WP3 — Payment coverage panel.
+
+   Compact header shows X of Y matched. Expanded table shows one row
+   per expected payment with a status chip: on_time (green), late
+   (amber), missing (red). Missing rows carry a small form to record
+   the payment using the amortization model's split. #}
+<h3>Payment coverage</h3>
+
+{% if health.coverage %}
+  <p class="muted small">
+    {{ health.coverage.matched_count }} of {{ health.coverage.expected_count }}
+    expected payments recorded
+    {%- if health.coverage.missing_count > 0 %}
+      · {{ health.coverage.missing_count }} missing
+    {%- endif %}
+    {%- if health.coverage.late_count > 0 %}
+      · {{ health.coverage.late_count }} late
+    {%- endif %}
+  </p>
+
+  {% if health.coverage.long_gap_detected %}
+    <div class="banner warning small">
+      <strong>
+        Long payment gap detected
+        ({{ health.coverage.long_gap_count }} consecutive missing months
+        from {{ health.coverage.long_gap_start }}
+        to {{ health.coverage.long_gap_end }}).
+      </strong>
+      <p>
+        If this loan was in forbearance, a deferment period, or simply
+        predates the part of your ledger you've imported, WP12 will
+        let you record those pauses explicitly. For now the coverage
+        panel collapses the gap rather than listing every missed month.
+      </p>
+    </div>
+  {% endif %}
+
+  <table class="data">
+    <thead>
+      <tr>
+        <th>#</th><th>Expected</th><th>Status</th>
+        <th class="num">Principal</th>
+        <th class="num">Interest</th>
+        <th class="num">Total</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in health.coverage.rows %}
+        <tr class="coverage-row coverage-{{ row.status }}">
+          <td>{{ row.expected.n }}</td>
+          <td>{{ row.expected.expected_date }}</td>
+          <td>
+            {% if row.status == "on_time" %}
+              <span class="chip chip-green">✓ On time</span>
+              {% if row.actual and row.actual.auto_classified %}
+                <span class="chip chip-blue small" title="WP6 auto-classified">auto</span>
+              {% endif %}
+            {% elif row.status == "late" %}
+              <span class="chip chip-amber">⚠ Late</span>
+            {% elif row.status == "missing" %}
+              <span class="chip chip-red">✗ Missing</span>
+            {% endif %}
+          </td>
+          <td class="num">{{ row.expected.principal | money }}</td>
+          <td class="num">{{ row.expected.interest | money }}</td>
+          <td class="num">{{ row.expected.total | money }}</td>
+          <td>
+            {% if row.status == "missing" and not health.coverage.long_gap_detected %}
+              <details>
+                <summary class="small">Record it</summary>
+                <form method="post"
+                      action="/settings/loans/{{ loan.slug }}/record-missing-payment"
+                      class="stacked-form small">
+                  <input type="hidden" name="expected_date"
+                         value="{{ row.expected.expected_date }}" />
+                  <input type="hidden" name="expected_n"
+                         value="{{ row.expected.n }}" />
+                  <label>Principal
+                    <input type="number" step="0.01" name="principal"
+                           value="{{ row.expected.principal }}" />
+                  </label>
+                  <label>Interest
+                    <input type="number" step="0.01" name="interest"
+                           value="{{ row.expected.interest }}" />
+                  </label>
+                  {% if loan.escrow_monthly %}
+                    <label>Escrow
+                      <input type="number" step="0.01" name="escrow"
+                             value="{{ row.expected.escrow }}" />
+                    </label>
+                  {% else %}
+                    {% if loan.property_tax_monthly %}
+                      <label>Property tax
+                        <input type="number" step="0.01" name="tax"
+                               value="{{ loan.property_tax_monthly }}" />
+                      </label>
+                    {% endif %}
+                    {% if loan.insurance_monthly %}
+                      <label>Insurance
+                        <input type="number" step="0.01" name="insurance"
+                               value="{{ loan.insurance_monthly }}" />
+                      </label>
+                    {% endif %}
+                  {% endif %}
+                  <label>Late fee
+                    <input type="number" step="0.01" name="late_fee" placeholder="0.00" />
+                  </label>
+                  <label>Offset account (checking, savings, etc.)
+                    <input type="text" name="offset_account"
+                           list="accounts-datalist" required />
+                  </label>
+                  <button type="submit" class="primary-action small">
+                    Post this payment
+                  </button>
+                </form>
+              </details>
+              <a href="/settings/loans/{{ loan.slug }}/edit"
+                 class="small muted"
+                 title="If we think payment #{{ row.expected.n }} is missing but you actually paid it, maybe the configured first-payment date is wrong.">
+                That's wrong →
+              </a>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p class="muted small">
+    Coverage requires a configured term and first-payment date — set
+    them on the edit page to see the expected-vs-actual schedule.
+  </p>
+{% endif %}
+
+{% if fixme_candidates %}
+  <h4>Uncategorized transactions that look like payments</h4>
+  <p class="muted small">
+    {{ fixme_candidates|length }} uncategorized transaction(s) match by narration
+    tokens and amount band. Confirm the split for each:
+  </p>
+  {% for c in fixme_candidates %}
+    <details class="fixme-candidate">
+      <summary>
+        <strong>{{ c.date }}</strong> · {{ c.amount | money }} ·
+        <span class="muted">{{ c.payee or c.narration or '(no narration)' }}</span>
+      </summary>
+      <form method="post" action="/settings/loans/{{ loan.slug }}/record-payment"
+            class="stacked-form">
+        <input type="hidden" name="txn_hash" value="{{ c.txn_hash }}" />
+        <label>Principal
+          <input type="number" step="0.01" name="principal"
+                 value="{{ c.model_split.principal if c.model_split else '' }}" />
+        </label>
+        <label>Interest
+          <input type="number" step="0.01" name="interest"
+                 value="{{ c.model_split.interest if c.model_split else '' }}" />
+        </label>
+        {# Escrow vs. property tax + insurance are normally mutually
+           exclusive on a mortgage payment: escrow IS the deposit the
+           servicer later disburses to tax + insurance. Pre-fill the
+           configured side; leave the other side as a placeholder so
+           the user can still record a non-escrowed leg if a specific
+           payment broke the convention (e.g. supplemental tax bill
+           paid directly). #}
+        {% if loan.escrow_monthly %}
+          <label>Escrow
+            <input type="number" step="0.01" name="escrow"
+                   value="{{ c.model_split.escrow if c.model_split else '' }}" />
+          </label>
+          <label>Extra principal
+            <input type="number" step="0.01" name="extra_principal" placeholder="0.00" />
+          </label>
+          <label class="muted">Property tax <span class="small">(non-escrowed only)</span>
+            <input type="number" step="0.01" name="property_tax" placeholder="0.00" />
+          </label>
+          <label class="muted">Insurance <span class="small">(non-escrowed only)</span>
+            <input type="number" step="0.01" name="insurance" placeholder="0.00" />
+          </label>
+        {% else %}
+          <label class="muted">Escrow <span class="small">(not configured)</span>
+            <input type="number" step="0.01" name="escrow" placeholder="0.00" />
+          </label>
+          <label>Extra principal
+            <input type="number" step="0.01" name="extra_principal" placeholder="0.00" />
+          </label>
+          <label>Property tax
+            <input type="number" step="0.01" name="property_tax"
+                   value="{% if loan.property_tax_monthly %}{{ loan.property_tax_monthly }}{% endif %}" />
+          </label>
+          <label>Insurance
+            <input type="number" step="0.01" name="insurance"
+                   value="{% if loan.insurance_monthly %}{{ loan.insurance_monthly }}{% endif %}" />
+          </label>
+        {% endif %}
+        <label>Late fee
+          <input type="number" step="0.01" name="late_fee" placeholder="0.00" />
+        </label>
+        {# Free-form catch-all for things that don't fit the standard
+           legs: escrow shortage adjustment, recoverable corporate
+           advance, lender's title fee, etc. The route accepts
+           repeating other_account + other_amount pairs. #}
+        <details class="muted">
+          <summary class="small">Other splits (escrow shortage, fee, advance, etc.)</summary>
+          <label>Account
+            <input type="text" name="other_account" list="accounts-datalist"
+                   placeholder="Expenses:…" autocomplete="off" />
+          </label>
+          <label>Amount
+            <input type="number" step="0.01" name="other_amount" placeholder="0.00" />
+          </label>
+        </details>
+        <button type="submit" class="primary-action">Record split</button>
+        <p class="muted small">Splits must sum to {{ c.amount | money }}.</p>
+      </form>
+    </details>
+  {% endfor %}
+{% endif %}

@@ -1,0 +1,79 @@
+{#-
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Imported-file archive — ADR-0060. Every file the user ever
+  imported (CSV, OFX, QIF, IIF, XLSX, ODS, paste) lives on disk
+  under <ledger_dir>/imports/ with a stable file_id; this list
+  surfaces them so the user can re-open / verify / audit.
+-#}
+
+{% extends "base.html" %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Imported files — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Imported files{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Imported files',
+     subtitle='Every CSV / OFX / QIF / IIF / XLSX / ODS / paste you imported lives here. Files are stored verbatim under <code>&lt;ledger&gt;/imports/</code> with a stable file_id — re-open them, audit them, or download them back to your tool of choice. The directory is the source of truth (ADR-0001); the index here is reconstructible.',
+     kicker='ADR-0060 archive'
+) %}{% endcall %}
+
+{% if items %}
+{% call L.section() %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>file_id</th>
+      <th>Original filename</th>
+      <th>Format</th>
+      <th class="num">Bytes</th>
+      <th class="num">Rows staged</th>
+      <th>Imported</th>
+      <th>SHA-256</th>
+      <th class="num">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for it in items %}
+    <tr>
+      <td><code>{{ '%05d' % it.file_id }}</code></td>
+      <td>
+        <a href="/imports/{{ it.file_id }}">
+          {{ it.original_filename }}
+        </a>
+      </td>
+      <td><code>{{ it.source_format }}</code></td>
+      <td class="num">{{ it.byte_size }}</td>
+      <td class="num">{{ it.staged_count }}</td>
+      <td><span class="subtle">{{ it.imported_at }}</span></td>
+      <td>
+        <code class="subtle"
+              title="{{ it.content_sha256 }}">
+          {{ it.content_sha256[:12] }}…
+        </code>
+      </td>
+      <td class="num">
+        {{ B.btn('Download',
+                 href='/imports/' ~ it.file_id ~ '/download',
+                 variant='secondary', size='sm') }}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% else %}
+{% call F.banner(tone='ok', title='No imports yet') %}
+  Once you import a CSV or other tabular file (or paste a statement
+  into <a href="/intake">Paste intake</a>), it'll appear here.
+{% endcall %}
+{% endif %}
+
+{% endblock %}

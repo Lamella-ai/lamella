@@ -1,0 +1,38 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Docked active-jobs strip, rendered in the lower-right corner.
+   base.html polls /jobs/active/dock every 5s so any running job
+   shows up no matter what page the user is on. Clicking an entry
+   opens the full-page job detail view (which itself shows the
+   progress partial polling at 1s).
+#}
+{% if jobs %}
+  <div class="job-dock">
+    <div class="job-dock__header">Active jobs ({{ jobs|length }})</div>
+    {% for j in jobs %}
+      <a class="job-dock__card" href="/jobs/{{ j.id }}">
+        <div class="job-dock__title">{{ j.title }}</div>
+        <div class="job-dock__bar">
+          {% if j.total %}
+            <div class="job-dock__bar-fill" style="width: {{ (j.percent or 0) | round(1) }}%"></div>
+          {% else %}
+            <div class="job-dock__bar-fill job-dock__bar-fill--indeterminate"></div>
+          {% endif %}
+        </div>
+        <div class="job-dock__meta">
+          {% if j.total %}
+            {{ j.completed }}/{{ j.total }} · ETA {{ j.humanize_eta() }}
+          {% else %}
+            {{ j.completed }} done · {{ j.humanize_elapsed() }}
+          {% endif %}
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+{% endif %}

@@ -1,0 +1,346 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "setup_recovery/_layout.html" %}
+{% block title %}Properties — Setup — Lamella{% endblock %}
+
+{% block step_heading %}Properties{% endblock %}
+{% block step_subheading %}
+  Each property needs its own strict per-property chart so Property
+  Tax / HOA / Insurance / Maintenance / Repairs / Utilities /
+  Mortgage Interest map to a specific property. Rentals also get
+  Depreciation / Advertising / Cleaning / Management / Supplies +
+  an Income:&hellip;:Rental account. Adding a property here does
+  <strong>not</strong> auto-scaffold the chart — click
+  Scaffold-N-missing on the row when you&rsquo;re ready, so the
+  &ldquo;did you actually want a chart for this property?&rdquo;
+  decision stays explicit.
+{% endblock %}
+
+{% block step_body %}
+{% set q = request.query_params %}
+
+{% if q.get('added') %}
+<div class="wiz-banner wiz-banner-ok" style="margin-bottom:1.2em;">
+  <strong style="color:var(--ok);">✓ Added <code>{{ q.get('added') }}</code>.</strong>
+  Click Scaffold-N-missing below when you want its chart of accounts opened.
+</div>
+{% endif %}
+{% if q.get('updated') %}
+<div class="wiz-banner wiz-banner-ok" style="margin-bottom:1.2em;">
+  <strong style="color:var(--ok);">✓ Updated <code>{{ q.get('updated') }}</code>.</strong>
+</div>
+{% endif %}
+{% if q.get('scaffolded') %}
+<div class="wiz-banner wiz-banner-ok" style="margin-bottom:1.2em;">
+  ✓ Opened {{ q.get('opened') }} account(s) for <code>{{ q.get('scaffolded') }}</code>.
+</div>
+{% endif %}
+{% if q.get('error') %}
+<div class="wiz-banner wiz-banner-warn" style="margin-bottom:1.2em;">
+  ✗ {{ q.get('error') }}
+  {% if q.get('detail') %}
+    — <code class="small">{{ q.get('detail') }}</code>
+  {% endif %}
+</div>
+{% endif %}
+
+<div style="display:flex; gap:0.6em; margin:0 0 1.2em; align-items:center; flex-wrap:wrap;">
+  <a href="/setup/properties?add=property" class="wiz-btn wiz-btn-primary">
+    + Add property
+  </a>
+  <span class="wiz-sub small" style="margin:0;">
+    Opens an in-page modal — no redirect. Adding does NOT scaffold the
+    per-property chart; that&rsquo;s a separate explicit step on the row.
+  </span>
+</div>
+
+{% if not properties %}
+<section class="wiz-card" style="padding:1.5em; text-align:center;">
+  <strong>No properties registered yet.</strong>
+  <p class="wiz-sub" style="margin:0.4em 0 0;">
+    Optional step — skip if you don&rsquo;t track real estate separately.
+  </p>
+</section>
+{% else %}
+<p style="margin:0 0 0.8em;">
+  {{ total }} active propert{{ 'y' if total == 1 else 'ies' }}.
+  {% if missing_total %}
+    <strong style="color:var(--warn);">{{ missing_total }} missing chart account(s)</strong>
+  {% else %}
+    <strong style="color:var(--ok);">All canonical accounts open.</strong>
+  {% endif %}
+</p>
+
+{% for p in properties %}
+  {% with p=p %}
+    {% include "partials/_setup_property_row.html" %}
+  {% endwith %}
+{% endfor %}
+{% endif %}
+
+<datalist id="setup-properties-entities-datalist">
+  {% for slug in entity_slugs %}<option value="{{ slug }}">{% endfor %}
+</datalist>
+{% endblock %}
+
+{% block step_actions %}
+<a href="/setup/recovery" class="wiz-btn wiz-btn-secondary">← Back to checklist</a>
+<form method="post" action="/setup/refresh-progress" style="display:inline-block;">
+  <button type="submit" class="wiz-btn wiz-btn-primary">Done — return to checklist</button>
+</form>
+{% endblock %}
+
+{# ----- Modal block. Phase 4 (Add) + Phase 8 step 5 (Edit). ----- #}
+{% block modal %}
+{% if open_modal in ('property', 'property-edit') %}
+{% set fv = form_values or {} %}
+{% set fe = field_errors or {} %}
+{% set is_edit = open_modal == 'property-edit' %}
+{% set entity_locked = is_edit and (fv.get('entity_slug') or '') %}
+{% import "wizard/_modal.html" as M %}
+{% call M.modal(
+    title=("Edit property: " ~ (editing_slug or '')) if is_edit else "Add a property",
+    submit_form_id="property-modal-form",
+    action_label=("Save changes" if is_edit else "Add property"),
+    cancel_href="/setup/properties",
+    width="640px"
+) %}
+<form method="post"
+      action="{{ ('/setup/properties/' ~ editing_slug ~ '/edit') if is_edit else '/setup/properties/add' }}"
+      id="property-modal-form"
+      class="wiz-modal-form">
+
+  <div class="wiz-field">
+    <label class="wiz-label">Display name</label>
+    <input
+      class="wiz-input {% if fe.get('display_name') %}is-invalid{% endif %}"
+      type="text"
+      name="display_name"
+      value="{{ fv.get('display_name', '') }}"
+      maxlength="80"
+      required autofocus
+      placeholder="Main residence"
+    />
+    {% if fe.get('display_name') %}
+      <span class="wiz-error">{{ fe['display_name'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Slug{% if not is_edit %} (optional){% endif %}</label>
+    <input
+      class="wiz-input wiz-input--slug {% if fe.get('slug') %}is-invalid{% endif %}"
+      type="text"
+      name="slug"
+      value="{{ fv.get('slug', '') }}"
+      maxlength="40"
+      pattern="[A-Z][A-Za-z0-9-]*"
+      placeholder="MainResidence"
+      {% if is_edit %}readonly tabindex="-1"{% endif %}
+    />
+    <span class="wiz-help">
+      {% if is_edit %}
+        Slug is the property's stable identifier and can&rsquo;t be
+        changed once set — every account path references it.
+      {% else %}
+        Auto-derived from display name. Used as the account-path segment.
+      {% endif %}
+    </span>
+    {% if fe.get('slug') %}
+      <span class="wiz-error">{{ fe['slug'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Owning entity</label>
+    <input
+      class="wiz-input {% if fe.get('entity_slug') %}is-invalid{% endif %}"
+      type="text"
+      name="entity_slug"
+      list="setup-properties-entities-datalist"
+      value="{{ fv.get('entity_slug', '') }}"
+      placeholder="Personal"
+      autocomplete="off"
+      required
+      {% if entity_locked %}readonly tabindex="-1"{% endif %}
+    />
+    <span class="wiz-help">
+      {% if entity_locked %}
+        Owning entity is locked once a property has it set — changing
+        the owning entity is an intercompany transfer, handled by the
+        full <a href="/settings/properties/{{ editing_slug }}/change-ownership">change-ownership flow</a>.
+      {% else %}
+        Pick from the dropdown, or type a new slug to register the entity separately first.
+      {% endif %}
+    </span>
+    {% if fe.get('entity_slug') %}
+      <span class="wiz-error">{{ fe['entity_slug'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Property type</label>
+    {% set sel_type = fv.get('property_type', '') %}
+    <select class="wiz-input {% if fe.get('property_type') %}is-invalid{% endif %}" name="property_type" required>
+      <option value="" disabled {% if not sel_type %}selected{% endif %}>— pick a type —</option>
+      <option value="house" {% if sel_type == 'house' %}selected{% endif %}>House</option>
+      <option value="condo" {% if sel_type == 'condo' %}selected{% endif %}>Condo</option>
+      <option value="rental" {% if sel_type == 'rental' %}selected{% endif %}>Rental</option>
+      <option value="land" {% if sel_type == 'land' %}selected{% endif %}>Land</option>
+      <option value="building" {% if sel_type == 'building' %}selected{% endif %}>Building (commercial)</option>
+      <option value="other" {% if sel_type == 'other' %}selected{% endif %}>Other</option>
+    </select>
+    {% if fe.get('property_type') %}
+      <span class="wiz-error">{{ fe['property_type'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Street address (optional)</label>
+    <input
+      class="wiz-input"
+      type="text"
+      name="address"
+      value="{{ fv.get('address', '') }}"
+      maxlength="200"
+      placeholder="123 Main St"
+    />
+    <span class="wiz-help">
+      Free-text. Used for tax-document matching downstream — exact
+      formatting doesn&rsquo;t matter, just keep it consistent across docs.
+    </span>
+  </div>
+
+  <div class="wiz-field" style="display:flex; gap:1em; flex-wrap:wrap;">
+    <div style="flex:2; min-width:10em;">
+      <label class="wiz-label">City (optional)</label>
+      <input
+        class="wiz-input"
+        type="text"
+        name="city"
+        value="{{ fv.get('city', '') }}"
+        maxlength="80"
+      />
+    </div>
+    <div style="flex:1; min-width:5em;">
+      <label class="wiz-label">State (optional)</label>
+      <input
+        class="wiz-input"
+        type="text"
+        name="state"
+        value="{{ fv.get('state', '') }}"
+        maxlength="40"
+        placeholder="CO"
+      />
+    </div>
+    <div style="flex:1; min-width:6em;">
+      <label class="wiz-label">ZIP (optional)</label>
+      <input
+        class="wiz-input"
+        type="text"
+        name="postal_code"
+        value="{{ fv.get('postal_code', '') }}"
+        maxlength="20"
+      />
+    </div>
+  </div>
+
+  <div class="wiz-field" style="display:flex; gap:1em; flex-wrap:wrap;">
+    <div style="flex:1; min-width:10em;">
+      <label class="wiz-label">Purchase date (optional)</label>
+      <input
+        class="wiz-input"
+        type="date"
+        name="purchase_date"
+        value="{{ fv.get('purchase_date', '') }}"
+      />
+    </div>
+    <div style="flex:1; min-width:10em;">
+      <label class="wiz-label">Purchase price (optional)</label>
+      <input
+        class="wiz-input"
+        type="text"
+        name="purchase_price"
+        value="{{ fv.get('purchase_price', '') }}"
+        placeholder="450000"
+      />
+    </div>
+  </div>
+
+  <div class="wiz-field" style="display:flex; gap:1.5em; flex-wrap:wrap;">
+    <label style="display:flex; align-items:center; gap:0.4em; cursor:pointer;">
+      <input type="checkbox" name="is_primary_residence" value="1"
+             {% if fv.get('is_primary_residence') == '1' %}checked{% endif %} />
+      Primary residence
+    </label>
+    <label style="display:flex; align-items:center; gap:0.4em; cursor:pointer;">
+      <input type="checkbox" name="is_rental" value="1"
+             {% if fv.get('is_rental') == '1' %}checked{% endif %} />
+      Rental property
+    </label>
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Linked mortgages / HELOCs (optional)</label>
+    {# Phase 8: multi-loan support. Each candidate loan renders as
+       its own checkbox sharing name="linked_loan_slug" — the POST
+       handler reads `form.getlist("linked_loan_slug")` to assemble
+       the full set. Backward compat with single-value posts is
+       automatic: a lone `linked_loan_slug=Foo` post arrives as
+       `["Foo"]`. #}
+    {% set selected_loans = (fv.get('linked_loan_slugs') or []) %}
+    {% if loans_for_link %}
+      <div style="display:flex; flex-direction:column; gap:0.3em;
+                  padding:0.5em 0.7em; border:1px solid var(--border);
+                  border-radius:4px; background:var(--bg-elev);">
+        {% for l in loans_for_link %}
+          <label style="display:flex; align-items:center; gap:0.5em; cursor:pointer;">
+            <input type="checkbox"
+                   name="linked_loan_slug"
+                   value="{{ l.slug }}"
+                   {% if l.slug in selected_loans %}checked{% endif %} />
+            <span>
+              <strong>{{ l.display_name or l.slug }}</strong>
+              {%- if l.loan_type %} · <span class="small muted">{{ l.loan_type }}</span>{% endif -%}
+              {%- if l.institution %} <span class="small muted">— {{ l.institution }}</span>{% endif -%}
+              {%- if l.entity_slug %} <span class="small muted">· {{ l.entity_slug | entity }}</span>{% endif -%}
+            </span>
+          </label>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="wiz-help" style="padding:0.5em 0; color:var(--muted-strong);">
+        No mortgage / HELOC loans set up yet. If this property has
+        one, add the loan first via
+        <a href="/setup/loans?add=loan">Loans → + Add loan</a>, then
+        return here to link it.
+      </div>
+    {% endif %}
+    <span class="wiz-help">
+      Tick every loan secured against this property — both the
+      mortgage and a HELOC, if you have both. Leave all unchecked
+      for "owned outright."
+    </span>
+    {% if fe.get('linked_loan_slug') %}
+      <span class="wiz-error">{{ fe['linked_loan_slug'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Notes (optional)</label>
+    <textarea
+      class="wiz-input"
+      name="notes"
+      rows="2"
+      maxlength="500">{{ fv.get('notes', '') }}</textarea>
+  </div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

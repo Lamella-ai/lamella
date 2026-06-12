@@ -1,0 +1,71 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{#
+  One vehicle's row on /setup/vehicles. Renders on initial page
+  load AND as the HTMX swap response from
+  /setup/vehicles/<slug>/scaffold so the user sees "N missing →
+  all open" in-place without a page reload.
+#}
+<section id="setup-vehicle-{{ v.slug }}"
+         style="border:1px solid var(--border); border-radius:6px; padding:0.9em 1.1em; margin:0.8em 0; background:{% if v.missing_count == 0 %}var(--ok-soft){% else %}var(--warn-soft){% endif %};">
+  <div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:0.6em;">
+    <div>
+      <strong>
+        {% if v.missing_count == 0 %}✓{% else %}⚠{% endif %}
+        {{ v.display_name or v.slug }}
+      </strong>
+      <span class="small muted">
+        {% if v.year %}{{ v.year }}{% endif %}
+        {% if v.make %} {{ v.make }}{% endif %}
+        {% if v.model %} {{ v.model }}{% endif %}
+        · slug <code>{{ v.slug }}</code>
+        · entity
+        {% if v.has_entity %}<code>{{ v.entity_slug | entity }}</code>{% else %}<span style="color:var(--warn);">not set</span>{% endif %}
+      </span>
+    </div>
+    <div style="display:flex; gap:0.4em; align-items:center;">
+      {# Phase 8 step 6: per-row Edit opens an in-page modal. The
+         "Set owning entity →" CTA on missing-entity rows now points
+         at the same modal. The full editor at /vehicles/{slug}/edit
+         (and the change-ownership / mileage / elections power-user
+         pages) still exist for state-change ops the recovery modal
+         intentionally doesn't ship. #}
+      {% if v.missing_count and v.has_entity %}
+        <form method="post" action="/setup/vehicles/{{ v.slug }}/scaffold"
+              hx-post="/setup/vehicles/{{ v.slug }}/scaffold"
+              hx-target="#setup-vehicle-{{ v.slug }}"
+              hx-swap="outerHTML"
+              style="display:inline;">
+          <button type="submit" class="primary small">
+            Scaffold {{ v.missing_count }} missing account{{ '' if v.missing_count == 1 else 's' }}
+          </button>
+        </form>
+      {% endif %}
+      {% if not v.has_entity %}
+        <a href="/setup/vehicles?edit={{ v.slug }}" class="small">Set owning entity →</a>
+      {% else %}
+        <a href="/setup/vehicles?edit={{ v.slug }}" class="small">Edit →</a>
+      {% endif %}
+    </div>
+  </div>
+  {% if v.chart %}
+  <details style="margin-top:0.5em;">
+    <summary class="small muted">Canonical chart ({{ v.chart | length }} accounts)</summary>
+    <ul class="small" style="margin:0.3em 0 0 1.5em;">
+      {% for c in v.chart %}
+        <li>
+          {% if c.exists %}<span style="color:var(--ok);">✓</span>{% else %}<span style="color:var(--warn);">✗</span>{% endif %}
+          <code>{{ c.path }}</code>
+          <span class="muted small">— {{ c.purpose }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+</section>

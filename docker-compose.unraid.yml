@@ -1,0 +1,31 @@
+# Copyright 2026 Lamella LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+# https://lamella.ai
+
+# Unraid-specific override for docker-compose.yml.
+#
+# Unraid runs containers as `nobody` (uid 99, gid 100) and stores
+# per-app data under `/mnt/user/appdata/<app>/`. This override sets
+# the runtime user explicitly (so files written from inside the
+# container appear owned by `nobody:users` on the host) and points
+# the volumes at Unraid's appdata convention.
+#
+# Use:
+#   docker compose -f docker-compose.yml -f docker-compose.unraid.yml up -d
+#
+# Or set up an alias / symlink so `docker compose up -d` picks both
+# files automatically — for example, by exporting:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.unraid.yml
+#
+# The base compose honors PUID + PGID env vars if you'd rather set
+# them in your `.env`; this override does the same thing in a
+# self-documenting form for Unraid users specifically.
+
+services:
+  lamella:
+    user: "99:100"
+    volumes:
+      - /mnt/user/appdata/lamella:/data
+      - /mnt/user/appdata/lamella-ledger:/ledger

@@ -1,0 +1,127 @@
+{#-
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Review duplicates — ADR-0058. Lists rows the cross-source dedup
+  oracle flagged at intake time. Each row carries a ``dedup_match``
+  block describing the staged or ledger entry it collided with; the
+  user confirms (= it's the same event, dismiss) or releases (= it
+  isn't, send back to /review).
+-#}
+
+{% extends "base.html" %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Review multi-source observations — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Multi-source observations{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Multi-source observations',
+     subtitle='An incoming row whose content (date + signed amount + description) matched an existing staged row or ledger posting at intake. The framing is "this event already has another source on this leg" — confirm to record it as another observation of the same event, or release if the oracle got it wrong (e.g. two unrelated transactions that happen to share content within the date window).',
+     kicker='ADR-0058 cross-source dedup'
+) %}{% endcall %}
+
+{% if items %}
+{% call L.section() %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Source</th>
+      <th class="num">Amount</th>
+      <th>Description</th>
+      <th>Matches</th>
+      <th class="num">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for it in items %}
+    <tr id="dup-row-{{ it.id }}">
+      <td>{{ it.posting_date }}</td>
+      <td><code>{{ it.source }}</code></td>
+      <td class="num">{{ it.amount | money }} {{ it.currency }}</td>
+      <td>{{ it.payee or it.description or '' }}</td>
+      <td>
+        {% set m = it.dedup_match %}
+        {% if m %}
+          {% set _conf = m.confidence or 'high' %}
+          {% if _conf == 'medium' %}
+            <span class="badge badge--warn"
+                  style="font-size:0.75em; margin-right:0.25rem"
+                  title="Descriptions differed — verify carefully before confirming">
+              medium · verify
+            </span>
+          {% endif %}
+          {% if m.kind == 'staged' %}
+            existing staged observation #{{ m.staged_id }}
+            <span class="subtle">(source: {{ m.staged_source }})</span>
+            on {{ m.matched_date }}
+          {% elif m.kind == 'ledger' %}
+            existing ledger posting
+            {% if m.matched_account %}
+              on <code>{{ m.matched_account }}</code>
+            {% endif %}
+            {% if m.filename %}
+              (<code>{{ m.filename.split('/')[-1] }}:{{ m.lineno }}</code>)
+            {% endif %}
+            on {{ m.matched_date }}
+          {% else %}
+            <span class="subtle">unknown match kind</span>
+          {% endif %}
+          {% if m.matched_description %}
+            — <span class="subtle">{{ m.matched_description }}</span>
+          {% endif %}
+          {% if m.why %}
+            <br/>
+            <span class="subtle" style="font-size:0.85em">
+              signal: {{ m.why }}
+            </span>
+          {% endif %}
+          {% if m.matched_lamella_txn_id %}
+            <br/>
+            <span class="subtle" style="font-size:0.85em">
+              shared event id: <code>{{ m.matched_lamella_txn_id }}</code>
+            </span>
+          {% endif %}
+        {% else %}
+          <span class="subtle">match info missing</span>
+        {% endif %}
+      </td>
+      <td class="num">
+        <form method="post"
+              action="/review/duplicates/{{ it.id }}/confirm"
+              hx-post="/review/duplicates/{{ it.id }}/confirm"
+              hx-target="#dup-row-{{ it.id }}"
+              hx-swap="outerHTML"
+              style="display:inline; margin:0">
+          {{ B.btn('Confirm — same event', type='submit', variant='primary', size='sm') }}
+        </form>
+        <form method="post"
+              action="/review/duplicates/{{ it.id }}/release"
+              hx-post="/review/duplicates/{{ it.id }}/release"
+              hx-target="#dup-row-{{ it.id }}"
+              hx-swap="outerHTML"
+              style="display:inline; margin:0 0 0 0.4rem">
+          {{ B.btn('Release — actually different', type='submit', variant='warn', size='sm') }}
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% else %}
+{% call F.banner(tone='ok', title='No multi-source observations to review') %}
+  Every row on the staging surface looks like its own unique
+  event. When a future import lands a row whose content matches an
+  existing staged row or ledger posting (any source against any
+  source), it'll surface here automatically.
+{% endcall %}
+{% endif %}
+
+{% endblock %}

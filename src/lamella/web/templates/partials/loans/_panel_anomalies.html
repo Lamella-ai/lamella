@@ -1,0 +1,45 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# WP8 — Anomaly detection panel.
+
+   Renders when `health.anomalies` is non-empty. Each anomaly carries
+   a `kind`, `severity`, `detail`, and a `numbers` dict with the
+   specific values that triggered the detector. #}
+<h3>Review these</h3>
+{% if health.anomalies %}
+  <ul class="anomaly-list">
+    {% for a in health.anomalies %}
+      <li class="anomaly severity-{{ a.severity }}">
+        <strong>{{ a.kind }}</strong>
+        <p>{{ a.detail }}</p>
+        {% if a.numbers %}
+          <details>
+            <summary class="small">Numbers</summary>
+            <dl class="inline-dl">
+              {% for k, v in a.numbers.items() %}
+                <dt>{{ k|replace('_', ' ') }}</dt>
+                <dd>{{ v }}</dd>
+              {% endfor %}
+            </dl>
+          </details>
+        {% endif %}
+        {% if a.recommended_action %}
+          <a href="{{ a.recommended_action.endpoint }}" class="secondary small">
+            {{ a.recommended_action.action_label }}
+          </a>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="muted small">
+    Nothing unusual detected — the amortization model matches the
+    ledger within tolerance.
+  </p>
+{% endif %}

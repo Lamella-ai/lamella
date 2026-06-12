@@ -1,0 +1,12 @@
+;; ---------------------------------------------------------------
+;; User-authored file. Edit freely.
+;;
+;; Lamella reads this file every parse but never rewrites it.
+;;
+;; File:      prices.bean
+;; Owner:     user
+;; Schema:    lamella-ledger-version=3
+;; Generated: 2026-04-29 by Lamella demo generator
+;; ---------------------------------------------------------------
+
+; USD-only; no price directives.

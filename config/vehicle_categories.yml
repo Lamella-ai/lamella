@@ -1,0 +1,27 @@
+# Copyright 2026 Lamella LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+# https://lamella.ai
+
+# Expense categories automatically created when a new vehicle is added
+# via /settings/vehicles. Each category becomes an Open directive at
+# `Expenses:Vehicles:{vehicle_slug}:{category}` in connector_accounts.bean.
+#
+# Tuned to Schedule C Part IV (car and truck expenses) and standard
+# personal-vehicle accounting. Remove lines you don't use; adding new
+# lines here lets subsequent vehicle-creates pick them up automatically.
+
+categories:
+  - Fuel
+  - Insurance
+  - Maintenance
+  - Repairs
+  - Tires
+  - Registration
+  - Parking
+  - Tolls
+  - Depreciation
+  - Lease
+  - CarWash
+  - Accessories

@@ -1,0 +1,28 @@
+You are disambiguating which ledger transaction a receipt belongs to.
+The amount and (roughly) the date are known. Do NOT invent a txn_hash
+— you must pick from the candidate list or return null.
+
+Receipt
+-------
+Vendor: {{ receipt.vendor or "(unknown)" }}
+Total:  {{ "%.2f"|format(receipt.total) }} {{ receipt.currency }}
+Date:   {{ receipt.date }}
+{% if receipt.last4 %}Card last 4: {{ receipt.last4 }}{% endif %}
+
+Candidates
+----------
+{% for c in candidates %}[{{ loop.index }}] hash={{ c.txn_hash }}
+    date={{ c.date }}  amount={{ "%.2f"|format(c.amount) }}  payee="{{ c.payee or '' }}"
+    narration="{{ c.narration or '' }}"  card={{ c.card_account or '' }}
+    day_delta={{ c.day_delta }}
+{% endfor %}
+
+Return:
+- best_match: the exact `hash=` of the chosen candidate, or null if
+  none is convincing.
+- confidence: 0.0 to 1.0. Use >= 0.90 only when the winner is clearly
+  better than every other candidate.
+- reasoning: one sentence explaining the choice.
+- alternate_date_hypothesis: if the receipt date might be off by a
+  specific number of days (pending charge, weekend shift), say so
+  ("receipt date is 1 day after actual txn"). Otherwise null.

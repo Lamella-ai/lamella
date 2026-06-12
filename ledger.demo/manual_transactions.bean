@@ -1,0 +1,648 @@
+;; ---------------------------------------------------------------
+;; User-authored file. Edit freely.
+;;
+;; Lamella reads this file every parse but never rewrites it.
+;;
+;; File:      manual_transactions.bean
+;; Owner:     user
+;; Schema:    lamella-ledger-version=3
+;; Generated: 2026-04-29 by Lamella demo generator
+;; ---------------------------------------------------------------
+
+
+2024-12-31 * "Opening balance (Checking)"
+  lamella-txn-id: "7225b82d-77c5-4ebe-a238-2765dea771e4"
+  Assets:Personal:BankOne:Checking                                2150.00 USD
+  Equity:Personal:OpeningBalances                                -2150.00 USD
+
+2024-12-31 * "Opening balance (Savings)"
+  lamella-txn-id: "1fa9f838-3690-42d0-9ee0-88fa0ca9de06"
+  Assets:Personal:BankOne:Savings                                12480.00 USD
+  Equity:Personal:OpeningBalances                               -12480.00 USD
+
+2024-12-31 * "Opening balance (Card)"
+  lamella-txn-id: "a7b39b39-a0b0-4655-8cf3-1cc8769901c0"
+  Liabilities:Personal:BankOne:Card                              -1340.00 USD
+  Equity:Personal:OpeningBalances                                 1340.00 USD
+
+2024-12-31 * "Opening balance (Checking)"
+  lamella-txn-id: "88c075c5-8f5d-45d8-806e-436a94d2c5d2"
+  Assets:Acme:BankOne:Checking                                    8625.00 USD
+  Equity:Acme:OpeningBalances                                    -8625.00 USD
+
+2024-12-31 * "Opening balance (Card)"
+  lamella-txn-id: "ae13fc92-b7f9-4c51-a35c-b5f9de798aa8"
+  Liabilities:Acme:BankOne:Card                                  -2510.00 USD
+  Equity:Acme:OpeningBalances                                     2510.00 USD
+
+2024-12-31 * "Opening balance (MainHouse)"
+  lamella-txn-id: "b8d567c9-174f-4430-92e4-08aca9215e13"
+  Assets:Personal:Properties:MainHouse                          200000.00 USD
+  Equity:Personal:OpeningBalances                              -200000.00 USD
+
+2024-12-31 * "Opening balance (V2018Sedan)"
+  lamella-txn-id: "2886829a-02e6-4432-8024-df4f1558b452"
+  Assets:Personal:Vehicles:V2018Sedan                            18500.00 USD
+  Equity:Personal:OpeningBalances                               -18500.00 USD
+
+2024-12-31 * "Opening balance (Mortgage2010)"
+  lamella-txn-id: "162322b4-f2b0-44c6-a812-d5e69a421701"
+  Liabilities:Personal:BankOne:Loans:Mortgage2010              -103707.85 USD
+  Equity:Personal:OpeningBalances                               103707.85 USD
+
+2025-01-03 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "07f8fe27-6f2a-48da-af39-65012af0f5b8"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-01-17 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "8cd6c200-82a5-4ef2-a1aa-bb52fcec7b90"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-01-31 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "2a4333df-fc66-441a-9330-079934a23af0"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-02-14 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "2ac2eede-2837-414a-adaa-446d7c1c7dca"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-02-28 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "965affce-25ed-474f-ae01-a6a67e568124"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-03-14 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "c617f6d5-193e-475a-83ed-3eaeb3a5765a"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-03-28 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "c0c5f32e-4645-43d3-9432-92c1dcce6c30"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-04-11 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "7e552c73-abc6-4066-a274-d06a7df86381"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-04-25 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "72dd3eee-3994-4b08-a2da-5d0f6d1ebb93"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-05-09 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "274be69b-3623-423a-84d3-13f7e1023b59"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-05-23 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "e79a0d7f-13ea-47a5-b159-743f225ffad9"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-06-06 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "68c2a972-b8b0-4859-b17f-f7d7fc0b7f32"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-06-20 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "ac77850d-a3ce-4d9f-9f36-7d5aff882563"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-07-04 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "1526c654-d4d3-4981-9406-9fa390173b89"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-07-18 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "cfef71ac-8e32-447d-833a-1a2b1499463c"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-08-01 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "dcab59f7-f2b3-4aaa-88f0-f706f7efb6c4"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-08-15 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "9062aa10-dde0-4ed9-aaee-3c6c420696bc"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-08-29 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "b2857e5c-3eb9-4929-b667-30de7fc171c7"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-09-12 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "8dfeaa88-4197-4c5e-a316-9f904d1ed75a"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-09-26 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "7524db63-ebd4-4054-ad16-3c4d2da908c5"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-10-10 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "981525b6-8296-4335-b383-3dcd7ef2582d"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-10-24 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "ee674f05-90ec-44f5-bcc2-71adc7d2ade8"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-11-07 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "61acbec5-5440-4f30-a5a7-1190b33096fd"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-11-21 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "4c17fc11-1e7f-45b9-a8a4-818699922f1b"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-12-05 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "87bec6c1-4952-4a2d-98ac-8f30aa465f9b"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-12-19 * "Acme Co. Payroll" "Paycheck — bi-weekly"
+  lamella-txn-id: "0160b87a-c376-4240-8a52-bcf275663c3c"
+  Assets:Personal:BankOne:Checking                                1274.95 USD
+  Expenses:Personal:Tax:Federal                                    220.00 USD
+  Expenses:Personal:Tax:State                                       75.00 USD
+  Expenses:Personal:Tax:FICA                                       130.05 USD
+  Income:Personal:Salary                                         -1700.00 USD
+
+2025-01-15 * "BankOne Mortgage Servicing" "Mortgage payment (interest 433.66, principal 371.57, escrow 250.00)"
+  lamella-txn-id: "2801b0be-88b0-477f-b515-a95ef08a7616"
+  lamella-loan-slug: "Mortgage2010"
+  Assets:Personal:BankOne:Checking                               -1055.23 USD
+  Liabilities:Personal:BankOne:Loans:Mortgage2010                  371.57 USD
+  Expenses:Personal:Properties:MainHouse:MortgageInterest          433.66 USD
+  Expenses:Personal:BankOne:Loans:Mortgage2010:Escrow              250.00 USD
+
+2025-02-15 * "BankOne Mortgage Servicing" "Mortgage payment (interest 432.12, principal 373.11, escrow 250.00)"
+  lamella-txn-id: "253c5fc6-7a39-46d5-a8c5-732899411518"
+  lamella-loan-slug: "Mortgage2010"
+  Assets:Personal:BankOne:Checking                               -1055.23 USD
+  Liabilities:Personal:BankOne:Loans:Mortgage2010                  373.11 USD
+  Expenses:Personal:Properties:MainHouse:MortgageInterest          432.12 USD
+  Expenses:Personal:BankOne:Loans:Mortgage2010:Escrow              250.00 USD
+
+2025-03-15 * "BankOne Mortgage Servicing" "Mortgage payment (interest 430.56, principal 374.67, escrow 250.00)"
+  lamella-txn-id: "28f08b01-48de-43a1-81a3-4942cee10ec0"
+  lamella-loan-slug: "Mortgage2010"
+  Assets:Personal:BankOne:Checking                               -1055.23 USD
+  Liabilities:Personal:BankOne:Loans:Mortgage2010                  374.67 USD
+  Expenses:Personal:Properties:MainHouse:MortgageInterest          430.56 USD
+  Expenses:Personal:BankOne:Loans:Mortgage2010:Escrow              250.00 USD
+
+2025-04-15 * "BankOne Mortgage Servicing" "Mortgage payment (interest 429.00, principal 376.23, escrow 250.00)"
+  lamella-txn-id: "7c3f83fd-ea33-402d-933d-cb0a79093bcb"
+  lamella-loan-slug: "Mortgage2010"
+  Assets:Personal:BankOne:Checking                               -1055.23 USD
+  Liabilities:Personal:BankOne:Loans:Mortgage2010                  376.23 USD
+  Expenses:Personal:Properties:MainHouse:MortgageInterest          429.00 USD
+  Expenses:Personal:BankOne:Loans:Mortgage2010:Escrow              250.00 USD
+
+2025-05-15 * "BankOne Mortgage Servicing" "Mortgage payment (interest 427.43, principal 377.80, escrow 250.00)"
+  lamella-txn-id: "403d1259-7b79-440d-a502-734a5a32e07a"
+  lamella-loan-slug: "Mortgage2010"
+  Assets:Personal:BankOne:Checking                               -1055.23 USD
+  Liabilities:Personal:BankOne:Loans:Mortgage2010                  377.80 USD
+  Expenses:Personal:Properties:MainHouse:MortgageInterest          427.43 USD
+  Expenses:Personal:BankOne:Loans:Mortgage2010:Escrow              250.00 USD
+
+2025-06-15 * "BankOne Mortgage Servicing" "Mortgage payment (interest 425.86, principal 379.37, escrow 250.00)"
+  lamella-txn-id: "2a187af6-5d1c-4bba-9f26-07bc87ee8054"
+  lamella-loan-slug: "Mortgage2010"
+  Assets:Personal:BankOne:Checking                               -1055.23 USD
+  Liabilities:Personal:BankOne:Loans:Mortgage2010                  379.37 USD
+  Expenses:Personal:Properties:MainHouse:MortgageInterest          425.86 USD
+  Expenses:Personal:BankOne:Loans:Mortgage2010:Escrow              250.00 USD
+
+2025-07-15 * "BankOne Mortgage Servicing" "Mortgage payment (interest 424.28, principal 380.95, escrow 250.00)"
+  lamella-txn-id: "7b12fc2d-85c4-4f9f-8bb0-249322e5865e"
+  lamella-loan-slug: "Mortgage2010"
+  Assets:Personal:BankOne:Checking                               -1055.23 USD
+  Liabilities:Personal:BankOne:Loans:Mortgage2010                  380.95 USD
+  Expenses:Personal:Properties:MainHouse:MortgageInterest          424.28 USD
+  Expenses:Personal:BankOne:Loans:Mortgage2010:Escrow              250.00 USD
+
+2025-08-15 * "BankOne Mortgage Servicing" "Mortgage payment (interest 422.69, principal 382.54, escrow 250.00)"
+  lamella-txn-id: "fec3f814-afd4-44ea-9f27-e236e54c8ad8"
+  lamella-loan-slug: "Mortgage2010"
+  Assets:Personal:BankOne:Checking                               -1055.23 USD
+  Liabilities:Personal:BankOne:Loans:Mortgage2010                  382.54 USD
+  Expenses:Personal:Properties:MainHouse:MortgageInterest          422.69 USD
+  Expenses:Personal:BankOne:Loans:Mortgage2010:Escrow              250.00 USD
+
+2025-09-15 * "BankOne Mortgage Servicing" "Mortgage payment (interest 421.10, principal 384.13, escrow 250.00)"
+  lamella-txn-id: "e0e3dcd4-0060-4fad-b13f-b0ca3f876b8e"
+  lamella-loan-slug: "Mortgage2010"
+  Assets:Personal:BankOne:Checking                               -1055.23 USD
+  Liabilities:Personal:BankOne:Loans:Mortgage2010                  384.13 USD
+  Expenses:Personal:Properties:MainHouse:MortgageInterest          421.10 USD
+  Expenses:Personal:BankOne:Loans:Mortgage2010:Escrow              250.00 USD
+
+2025-10-15 * "BankOne Mortgage Servicing" "Mortgage payment (interest 419.50, principal 385.73, escrow 250.00)"
+  lamella-txn-id: "9e500603-9f94-441c-b601-5673ccb32a2a"
+  lamella-loan-slug: "Mortgage2010"
+  Assets:Personal:BankOne:Checking                               -1055.23 USD
+  Liabilities:Personal:BankOne:Loans:Mortgage2010                  385.73 USD
+  Expenses:Personal:Properties:MainHouse:MortgageInterest          419.50 USD
+  Expenses:Personal:BankOne:Loans:Mortgage2010:Escrow              250.00 USD
+
+2025-11-15 * "BankOne Mortgage Servicing" "Mortgage payment (interest 417.89, principal 387.34, escrow 250.00)"
+  lamella-txn-id: "b96c01e7-3bad-473f-bd60-cc61ac633d3d"
+  lamella-loan-slug: "Mortgage2010"
+  Assets:Personal:BankOne:Checking                               -1055.23 USD
+  Liabilities:Personal:BankOne:Loans:Mortgage2010                  387.34 USD
+  Expenses:Personal:Properties:MainHouse:MortgageInterest          417.89 USD
+  Expenses:Personal:BankOne:Loans:Mortgage2010:Escrow              250.00 USD
+
+2025-12-15 * "BankOne Mortgage Servicing" "Mortgage payment (interest 416.27, principal 388.96, escrow 250.00)"
+  lamella-txn-id: "1c6945b4-4bef-43bc-9e04-303114d70a2b"
+  lamella-loan-slug: "Mortgage2010"
+  Assets:Personal:BankOne:Checking                               -1055.23 USD
+  Liabilities:Personal:BankOne:Loans:Mortgage2010                  388.96 USD
+  Expenses:Personal:Properties:MainHouse:MortgageInterest          416.27 USD
+  Expenses:Personal:BankOne:Loans:Mortgage2010:Escrow              250.00 USD
+
+2025-11-15 * "County Treasurer" "Annual property tax balance"
+  lamella-txn-id: "9a4e3ddf-a705-47a9-b4c8-4afcd3082394"
+  schedule: "A-line-5b"
+  note: "Annual property tax — escrow shortage settle-up."
+  Assets:Personal:BankOne:Checking                                -650.00 USD
+  Expenses:Personal:Properties:MainHouse:PropertyTax               650.00 USD
+
+2025-06-01 * "Acme Insurance Group" "Homeowners insurance — annual rider"
+  lamella-txn-id: "ac468cad-a582-4807-a26d-26cb2501b044"
+  Assets:Personal:BankOne:Checking                                -285.00 USD
+  Expenses:Personal:Properties:MainHouse:Insurance                 285.00 USD
+
+2025-04-15 * "US Treasury" "Quarterly estimated federal income tax"
+  lamella-txn-id: "88cb708c-2a31-43ab-9827-c9825897c84f"
+  schedule: "1040-ES"
+  Assets:Personal:BankOne:Checking                                -450.00 USD
+  Expenses:Personal:Tax:Federal                                    450.00 USD
+
+2025-06-15 * "US Treasury" "Quarterly estimated federal income tax"
+  lamella-txn-id: "aa725e43-4ec3-4e7f-8a25-6794f5d3c786"
+  schedule: "1040-ES"
+  Assets:Personal:BankOne:Checking                                -450.00 USD
+  Expenses:Personal:Tax:Federal                                    450.00 USD
+
+2025-09-15 * "US Treasury" "Quarterly estimated federal income tax"
+  lamella-txn-id: "b6b0faa6-7fa4-4156-a0ef-714631dc53f7"
+  schedule: "1040-ES"
+  Assets:Personal:BankOne:Checking                                -450.00 USD
+  Expenses:Personal:Tax:Federal                                    450.00 USD
+
+2025-07-12 * "TripStone Travel" "Summer family vacation package"
+  lamella-txn-id: "87735e88-da03-451e-8a2f-c6c0f7210ea8"
+  note: "Annual vacation; paid from savings."
+  Assets:Personal:BankOne:Savings                                -2800.00 USD
+  Expenses:Personal:Entertainment                                 2800.00 USD
+
+2025-01-07 * "Riverbend Fitness" "Gym membership — monthly"
+  lamella-txn-id: "edab69dd-2e67-4fd0-a903-59870220669a"
+  Assets:Personal:BankOne:Checking                                 -49.00 USD
+  Expenses:Personal:Healthcare                                      49.00 USD
+
+2025-02-07 * "Riverbend Fitness" "Gym membership — monthly"
+  lamella-txn-id: "69a59bcf-0edd-4081-8088-82b81e29e0c7"
+  Assets:Personal:BankOne:Checking                                 -49.00 USD
+  Expenses:Personal:Healthcare                                      49.00 USD
+
+2025-03-07 * "Riverbend Fitness" "Gym membership — monthly"
+  lamella-txn-id: "873ff398-d3b6-4a90-8fa0-f5e532372433"
+  Assets:Personal:BankOne:Checking                                 -49.00 USD
+  Expenses:Personal:Healthcare                                      49.00 USD
+
+2025-04-07 * "Riverbend Fitness" "Gym membership — monthly"
+  lamella-txn-id: "adfda6cb-6aeb-4f6e-bcb2-8274cbc7dbc6"
+  Assets:Personal:BankOne:Checking                                 -49.00 USD
+  Expenses:Personal:Healthcare                                      49.00 USD
+
+2025-05-07 * "Riverbend Fitness" "Gym membership — monthly"
+  lamella-txn-id: "0e138caa-25bb-4664-90dc-3c029364a9b0"
+  Assets:Personal:BankOne:Checking                                 -49.00 USD
+  Expenses:Personal:Healthcare                                      49.00 USD
+
+2025-06-07 * "Riverbend Fitness" "Gym membership — monthly"
+  lamella-txn-id: "54354c40-5aaf-4101-95ef-d22f59658487"
+  Assets:Personal:BankOne:Checking                                 -49.00 USD
+  Expenses:Personal:Healthcare                                      49.00 USD
+
+2025-07-07 * "Riverbend Fitness" "Gym membership — monthly"
+  lamella-txn-id: "7bf967aa-04e1-4984-8b63-efafb705f6bc"
+  Assets:Personal:BankOne:Checking                                 -49.00 USD
+  Expenses:Personal:Healthcare                                      49.00 USD
+
+2025-08-07 * "Riverbend Fitness" "Gym membership — monthly"
+  lamella-txn-id: "8adfd299-293d-45eb-8c4e-25e07ea4e15b"
+  Assets:Personal:BankOne:Checking                                 -49.00 USD
+  Expenses:Personal:Healthcare                                      49.00 USD
+
+2025-09-07 * "Riverbend Fitness" "Gym membership — monthly"
+  lamella-txn-id: "fc30c4a8-ba62-4b74-a69a-24975620b4a5"
+  Assets:Personal:BankOne:Checking                                 -49.00 USD
+  Expenses:Personal:Healthcare                                      49.00 USD
+
+2025-10-07 * "Riverbend Fitness" "Gym membership — monthly"
+  lamella-txn-id: "a2a358c8-4d11-4cbe-8118-c99dda099808"
+  Assets:Personal:BankOne:Checking                                 -49.00 USD
+  Expenses:Personal:Healthcare                                      49.00 USD
+
+2025-11-07 * "Riverbend Fitness" "Gym membership — monthly"
+  lamella-txn-id: "8a10fee8-3045-4338-984a-967e2800b476"
+  Assets:Personal:BankOne:Checking                                 -49.00 USD
+  Expenses:Personal:Healthcare                                      49.00 USD
+
+2025-12-07 * "Riverbend Fitness" "Gym membership — monthly"
+  lamella-txn-id: "96024bca-cbcc-42bc-b67b-b01a8c5f7023"
+  Assets:Personal:BankOne:Checking                                 -49.00 USD
+  Expenses:Personal:Healthcare                                      49.00 USD
+
+2025-03-31 * "BankOne" "Savings interest credit"
+  lamella-txn-id: "de699a8b-4655-430e-848b-50f0b354e72d"
+  Assets:Personal:BankOne:Savings                                    8.42 USD
+  Income:Personal:Interest:BankOne                                  -8.42 USD
+
+2025-06-30 * "BankOne" "Savings interest credit"
+  lamella-txn-id: "951db383-5278-4c47-9ead-caa362b1ec43"
+  Assets:Personal:BankOne:Savings                                    9.18 USD
+  Income:Personal:Interest:BankOne                                  -9.18 USD
+
+2025-09-30 * "BankOne" "Savings interest credit"
+  lamella-txn-id: "de477f83-ad2d-418c-9e85-076ff4b265da"
+  Assets:Personal:BankOne:Savings                                   10.05 USD
+  Income:Personal:Interest:BankOne                                 -10.05 USD
+
+2025-12-31 * "BankOne" "Savings interest credit"
+  lamella-txn-id: "a4904e72-85d5-47a0-8811-7f2d00e2e370"
+  Assets:Personal:BankOne:Savings                                   10.94 USD
+  Income:Personal:Interest:BankOne                                 -10.94 USD
+
+2025-01-22 * "Credit card auto-pay (January)"
+  lamella-txn-id: "1fb91052-2131-42c4-b030-eb731061e169"
+  Assets:Personal:BankOne:Checking                                -840.00 USD
+  Liabilities:Personal:BankOne:Card                                840.00 USD
+
+2025-02-22 * "Credit card auto-pay (February)"
+  lamella-txn-id: "daac1e0f-5d9d-439a-b9c4-a1b28a5400d1"
+  Assets:Personal:BankOne:Checking                                -765.00 USD
+  Liabilities:Personal:BankOne:Card                                765.00 USD
+
+2025-03-22 * "Credit card auto-pay (March)"
+  lamella-txn-id: "047fe0fd-db3f-4344-a622-35d8085124bc"
+  Assets:Personal:BankOne:Checking                                -920.00 USD
+  Liabilities:Personal:BankOne:Card                                920.00 USD
+
+2025-04-22 * "Credit card auto-pay (April)"
+  lamella-txn-id: "8bf3b6ff-a38c-40d2-b544-91545ad80783"
+  Assets:Personal:BankOne:Checking                                -710.00 USD
+  Liabilities:Personal:BankOne:Card                                710.00 USD
+
+2025-05-22 * "Credit card auto-pay (May)"
+  lamella-txn-id: "87a1032e-8cc6-42a7-9a69-a2c22fe30c8c"
+  Assets:Personal:BankOne:Checking                                -885.00 USD
+  Liabilities:Personal:BankOne:Card                                885.00 USD
+
+2025-06-22 * "Credit card auto-pay (June)"
+  lamella-txn-id: "a32c22b8-5b6b-466a-9e8e-ec9130c95c38"
+  Assets:Personal:BankOne:Checking                               -1010.00 USD
+  Liabilities:Personal:BankOne:Card                               1010.00 USD
+
+2025-07-22 * "Credit card auto-pay (July)"
+  lamella-txn-id: "4e7b9eab-5bb9-425d-b5cb-229b6f8aba6d"
+  Assets:Personal:BankOne:Checking                                -795.00 USD
+  Liabilities:Personal:BankOne:Card                                795.00 USD
+
+2025-08-22 * "Credit card auto-pay (August)"
+  lamella-txn-id: "acfa4936-35ba-4675-be12-237feda8e275"
+  Assets:Personal:BankOne:Checking                                -875.00 USD
+  Liabilities:Personal:BankOne:Card                                875.00 USD
+
+2025-09-22 * "Credit card auto-pay (September)"
+  lamella-txn-id: "eb447b64-5167-40f3-b06f-9635b8303b65"
+  Assets:Personal:BankOne:Checking                                -960.00 USD
+  Liabilities:Personal:BankOne:Card                                960.00 USD
+
+2025-10-22 * "Credit card auto-pay (October)"
+  lamella-txn-id: "071c298f-605b-404e-b085-fb577c57ad5e"
+  Assets:Personal:BankOne:Checking                                -805.00 USD
+  Liabilities:Personal:BankOne:Card                                805.00 USD
+
+2025-11-22 * "Credit card auto-pay (November)"
+  lamella-txn-id: "8f582790-0b6b-40ab-a92c-bd87c1cc16fa"
+  Assets:Personal:BankOne:Checking                                -890.00 USD
+  Liabilities:Personal:BankOne:Card                                890.00 USD
+
+2025-12-22 * "Credit card auto-pay (December)"
+  lamella-txn-id: "5fb56f88-4a67-4500-b0cd-6b72c714f65d"
+  Assets:Personal:BankOne:Checking                                -950.00 USD
+  Liabilities:Personal:BankOne:Card                                950.00 USD
+
+2025-01-28 * "Owner draw → personal savings (January)"
+  lamella-txn-id: "76079274-5062-4202-917e-634eb50dff56"
+  Assets:Acme:BankOne:Checking                                    -300.00 USD
+  Equity:Acme:OwnerDraws                                           300.00 USD
+  Assets:Personal:BankOne:Savings                                  300.00 USD
+  Equity:Personal:OwnerCapital                                    -300.00 USD
+
+2025-02-28 * "Owner draw → personal savings (February)"
+  lamella-txn-id: "2c400e17-62a0-4ee9-973f-018f4c83e658"
+  Assets:Acme:BankOne:Checking                                    -300.00 USD
+  Equity:Acme:OwnerDraws                                           300.00 USD
+  Assets:Personal:BankOne:Savings                                  300.00 USD
+  Equity:Personal:OwnerCapital                                    -300.00 USD
+
+2025-03-28 * "Owner draw → personal savings (March)"
+  lamella-txn-id: "5823f532-311d-4c23-bf12-25a274d6391c"
+  Assets:Acme:BankOne:Checking                                    -300.00 USD
+  Equity:Acme:OwnerDraws                                           300.00 USD
+  Assets:Personal:BankOne:Savings                                  300.00 USD
+  Equity:Personal:OwnerCapital                                    -300.00 USD
+
+2025-04-28 * "Owner draw → personal savings (April)"
+  lamella-txn-id: "dca4c50f-288d-4f73-9ee7-2293d56c4478"
+  Assets:Acme:BankOne:Checking                                    -300.00 USD
+  Equity:Acme:OwnerDraws                                           300.00 USD
+  Assets:Personal:BankOne:Savings                                  300.00 USD
+  Equity:Personal:OwnerCapital                                    -300.00 USD
+
+2025-05-28 * "Owner draw → personal savings (May)"
+  lamella-txn-id: "5fe3570d-a723-463d-a4fc-f216fc04b02f"
+  Assets:Acme:BankOne:Checking                                    -300.00 USD
+  Equity:Acme:OwnerDraws                                           300.00 USD
+  Assets:Personal:BankOne:Savings                                  300.00 USD
+  Equity:Personal:OwnerCapital                                    -300.00 USD
+
+2025-06-28 * "Owner draw → personal savings (June)"
+  lamella-txn-id: "ed1e93cd-5102-49e1-8918-37826b58ef94"
+  Assets:Acme:BankOne:Checking                                    -300.00 USD
+  Equity:Acme:OwnerDraws                                           300.00 USD
+  Assets:Personal:BankOne:Savings                                  300.00 USD
+  Equity:Personal:OwnerCapital                                    -300.00 USD
+
+2025-07-28 * "Owner draw → personal savings (July)"
+  lamella-txn-id: "5202aff2-339d-458b-af22-6f98909a9e27"
+  Assets:Acme:BankOne:Checking                                    -300.00 USD
+  Equity:Acme:OwnerDraws                                           300.00 USD
+  Assets:Personal:BankOne:Savings                                  300.00 USD
+  Equity:Personal:OwnerCapital                                    -300.00 USD
+
+2025-08-28 * "Owner draw → personal savings (August)"
+  lamella-txn-id: "00aacb70-79dd-416c-a0d1-710e8d417da0"
+  Assets:Acme:BankOne:Checking                                    -300.00 USD
+  Equity:Acme:OwnerDraws                                           300.00 USD
+  Assets:Personal:BankOne:Savings                                  300.00 USD
+  Equity:Personal:OwnerCapital                                    -300.00 USD
+
+2025-09-28 * "Owner draw → personal savings (September)"
+  lamella-txn-id: "5c6b52e0-4be0-4196-926d-7385cd0fd2db"
+  Assets:Acme:BankOne:Checking                                    -300.00 USD
+  Equity:Acme:OwnerDraws                                           300.00 USD
+  Assets:Personal:BankOne:Savings                                  300.00 USD
+  Equity:Personal:OwnerCapital                                    -300.00 USD
+
+2025-10-28 * "Owner draw → personal savings (October)"
+  lamella-txn-id: "aa680e7f-e4bb-44f5-b496-80add0951c9e"
+  Assets:Acme:BankOne:Checking                                    -300.00 USD
+  Equity:Acme:OwnerDraws                                           300.00 USD
+  Assets:Personal:BankOne:Savings                                  300.00 USD
+  Equity:Personal:OwnerCapital                                    -300.00 USD
+
+2025-11-28 * "Owner draw → personal savings (November)"
+  lamella-txn-id: "2ca9c792-00ef-48ed-bed1-50942a6d9d3a"
+  Assets:Acme:BankOne:Checking                                    -300.00 USD
+  Equity:Acme:OwnerDraws                                           300.00 USD
+  Assets:Personal:BankOne:Savings                                  300.00 USD
+  Equity:Personal:OwnerCapital                                    -300.00 USD
+
+2025-12-28 * "Owner draw → personal savings (December)"
+  lamella-txn-id: "88a0f73f-aeed-44df-8a4d-45044270f78e"
+  Assets:Acme:BankOne:Checking                                    -300.00 USD
+  Equity:Acme:OwnerDraws                                           300.00 USD
+  Assets:Personal:BankOne:Savings                                  300.00 USD
+  Equity:Personal:OwnerCapital                                    -300.00 USD
+
+2025-04-15 * "US Treasury" "Quarterly self-employment estimated tax"
+  lamella-txn-id: "103d5104-6e17-4c60-b57d-8aca3020f608"
+  schedule: "1040-ES — SE tax portion"
+  Assets:Acme:BankOne:Checking                                   -3500.00 USD
+  Equity:Acme:OwnerDraws                                          3500.00 USD
+  Expenses:Personal:Tax:Federal                                   3500.00 USD
+  Equity:Personal:OwnerCapital                                   -3500.00 USD
+
+2025-06-15 * "US Treasury" "Quarterly self-employment estimated tax"
+  lamella-txn-id: "dbb16f32-5be3-4f18-a9d5-0033a0ee9911"
+  schedule: "1040-ES — SE tax portion"
+  Assets:Acme:BankOne:Checking                                   -3500.00 USD
+  Equity:Acme:OwnerDraws                                          3500.00 USD
+  Expenses:Personal:Tax:Federal                                   3500.00 USD
+  Equity:Personal:OwnerCapital                                   -3500.00 USD
+
+2025-09-15 * "US Treasury" "Quarterly self-employment estimated tax"
+  lamella-txn-id: "1bedb472-5ffd-43a4-b6ae-36ff9165b894"
+  schedule: "1040-ES — SE tax portion"
+  Assets:Acme:BankOne:Checking                                   -3500.00 USD
+  Equity:Acme:OwnerDraws                                          3500.00 USD
+  Expenses:Personal:Tax:Federal                                   3500.00 USD
+  Equity:Personal:OwnerCapital                                   -3500.00 USD
+
+2025-12-31 * "Year-end mileage deduction — 1755.9 business mi × $0.67/mi" #lamella-mileage
+  lamella-txn-id: "135d4857-148c-452c-9648-e6c50437189c"
+  lamella-mileage-vehicle: "V2018Sedan"
+  lamella-mileage-entity: "Acme"
+  lamella-mileage-miles: 1755.90
+  lamella-mileage-rate: 0.67
+  Expenses:Acme:Vehicles:V2018Sedan:Mileage                       1176.45 USD
+  Equity:Acme:Vehicles:V2018Sedan:MileageDeductions              -1176.45 USD

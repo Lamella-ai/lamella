@@ -1,0 +1,60 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "setup_recovery/_layout.html" %}
+
+{% block title %}Confirm migration — Recovery — Lamella{% endblock %}
+
+{% block step_heading %}Confirm: {{ finding.summary }}{% endblock %}
+{% block step_subheading %}
+  {% if preview.kind == 'unsupported' or not supports_dry_run %}
+    This migration cannot be previewed cleanly. Read the description
+    below and confirm before applying — the bean-snapshot envelope
+    rolls back any partial state if bean-check fails.
+  {% else %}
+    Review the planned changes below, then click Apply to write.
+    Failure rolls back atomically.
+  {% endif %}
+{% endblock %}
+
+{% block step_body %}
+  {% set fix = finding.proposed_fix_dict %}
+  {% set axis_label = 'SQLite' if fix.get('axis') == 'sqlite' else 'Ledger' %}
+
+  <div class="wiz-card" style="padding:1.2em 1.4em; margin-bottom:1em;">
+    <div style="display:flex; gap:0.6em; align-items:center; margin-bottom:0.5em;">
+      <span class="badge required"
+            style="font-size:0.78em; padding:0.15em 0.55em; border-radius:3px; font-weight:600; letter-spacing:0.04em;">
+        BLOCKER
+      </span>
+      <span class="small muted" style="font-family:var(--font-mono);">
+        {{ axis_label }} axis &middot; v{{ fix.get('from_version') }} → v{{ fix.get('to_version') }}
+      </span>
+    </div>
+    <h3 style="margin:0.2em 0 0.6em;">{{ preview.summary }}</h3>
+    {% if preview.detail %}
+      <pre class="small"
+           style="white-space:pre-wrap; line-height:1.55; margin:0; padding:0.8em 1em; background:var(--bg); border:1px solid var(--border); border-radius:4px; font-family:var(--font-mono);">{{ preview.detail }}</pre>
+    {% endif %}
+  </div>
+
+  <form method="post" action="/setup/recovery/schema/heal" style="margin:0;">
+    <input type="hidden" name="finding_id" value="{{ finding.id }}" />
+    <div style="display:flex; gap:0.6em; align-items:center; flex-wrap:wrap;">
+      <button type="submit" class="wiz-btn wiz-btn-primary">
+        Apply migration
+      </button>
+      <a href="/setup/recovery/schema" class="wiz-btn wiz-btn-secondary">
+        Cancel
+      </a>
+    </div>
+  </form>
+{% endblock %}
+
+{% block step_actions %}
+{% endblock %}

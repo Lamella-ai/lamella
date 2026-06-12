@@ -1,0 +1,247 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Accounts — Settings{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Accounts{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Accounts',
+     subtitle='Bank, credit card, loan, and asset accounts grouped by entity. Set display name, kind, last-four, and institution so reports and the card UX can render them as something human-readable.',
+     kicker='Settings'
+) %}
+{% endcall %}
+
+{% if saved %}{% call F.banner(tone='ok', title='Saved') %}Saved {{ saved }}.{% endcall %}{% endif %}
+
+<datalist id="institutions-datalist"></datalist>
+<datalist id="last-fours-datalist"></datalist>
+<datalist id="account-kinds-datalist">
+  {% for k in account_kinds %}<option value="{{ k }}" label="{{ k | humanize }}">{% endfor %}
+</datalist>
+<datalist id="account-entities-datalist">
+  {% for e in entities %}<option value="{{ e.slug }}" label="{{ e.display_name or e.slug }}">{% endfor %}
+</datalist>
+<script>
+  fetch('/api/accounts-meta-suggestions', { credentials: 'same-origin' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => {
+      if (!data) return;
+      const fill = (listId, values) => {
+        const dl = document.getElementById(listId);
+        if (!dl || !Array.isArray(values)) return;
+        for (const v of values) {
+          const o = document.createElement('option');
+          o.value = v;
+          dl.appendChild(o);
+        }
+      };
+      fill('institutions-datalist', data.institutions);
+      fill('last-fours-datalist', data.last_fours);
+    })
+    .catch(() => undefined);
+</script>
+
+{% call C.card() %}
+<form method="get" action="/settings/accounts" class="form-grid" style="max-width:none">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label" style="display:flex; gap:8px; align-items:center; font-size:0.92rem">
+        <input type="checkbox" name="show_system" value="true" {% if show_system %}checked{% endif %} onchange="this.form.submit()" />
+        Show system accounts (opening balances, clearing, etc.)
+      </label>
+      <p class="subtle" style="margin:6px 0 0">
+        {% if hidden_count and not show_system %}{{ hidden_count }} hidden · {% endif %}{{ total_accounts }} accounts total
+      </p>
+    </div>
+    <div class="field" style="align-self:end">
+      <form method="post" action="/settings/accounts-cleanup-system"
+            data-confirm="Delete unlabeled rows for Equity:OpeningBalances:*, Assets:Clearing:*, etc.? Only rows with no user metadata will be removed."
+            data-confirm-button="Remove seeded rows">
+        {{ B.btn('Remove seeded system accounts', type='submit', variant='ghost', size='sm') }}
+      </form>
+    </div>
+  </div>
+</form>
+{% endcall %}
+
+{% for g in groups %}
+{% call L.section(title=g.display, subtitle='%d account%s' % (g.count, '' if g.count == 1 else 's')) %}
+<div id="entity-{{ g.slug }}">
+  {% for kind_name, rows in g.kinds %}
+  {% call C.card(title=kind_name, subtitle='%d' % rows|length, flush=true) %}
+  <ul class="account-list">
+    {% for a in rows %}
+      {% include "partials/account_row.html" %}
+    {% endfor %}
+  </ul>
+  {% endcall %}
+  {% endfor %}
+</div>
+{% endcall %}
+{% endfor %}
+
+<section id="add-account" style="margin-top:2rem"></section>
+{% call L.section(title='Create new account', subtitle='Only use this if the account doesn’t already exist in Beancount. For existing accounts, edit the row above.') %}
+<datalist id="accounts-datalist"></datalist>
+
+{% call L.form_split() %}
+
+{% call L.form_col() %}
+<form method="post" action="/settings/accounts-new" autocomplete="off"
+      class="form-split-form--paired">
+
+  {% call C.card(title='Identity') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label">Display name</label>
+        <input class="field-input" type="text" name="display_name" required autocomplete="off" />
+      </div>
+      <div class="field">
+        <label class="field-label">Full account path</label>
+        <input class="field-input" type="text" name="account_path" list="accounts-datalist"
+               pattern="(Assets|Liabilities|Equity|Income|Expenses):[A-Za-z0-9:-]+" required autocomplete="off"
+               placeholder="Assets:Personal:Bank:Checking" />
+      </div>
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Path</h3>
+    <p>Must start with <code>Assets</code>, <code>Liabilities</code>, <code>Equity</code>, <code>Income</code>, or <code>Expenses</code> and follow entity-first ordering: <code>&lt;Root&gt;:&lt;Entity&gt;:&lt;Category&gt;:&lt;Slug&gt;</code>. Bank-only fields below are ignored for Expenses / Income / Equity rows.</p>
+    <p><strong>Display name</strong> is what shows in pickers; the path is what Beancount stores.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Kind & entity') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label">Kind</label>
+        <input class="field-input" type="text" name="kind" list="account-kinds-datalist" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label class="field-label">Entity</label>
+        <input class="field-input" type="text" name="entity_slug" list="account-entities-datalist" autocomplete="off" />
+      </div>
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Kind</h3>
+    <p>Drives which UI surfaces this account: <code>checking</code> + <code>savings</code> show on dashboards; <code>credit_card</code> in the cards UI; <code>loan</code> in the loans UI; <code>asset_book_value</code> for vehicles + properties.</p>
+    <h3>Entity</h3>
+    <p>Determines the tax schedule rollup. Set this on every actively-used account.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Institution') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label">Institution</label>
+        <input class="field-input" type="text" name="institution" list="institutions-datalist" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label class="field-label">Last 4</label>
+        <input class="field-input" type="text" name="last_four" maxlength="4" list="last-fours-datalist" autocomplete="off" />
+      </div>
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Institution + last four</h3>
+    <p>Disambiguate between cards and accounts at the same bank. Both fields are optional but improve picker readability dramatically.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='SimpleFIN & open date') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label">SimpleFIN account ID (optional)</label>
+        <input class="field-input" type="text" name="simplefin_account_id" />
+      </div>
+      <div class="field">
+        <label class="field-label">Opened on (optional)</label>
+        <input class="field-input" type="date" name="opened_on" />
+      </div>
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block tone-warn">
+    <h3>SimpleFIN ID</h3>
+    <p>Paste the SimpleFIN <code>account_id</code> if the bank exposes this account through SimpleFIN. The periodic pull will land transactions here automatically.</p>
+    <h3>Opened on</h3>
+    <p>Emits a Beancount <code>Open</code> directive on this date. Defaults to today if blank.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Bundle scaffolding') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="field">
+      <label style="display:flex; gap:8px; align-items:center; font-size:0.92rem">
+        <input type="checkbox" name="create_bundle" value="1" checked />
+        Also create related accounts (opening balance; for credit cards: interest + fees; for savings: interest income)
+      </label>
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Bundle scaffolding</h3>
+    <p>Saves you from setting up the obvious siblings by hand. For a checking account that means an opening-balance equity row; for a credit card it means matching interest + fee expense accounts; for a savings account it means an interest-income account.</p>
+    <p>Uncheck only if you intend to wire these up manually for a non-standard layout.</p>
+  </div>
+  {% endcall %}
+
+  <div class="form-actions" style="margin-top:1.5rem">
+    <span class="spacer"></span>{{ B.btn('Create account', type='submit', variant='primary', icon=icon.plus()) }}
+  </div>
+</form>
+{% endcall %}
+
+{% call L.help_col() %}{% endcall %}
+
+{% endcall %}
+
+<script>
+  fetch('/api/accounts', { credentials: 'same-origin' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => {
+      if (!data || !Array.isArray(data.all)) return;
+      const dl = document.getElementById('accounts-datalist');
+      const labels = (data.labels && typeof data.labels === 'object') ? data.labels : {};
+      window.__acctLabels = labels;
+      for (const name of data.all) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        if (labels[name] && labels[name] !== name) opt.label = labels[name];
+        dl.appendChild(opt);
+      }
+    })
+    .catch(() => undefined);
+</script>
+{% endcall %}
+
+<p class="subtle" style="margin-top:1.5rem"><a href="/settings">← back to Settings</a></p>
+{% endblock %}

@@ -1,0 +1,120 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Recurring expenses — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Recurring{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Recurring expenses',
+     subtitle='Subscriptions, rent, insurance premiums — anything that hits on a schedule. Confirm one and the category becomes a rule, plus budgets can track expected vs. actual.',
+     kicker='Library'
+) %}
+  <form hx-post="/recurring/scan" hx-target="body" hx-swap="beforeend" style="display:inline">
+    {{ B.btn('Scan now', type='submit', icon=icon.refresh()) }}
+  </form>
+{% endcall %}
+
+{% if error %}{% call F.banner(tone='err', title='Error') %}{{ error }}{% endcall %}{% endif %}
+{% if message %}{% call F.banner(tone='ok', title='Done') %}{{ message }}{% endcall %}{% endif %}
+
+{% if last_run %}
+<p class="subtle" style="margin-bottom:1.5rem">
+  Last scan: window={{ last_run.scan_window_days }}d ·
+  candidates={{ last_run.candidates_found }} ·
+  new={{ last_run.new_proposals }} ·
+  updates={{ last_run.updates }}
+</p>
+{% endif %}
+
+<datalist id="accounts-datalist"></datalist>
+
+{% call L.section(title='Proposed', subtitle='%d need confirmation' % proposed|length if proposed else '') %}
+{% if proposed %}
+{% call C.card(flush=true) %}
+<ul class="phone-list" style="margin:0; padding:0">
+  {% for r in proposed %}
+    {% include "partials/recurring_confirmation_card.html" %}
+  {% endfor %}
+</ul>
+{% endcall %}
+{% else %}
+{{ F.empty_state('No proposals — run a scan or wait for the weekly job.') }}
+{% endif %}
+{% endcall %}
+
+{% call L.section(title='Confirmed', subtitle=('%d total' % confirmed|length) if confirmed else '') %}
+{% if confirmed %}
+{% call C.card(flush=true) %}
+<ul class="phone-list" style="margin:0; padding:0">
+  {% for r in confirmed %}
+    {% include "partials/recurring_row.html" %}
+  {% endfor %}
+</ul>
+{% endcall %}
+{% else %}
+{{ F.empty_state('Nothing confirmed yet.') }}
+{% endif %}
+{% endcall %}
+
+{% if ignored %}
+{% call L.section(title='Ignored', subtitle='%d hidden from reports' % ignored|length) %}
+{% call C.card(flush=true) %}
+<ul class="phone-list" style="margin:0; padding:0">
+  {% for r in ignored %}
+    {% include "partials/recurring_row.html" %}
+  {% endfor %}
+</ul>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+{% call L.section(
+     title='Stopped',
+     subtitle='Subscriptions you cancelled — kept for variance reports'
+) %}
+{% if stopped %}
+{% call C.card(flush=true) %}
+<ul class="phone-list" style="margin:0; padding:0">
+  {% for r in stopped %}
+    {% include "partials/recurring_row.html" %}
+  {% endfor %}
+</ul>
+{% endcall %}
+{% else %}
+{{ F.empty_state('None yet.') }}
+{% endif %}
+{% endcall %}
+
+<script>
+  fetch('/api/accounts', {credentials:'same-origin'})
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      if (!d || !Array.isArray(d.all)) return;
+      const dl = document.getElementById('accounts-datalist');
+      const labels = (d.labels && typeof d.labels === 'object') ? d.labels : {};
+      window.__acctLabels = labels;
+      for (const n of d.all) {
+        const o = document.createElement('option');
+        o.value = n;
+        if (labels[n] && labels[n] !== n) o.label = labels[n];
+        dl.appendChild(o);
+      }
+    })
+    .catch(() => undefined);
+</script>
+{% endblock %}

@@ -1,0 +1,189 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+-->
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/buttons.html" as B %}
+{% import "_components/feedback.html" as F %}
+
+{% block title %}Reports — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Reports{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Reports' ~ (' · ' ~ entity_filter if entity_filter else ''),
+     subtitle='Tax-ready exports per entity per year. Click "View" for the in-app HTML report; "PDF" downloads the form-shaped tax document; "CSV" opens the line-itemized data.',
+     kicker='Insights'
+) %}
+  {% if entity_filter %}
+    {{ B.btn('✗ Clear ' ~ entity_filter ~ ' filter', href='/reports', variant='ghost', size='sm') }}
+  {% endif %}
+{% endcall %}
+
+{# Per-entity tax-schedule reports (Schedule C / Schedule F).
+   Each entity gets one section with a year matrix. Personal-only
+   entities (no tax_schedule) are skipped here — they still get the
+   non-tax reports below.
+#}
+{% set _scheduled_entities = entities_with_schedule | selectattr('tax_schedule') | list %}
+{% set _unscheduled_entities = entities_with_schedule | rejectattr('tax_schedule') | list %}
+
+{% if _scheduled_entities %}
+{% for e in _scheduled_entities %}
+  {% set _is_c = e.tax_schedule and e.tax_schedule|upper == 'C' %}
+  {% set _is_f = e.tax_schedule and e.tax_schedule|upper == 'F' %}
+  {% set _schedule_label = 'Schedule C' if _is_c else ('Schedule F' if _is_f else ('Schedule ' ~ e.tax_schedule)) %}
+  {% set _schedule_path = ('schedule-c' if _is_c else ('schedule-f' if _is_f else None)) %}
+  {% set _schedule_path = _schedule_path or 'schedule-c' %}
+
+{% call L.section(
+     title=(e.display_name or e.slug),
+     subtitle=_schedule_label ~ (' · ' ~ (e.entity_type | humanize) if e.entity_type else '')
+) %}
+{% call C.card(flush=true) %}
+<table class="tbl reports-matrix">
+  <thead>
+    <tr>
+      <th>Year</th>
+      <th>View</th>
+      <th>PDF</th>
+      <th>CSV</th>
+      <th>Detail CSV</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for y in years %}
+    <tr {% if y == current_year %}class="row-current"{% endif %}>
+      <td><strong>{{ y }}</strong>{% if y == current_year %} <span class="subtle">(in progress)</span>{% endif %}</td>
+      <td><a href="/reports/{{ e.slug }}/{{ y }}">View →</a></td>
+      <td><a href="/reports/{{ _schedule_path }}.pdf?entity={{ e.slug }}&year={{ y }}">PDF ↓</a></td>
+      <td><a href="/reports/{{ _schedule_path }}.csv?entity={{ e.slug }}&year={{ y }}">CSV ↓</a></td>
+      <td><a href="/reports/{{ _schedule_path }}-detail.csv?entity={{ e.slug }}&year={{ y }}">CSV ↓</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+{% endfor %}
+{% endif %}
+
+{% if _unscheduled_entities %}
+{% call L.section(title='Other entities', subtitle='No tax schedule set; per-schedule reports are skipped. Set a tax schedule on /entities to surface them here.') %}
+{% call C.card() %}
+<ul class="bare" style="margin:0; padding-left:1rem">
+  {% for e in _unscheduled_entities %}
+  <li><strong>{{ e.display_name or e.slug }}</strong>{% if e.entity_type %} <span class="subtle">({{ e.entity_type | humanize }})</span>{% endif %} — <a href="/entities">edit on /entities →</a></li>
+  {% endfor %}
+</ul>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+{# ─── Estimated tax — current year only, with quarter picker. ─── #}
+{% if entities_with_display %}
+{% call L.section(title='Estimated tax · ' ~ current_year, subtitle='Per-entity flat-rate worksheet. Quarter picker only applies here.') %}
+{% call C.card() %}
+<form method="get" id="esttax-form" style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:flex-end; margin-bottom:0.75rem">
+  <div>
+    <label class="subtle" style="display:block; font-size:0.78rem">Entity</label>
+    <input type="text" name="entity" id="esttax-entity" list="esttax-entity-datalist"
+           value="{{ entity_filter or '' }}"
+           placeholder="Pick an entity"
+           style="padding:6px 10px" required />
+    <datalist id="esttax-entity-datalist">
+      {% for e in entities_with_display %}<option value="{{ e.slug }}" label="{{ e.display_name }}">{% endfor %}
+    </datalist>
+  </div>
+  <div>
+    <label class="subtle" style="display:block; font-size:0.78rem">Quarter</label>
+    <select name="quarter" id="esttax-quarter" style="padding:6px 10px">
+      {% for q in [1, 2, 3, 4] %}
+      <option value="{{ q }}" {% if q == current_quarter %}selected{% endif %}>Q{{ q }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {{ B.btn('Worksheet PDF', size='sm', class='js-go-est-pdf') }}
+  {{ B.btn('Worksheet CSV', size='sm', class='js-go-est-csv') }}
+</form>
+<p class="subtle" style="margin:0; font-size:0.85rem">
+  Q{{ current_quarter }} for the current year is the default. Pick a different quarter above.
+</p>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+{# ─── Cross-entity reports — no entity/year scope. ─── #}
+{% call L.section(title='Cross-entity') %}
+{% call C.card(title='Audit portfolio', subtitle='Cover sheet + per-txn pages with embedded receipts.') %}
+  {% if entities_with_display %}
+  <form method="get" id="auditpf-form" style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:flex-end">
+    <div>
+      <label class="subtle" style="display:block; font-size:0.78rem">Entity</label>
+      <input type="text" name="entity" id="auditpf-entity" list="auditpf-entity-datalist"
+             value="{{ entity_filter or '' }}"
+             placeholder="Pick an entity"
+             style="padding:6px 10px" required />
+      <datalist id="auditpf-entity-datalist">
+        {% for e in entities_with_display %}<option value="{{ e.slug }}" label="{{ e.display_name }}">{% endfor %}
+      </datalist>
+    </div>
+    <div>
+      <label class="subtle" style="display:block; font-size:0.78rem">Year</label>
+      <select name="year" id="auditpf-year" style="padding:6px 10px">
+        {% for y in years %}<option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+      </select>
+    </div>
+    {{ B.btn('Audit PDF', icon=icon.filetext(), class='js-go-audit-pdf') }}
+  </form>
+  {% else %}
+  <p class="subtle" style="margin:0">Set up an entity first.</p>
+  {% endif %}
+{% endcall %}
+
+{% call C.card(title='Balance audit', subtitle='Drift between known anchors and the ledger.') %}
+  {{ B.btn('Open balance audit →', href='/reports/balance-audit', icon=icon.checkcircle()) }}
+{% endcall %}
+{% endcall %}
+
+<script>
+/* Each report tile owns its own form. The shared go() helper below
+   reads the form's named inputs and routes the click to the right
+   download URL. The View / PDF / CSV links inside the per-entity
+   matrix don't need it — they're already concrete hrefs. */
+function _go(formId, path) {
+  const f = document.getElementById(formId);
+  if (!f) return;
+  const data = new FormData(f);
+  const entity = encodeURIComponent(data.get("entity") || "");
+  const year = encodeURIComponent(data.get("year") || {{ current_year }});
+  const q = encodeURIComponent(data.get("quarter") || {{ current_quarter }});
+  const sep = path.indexOf("?") >= 0 ? "&" : "?";
+  window.location = path + sep + "entity=" + entity + "&year=" + year + "&quarter=" + q;
+}
+document.addEventListener("click", function (ev) {
+  const a = ev.target.closest(".js-go-est-pdf, .js-go-est-csv, .js-go-audit-pdf");
+  if (!a) return;
+  ev.preventDefault();
+  if (a.classList.contains("js-go-est-pdf"))
+    _go("esttax-form", "/reports/estimated-tax.pdf");
+  else if (a.classList.contains("js-go-est-csv"))
+    _go("esttax-form", "/reports/estimated-tax.csv");
+  else if (a.classList.contains("js-go-audit-pdf"))
+    _go("auditpf-form", "/reports/audit-portfolio.pdf");
+});
+</script>
+
+{% endblock %}
+
+{% block head_extra %}
+<style>
+  .reports-matrix th, .reports-matrix td { padding: 6px 12px; }
+  .reports-matrix .row-current { background: rgba(120, 80, 200, 0.06); }
+  .reports-matrix a { white-space: nowrap; }
+</style>
+{% endblock %}

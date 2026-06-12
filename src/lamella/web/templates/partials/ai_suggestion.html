@@ -1,0 +1,20 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<div class="ai-suggestion">
+  <strong>AI suggestion:</strong>
+  <span title="{{ entry.ai.target_account }}">{{ entry.ai.target_account | alias }}</span>
+  <span class="muted">confidence {{ "%.2f"|format(entry.ai.confidence) }}</span>
+  {% if entry.ai.model %}
+    <span class="muted model">[{{ entry.ai.model }}]</span>
+  {% endif %}
+  {% if entry.ai.reasoning %}
+    <p class="reasoning muted">{{ entry.ai.reasoning }}</p>
+  {% endif %}
+  <meter min="0" max="1" value="{{ entry.ai.confidence }}" low="0.7" high="0.95" optimum="1"></meter>
+</div>

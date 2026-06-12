@@ -1,0 +1,443 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "setup_recovery/_layout.html" %}
+{% block title %}Vehicles — Setup — Lamella{% endblock %}
+
+{% block step_heading %}Vehicles{% endblock %}
+{% block step_subheading %}
+  Each vehicle needs its own strict per-vehicle chart so fuel /
+  maintenance / insurance / registration / tolls / parking /
+  car-wash charges map to a specific vehicle. Adding a vehicle
+  here does <strong>not</strong> auto-scaffold the chart — click
+  Scaffold-N-missing on the row when you&rsquo;re ready, so the
+  &ldquo;did you actually want a chart for this vehicle?&rdquo;
+  decision stays explicit.
+{% endblock %}
+
+{% block step_body %}
+{% set q = request.query_params %}
+
+{% if q.get('added') %}
+<div class="wiz-banner wiz-banner-ok" style="margin-bottom:1.2em;">
+  <strong style="color:var(--ok);">✓ Added <code>{{ q.get('added') }}</code>.</strong>
+  Click Scaffold-N-missing below when you want its chart of accounts opened.
+</div>
+{% endif %}
+{% if q.get('updated') %}
+<div class="wiz-banner wiz-banner-ok" style="margin-bottom:1.2em;">
+  <strong style="color:var(--ok);">✓ Updated <code>{{ q.get('updated') }}</code>.</strong>
+</div>
+{% endif %}
+{% if q.get('scaffolded') %}
+<div class="wiz-banner wiz-banner-ok" style="margin-bottom:1.2em;">
+  ✓ Opened {{ q.get('opened') }} account(s) for <code>{{ q.get('scaffolded') }}</code>.
+</div>
+{% endif %}
+{% if q.get('error') %}
+<div class="wiz-banner wiz-banner-warn" style="margin-bottom:1.2em;">
+  ✗ {{ q.get('error') }}
+  {% if q.get('detail') %}
+    — <code class="small">{{ q.get('detail') }}</code>
+  {% endif %}
+</div>
+{% endif %}
+{% if q.get('migrated') %}
+<div class="wiz-banner wiz-banner-ok" style="margin-bottom:1.2em;">
+  ✓ Migrated {{ q.get('migrated') }} posting{{ '' if q.get('migrated') == '1' else 's' }}.
+  {% if q.get('failed') and q.get('failed') != '0' %}
+    <strong style="color:var(--warn);">{{ q.get('failed') }} failed</strong> — check the logs.
+  {% endif %}
+  {% if q.get('auto_closed') %}
+    Closed orphan <code>{{ q.get('auto_closed') }}</code> automatically (zero unmigrated postings remain).
+  {% endif %}
+</div>
+{% endif %}
+
+{# Mileage CSV presence — read-only signal that the install-tree
+   import brought the file across. #}
+<div class="wiz-sub small" style="margin-bottom:1em;">
+  Mileage log:
+  {% if mileage_csv_present %}
+    <span style="color:var(--ok);">✓ <code>mileage/vehicles.csv</code> present.</span>
+  {% else %}
+    <span style="color:var(--warn);">○ <code>mileage/vehicles.csv</code> not found.</span>
+    Imports under <code>/setup/import</code> include the mileage folder.
+  {% endif %}
+</div>
+
+<div style="display:flex; gap:0.6em; margin:0 0 1.2em; align-items:center; flex-wrap:wrap;">
+  <a href="/setup/vehicles?add=vehicle" class="wiz-btn wiz-btn-primary">
+    + Add vehicle
+  </a>
+  <span class="wiz-sub small" style="margin:0;">
+    Opens an in-page modal — no redirect. Adding does NOT scaffold the
+    per-vehicle chart; that&rsquo;s a separate explicit step on the row.
+  </span>
+</div>
+
+<h2 style="margin:0.5em 0 0.6em; font-size:1.05em; font-weight:600;">Registered vehicles</h2>
+
+{% if not vehicles %}
+<section class="wiz-card" style="padding:1.5em; text-align:center;">
+  <strong>No vehicles registered yet.</strong>
+  <p class="wiz-sub" style="margin:0.4em 0 0;">
+    Add one above if you want mileage-based deductions tied to specific
+    vehicles. This step is optional — but strongly recommended: the more
+    information the system has (mileage, vehicle, route), the more
+    accurate AI classification becomes.
+  </p>
+</section>
+{% else %}
+<p style="margin:0 0 0.8em;">
+  {{ total_vehicles }} active vehicle{{ '' if total_vehicles == 1 else 's' }}.
+  {% if missing_charts_total %}
+    <strong style="color:var(--warn);">{{ missing_charts_total }} chart account{{ '' if missing_charts_total == 1 else 's' }} missing</strong>
+    across them — scaffold per-vehicle to unblock classification.
+  {% else %}
+    <strong style="color:var(--ok);">All canonical accounts open.</strong>
+  {% endif %}
+</p>
+
+{% for v in vehicles %}
+  {% include "partials/_setup_vehicle_row.html" %}
+{% endfor %}
+{% endif %}
+
+{% if orphans %}
+<h2 style="margin:1.5em 0 0.6em; font-size:1.05em; font-weight:600;">
+  Legacy / non-canonical vehicle-like accounts ({{ orphan_count }})
+</h2>
+<p class="wiz-sub small">
+  These paths contain vehicle keywords but don&rsquo;t follow the canonical
+  <code>Expenses:&lt;Entity&gt;:Vehicle:&lt;VehicleSlug&gt;:&lt;Category&gt;</code>
+  shape. Each row either has <strong>postings</strong> (needs migration to a
+  canonical account) or is <strong>unused</strong> (can be closed).
+</p>
+
+{% set unused_orphans = orphans | selectattr('posting_count', 'equalto', 0) | list %}
+{% set vehicles_with_entity = vehicles | selectattr('has_entity') | list %}
+
+{% if unused_orphans %}
+<div style="margin:0.6em 0; padding:0.6em 0.8em; background:var(--accent-soft); border-left:4px solid var(--accent); border-radius:4px;">
+  <strong>{{ unused_orphans | length }} orphan{{ '' if unused_orphans | length == 1 else 's' }} have zero postings</strong> — safe to close in one click.
+  <form method="post" action="/setup/vehicles/close-unused-orphans" style="display:inline; margin-left:0.6em;"
+        data-confirm="Close {{ unused_orphans | length }} unused orphan account(s)? Each has 0 postings. Reversible — the Close line can be deleted from connector_accounts.bean."
+        data-confirm-button="Close {{ unused_orphans | length }} unused orphan(s)">
+    <button type="submit" class="wiz-btn wiz-btn-secondary small">🔒 Close all {{ unused_orphans | length }} unused</button>
+  </form>
+</div>
+{% endif %}
+
+{% if vehicles and not vehicles_with_entity %}
+<div class="wiz-banner wiz-banner-warn" style="margin:0.6em 0;">
+  ⚠ None of your vehicles have an owning entity set. Migrate targets can&rsquo;t
+  be suggested until you fix that — edit each vehicle above and pick its
+  entity.
+</div>
+{% endif %}
+
+<table class="field-map">
+  <thead>
+    <tr><th>Path</th><th>Postings</th><th>Action</th></tr>
+  </thead>
+  <tbody>
+    {% for o in orphans %}
+    <tr>
+      <td><code class="small">{{ o.path }}</code></td>
+      <td>{{ o.posting_count }}</td>
+      <td>
+        {% if o.posting_count == 0 %}
+          <form method="post" action="/setup/accounts/close" style="display:inline;"
+                data-confirm="Close unused orphan {{ o.path }}? 0 postings."
+                data-confirm-button="Close">
+            <input type="hidden" name="account_path" value="{{ o.path }}" />
+            <button type="submit" class="wiz-btn wiz-btn-secondary small">🔒 Close</button>
+          </form>
+        {% elif vehicles_with_entity %}
+          <details>
+            <summary class="small">Migrate {{ o.posting_count }} posting{{ '' if o.posting_count == 1 else 's' }} →</summary>
+            <ul class="small" style="margin:0.3em 0 0 0.5em; list-style:none; padding:0;">
+              {% for v in vehicles_with_entity %}
+                <li>
+                  <a href="/setup/vehicles/{{ v.slug }}/migrate?orphan={{ o.path | urlencode }}">
+                    → to {{ v.display_name or v.slug }}
+                  </a>
+                </li>
+              {% endfor %}
+            </ul>
+          </details>
+        {% elif vehicles %}
+          <span class="wiz-sub small">set a vehicle&rsquo;s entity first ↑</span>
+        {% else %}
+          <span class="wiz-sub small">register a vehicle first ↑</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{# Datalists for the modal. #}
+<datalist id="setup-vehicles-entities-datalist">
+  {% for slug in entity_slugs %}<option value="{{ slug }}">{% endfor %}
+</datalist>
+{% endblock %}
+
+{% block step_actions %}
+<a href="/setup/recovery" class="wiz-btn wiz-btn-secondary">← Back to checklist</a>
+<form method="post" action="/setup/refresh-progress" style="display:inline-block;">
+  <button type="submit" class="wiz-btn wiz-btn-primary">Done — return to checklist</button>
+</form>
+{% endblock %}
+
+{# ----- Modal block. Phase 4 (Add) + Phase 8 step 6 (Edit). ----- #}
+{% block modal %}
+{% if open_modal in ('vehicle', 'vehicle-edit') %}
+{% set fv = form_values or {} %}
+{% set fe = field_errors or {} %}
+{% set is_edit = open_modal == 'vehicle-edit' %}
+{% set entity_locked = is_edit and (fv.get('entity_slug') or '') %}
+{% import "wizard/_modal.html" as M %}
+{% call M.modal(
+    title=("Edit vehicle: " ~ (editing_slug or '')) if is_edit else "Add a vehicle",
+    submit_form_id="vehicle-modal-form",
+    action_label=("Save changes" if is_edit else "Add vehicle"),
+    cancel_href="/setup/vehicles",
+    width="620px"
+) %}
+<form method="post"
+      action="{{ ('/setup/vehicles/' ~ editing_slug ~ '/edit') if is_edit else '/setup/vehicles/add' }}"
+      id="vehicle-modal-form"
+      class="wiz-modal-form">
+
+  <div class="wiz-field">
+    <label class="wiz-label">Display name</label>
+    <input
+      class="wiz-input {% if fe.get('display_name') %}is-invalid{% endif %}"
+      type="text"
+      name="display_name"
+      value="{{ fv.get('display_name', '') }}"
+      maxlength="80"
+      required autofocus
+      placeholder="2008 Fabrikam Suv"
+    />
+    <span class="wiz-help">
+      The label shown across the app and used to match mileage-CSV rows.
+    </span>
+    {% if fe.get('display_name') %}
+      <span class="wiz-error">{{ fe['display_name'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Slug{% if not is_edit %} (optional){% endif %}</label>
+    <input
+      class="wiz-input wiz-input--slug {% if fe.get('slug') %}is-invalid{% endif %}"
+      type="text"
+      name="slug"
+      value="{{ fv.get('slug', '') }}"
+      maxlength="40"
+      pattern="[A-Z][A-Za-z0-9-]*"
+      placeholder="V2008FabrikamSuv"
+      {% if is_edit %}readonly tabindex="-1"{% endif %}
+    />
+    <span class="wiz-help">
+      {% if is_edit %}
+        Slug is the vehicle's stable identifier and can&rsquo;t be
+        changed once set — every account path references it.
+      {% else %}
+        Auto-derived from display name (year-prefixed names get an
+        <code>X</code> in front). Used as the account-path segment.
+      {% endif %}
+    </span>
+    {% if fe.get('slug') %}
+      <span class="wiz-error">{{ fe['slug'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Owning entity</label>
+    <input
+      class="wiz-input {% if fe.get('entity_slug') %}is-invalid{% endif %}"
+      type="text"
+      name="entity_slug"
+      list="setup-vehicles-entities-datalist"
+      value="{{ fv.get('entity_slug', '') }}"
+      placeholder="Personal"
+      autocomplete="off"
+      required
+      {% if entity_locked %}readonly tabindex="-1"{% endif %}
+    />
+    <span class="wiz-help">
+      {% if entity_locked %}
+        Owning entity is locked once set — entity transitions are
+        intercompany transfers, handled by the dedicated
+        <a href="/vehicles/{{ editing_slug }}/change-ownership">change-ownership flow</a>
+        (rename for misattribution fix vs intercompany transfer for
+        a real ownership change).
+      {% else %}
+        Pick from the dropdown, or type a new slug to register the
+        entity separately first.
+      {% endif %}
+    </span>
+    {% if fe.get('entity_slug') %}
+      <span class="wiz-error">{{ fe['entity_slug'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field" style="display:flex; gap:1em; flex-wrap:wrap;">
+    <div style="flex:1; min-width:6em;">
+      <label class="wiz-label">Year (optional)</label>
+      <input
+        class="wiz-input {% if fe.get('year') %}is-invalid{% endif %}"
+        type="text"
+        name="year"
+        value="{{ fv.get('year', '') }}"
+        placeholder="2008"
+        pattern="[0-9]{4}"
+      />
+      {% if fe.get('year') %}
+        <span class="wiz-error">{{ fe['year'] }}</span>
+      {% endif %}
+    </div>
+    <div style="flex:1; min-width:8em;">
+      <label class="wiz-label">Make (optional)</label>
+      <input
+        class="wiz-input"
+        type="text"
+        name="make"
+        value="{{ fv.get('make', '') }}"
+        placeholder="Fabrikam"
+      />
+    </div>
+    <div style="flex:1; min-width:8em;">
+      <label class="wiz-label">Model (optional)</label>
+      <input
+        class="wiz-input"
+        type="text"
+        name="model"
+        value="{{ fv.get('model', '') }}"
+        placeholder="FabrikamSuv"
+      />
+    </div>
+  </div>
+
+  <div class="wiz-field" style="display:flex; gap:1em; flex-wrap:wrap;">
+    <div style="flex:1; min-width:10em;">
+      <label class="wiz-label">VIN (optional)</label>
+      <input
+        class="wiz-input"
+        type="text"
+        name="vin"
+        value="{{ fv.get('vin', '') }}"
+        maxlength="17"
+        placeholder="1FTFW1ET5DFA12345"
+      />
+    </div>
+    <div style="flex:1; min-width:8em;">
+      <label class="wiz-label">License plate (optional)</label>
+      <input
+        class="wiz-input"
+        type="text"
+        name="license_plate"
+        value="{{ fv.get('license_plate', '') }}"
+        placeholder="ABC1234"
+      />
+    </div>
+  </div>
+
+  <div class="wiz-field" style="display:flex; gap:1em; flex-wrap:wrap;">
+    <div style="flex:1; min-width:10em;">
+      <label class="wiz-label">Purchase date (optional)</label>
+      <input
+        class="wiz-input"
+        type="date"
+        name="purchase_date"
+        value="{{ fv.get('purchase_date', '') }}"
+      />
+    </div>
+    <div style="flex:1; min-width:8em;">
+      <label class="wiz-label">Fuel type (optional)</label>
+      {% set sel_fuel = fv.get('fuel_type', '') %}
+      <select class="wiz-input {% if fe.get('fuel_type') %}is-invalid{% endif %}" name="fuel_type">
+        <option value="" {% if not sel_fuel %}selected{% endif %}>—</option>
+        <option value="gasoline" {% if sel_fuel == 'gasoline' %}selected{% endif %}>Gasoline</option>
+        <option value="diesel" {% if sel_fuel == 'diesel' %}selected{% endif %}>Diesel</option>
+        <option value="ev" {% if sel_fuel == 'ev' %}selected{% endif %}>EV</option>
+        <option value="phev" {% if sel_fuel == 'phev' %}selected{% endif %}>PHEV</option>
+        <option value="hybrid" {% if sel_fuel == 'hybrid' %}selected{% endif %}>Hybrid</option>
+        <option value="other" {% if sel_fuel == 'other' %}selected{% endif %}>Other</option>
+      </select>
+      {% if fe.get('fuel_type') %}
+        <span class="wiz-error">{{ fe['fuel_type'] }}</span>
+      {% endif %}
+    </div>
+    <div style="flex:1; min-width:8em;">
+      <label class="wiz-label">GVWR lbs (optional)</label>
+      <input
+        class="wiz-input {% if fe.get('gvwr_lbs') %}is-invalid{% endif %}"
+        type="text"
+        name="gvwr_lbs"
+        value="{{ fv.get('gvwr_lbs', '') }}"
+        placeholder="6800"
+      />
+      <span class="wiz-help">
+        Section 179 / depreciation lookup keys off this; over 6000lb
+        flips the heavy-vehicle rules.
+      </span>
+      {% if fe.get('gvwr_lbs') %}
+        <span class="wiz-error">{{ fe['gvwr_lbs'] }}</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Linked loan (optional)</label>
+    {% set sel_loan = fv.get('linked_loan_slug', '') %}
+    {# ADR-0011: ledger-derived pickers use <datalist> autocomplete,
+       never <select>. Type the loan slug or leave blank for cash. #}
+    <input
+      class="wiz-input {% if fe.get('linked_loan_slug') %}is-invalid{% endif %}"
+      type="text" name="linked_loan_slug" value="{{ sel_loan }}"
+      list="linked-loans-datalist" autocomplete="off"
+      placeholder="Leave blank for cash / out-of-pocket"
+    />
+    <datalist id="linked-loans-datalist">
+      {% for l in loans_for_link %}
+        <option value="{{ l.slug }}">
+          {{ l.display_name or l.slug }}
+          {%- if l.institution %} — {{ l.institution }}{% endif -%}
+          {%- if l.entity_slug %} · {{ l.entity_slug | entity }}{% endif -%}
+        </option>
+      {% endfor %}
+    </datalist>
+    <span class="wiz-help">
+      Type the loan slug that financed the purchase, or leave blank
+      for cash-purchased vehicles. Add the loan first via
+      <a href="/setup/loans?add=loan">Loans → + Add loan</a>
+      if it isn&rsquo;t listed.
+    </span>
+    {% if fe.get('linked_loan_slug') %}
+      <span class="wiz-error">{{ fe['linked_loan_slug'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Notes (optional)</label>
+    <textarea
+      class="wiz-input"
+      name="notes"
+      rows="2"
+      maxlength="500">{{ fv.get('notes', '') }}</textarea>
+  </div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

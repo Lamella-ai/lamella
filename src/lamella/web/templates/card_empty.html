@@ -1,0 +1,57 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}All caught up — Lamella{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block page_title %}All caught up{% endblock %}
+
+{% block content %}
+<div style="padding:4vh 0; display:flex; flex-direction:column; align-items:center; text-align:center; gap:1rem">
+  <div style="width:96px; height:96px; border-radius:50%; background:var(--bg-elev); display:flex; align-items:center; justify-content:center; color:var(--ok)">
+    {{ icon.check(48) }}
+  </div>
+  <h1 style="font-size:1.6rem; font-weight:600; margin:0">All caught up</h1>
+  <p class="subtle" style="margin:0; max-width:480px">Nothing left to categorize right now. Nice work.</p>
+  <div style="display:flex; gap:8px; margin-top:0.5rem">
+    {{ B.btn('Back to dashboard', href='/', variant='primary') }}
+    {{ B.btn('Open review queue', href='/review', variant='ghost') }}
+  </div>
+</div>
+
+{% if recent_actions %}
+{% call L.section(title='Recently categorized') %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead><tr><th>When</th><th>Hash</th><th>Action</th><th class="shrink"></th></tr></thead>
+  <tbody>
+    {% for a in recent_actions %}
+    <tr>
+      <td><time>{{ a.created_at }}</time></td>
+      <td><code style="font-size:0.82rem">{{ a.txn_hash[:8] if a.txn_hash else '' }}</code></td>
+      <td><em>{{ a.action_type }}</em></td>
+      <td class="shrink">
+        <form method="post" action="/card/undo/{{ a.id }}"
+              hx-post="/card/undo/{{ a.id }}" hx-target="body" hx-swap="outerHTML">
+          {{ B.btn('Undo', type='submit', variant='ghost', size='sm') }}
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+{% endif %}
+{% endblock %}

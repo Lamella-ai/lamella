@@ -1,0 +1,107 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}System status — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}System status{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='System status',
+     subtitle='One page answering “is this actually working?” across every subsystem. Counts are live at each page load.',
+     kicker='Generated ' + (generated_at|local_ts) + ' (' + app_tz_label + ')'
+) %}
+{% endcall %}
+
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:1rem">
+  {% for card in cards %}
+  {% set tone = '' %}
+  {% if card.health == 'bad' %}{% set tone = 'err' %}
+  {% elif card.health == 'warn' %}{% set tone = 'warn' %}
+  {% elif card.health == 'ok' %}{% set tone = 'ok' %}
+  {% endif %}
+
+  {% call C.card(title=card.title, tone=tone) %}
+  {% if card.summary %}<p class="subtle" style="margin:0 0 0.75rem">{{ card.summary }}</p>{% endif %}
+
+  {% if card.stats %}
+  <dl style="display:grid; grid-template-columns:1fr auto; gap:6px 12px; margin:0 0 0.75rem; font-size:0.9rem">
+    {% for label, value in card.stats %}
+      <dt class="subtle">{{ label }}</dt>
+      <dd style="margin:0; text-align:right"><code style="font-size:0.85rem">{{ value }}</code></dd>
+    {% endfor %}
+  </dl>
+  {% endif %}
+
+  {% if card.notes %}
+  <ul class="subtle" style="margin:0.75rem 0 0; padding-left:1.2rem; font-size:0.85rem">
+    {% for note in card.notes %}<li>{{ note }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if card.title == "Vector index" and card.health != "neutral" %}
+    {% set building = "building" in (card.summary or "") %}
+    <div style="margin-top:0.75rem; display:flex; flex-wrap:wrap; gap:6px">
+      <form method="post" action="/status/vector-index/rebuild" style="margin:0">
+        {{ B.btn('Force rebuild on next classify', type='submit', variant='ghost', size='sm', disabled=building) }}
+      </form>
+      <button type="button" hx-post="/status/vector-index/rebuild?sync=1" hx-target="body" hx-swap="beforeend"
+              hx-vals='{"sync": "1"}' hx-disabled-elt="this"
+              class="btn btn-primary btn-sm" {% if building %}disabled{% endif %}>
+        <span>Rebuild now (synchronous)</span>
+      </button>
+      <span id="vector-sync-spinner" class="htmx-indicator subtle" style="font-size:0.82rem">⏳ rebuilding…</span>
+      {% if building %}<span class="subtle" style="font-size:0.82rem; align-self:center">rebuild already in progress — refresh to update</span>{% endif %}
+    </div>
+    {% if building %}
+    <form method="post" action="/status/vector-index/clear-stuck" style="margin-top:0.5rem"
+          data-confirm="Only click this if you know the build isn't actually running (container restarted, task crashed silently). Marks stuck building rows as errored so you can retry."
+          data-confirm-button="Clear stuck state">
+      {{ B.btn('Clear stuck "building" state', type='submit', variant='ghost', size='sm') }}
+    </form>
+    {% endif %}
+    <div id="vector-sync-slot"></div>
+  {% endif %}
+
+  {% if card.title == "Paperless" and card.health != "neutral" %}
+    <div style="margin-top:0.75rem; display:flex; flex-wrap:wrap; gap:6px; align-items:center">
+      <form hx-post="/status/paperless/full-sync" hx-target="body" hx-swap="beforeend" style="margin:0">
+        {{ B.btn('Full sync now', type='submit', variant='primary', size='sm', icon=icon.refresh()) }}
+      </form>
+      <a href="/documents/writebacks" style="font-size:0.85rem">View writeback log →</a>
+    </div>
+    <div id="paperless-sync-slot"></div>
+  {% endif %}
+
+  {% if card.title == "AI cascade" and card.health != "neutral" %}
+    <p class="subtle" style="margin:0.75rem 0 0; font-size:0.85rem">
+      <a href="/ai/cost">Cost detail</a> · <a href="/ai/logs">Decision log</a>
+    </p>
+  {% endif %}
+
+  {% if card.title == "Ledger" %}
+    <p class="subtle" style="margin:0.75rem 0 0; font-size:0.85rem">
+      <a href="/settings/data-integrity">Data integrity</a> · <a href="/review">Review queue</a>
+    </p>
+  {% endif %}
+  {% endcall %}
+  {% endfor %}
+</div>
+
+<p class="subtle" style="margin-top:1.5rem; font-size:0.85rem">
+  Health key: {{ D.badge('working', tone='ok') }} {{ D.badge('needs attention', tone='warn') }} {{ D.badge('broken', tone='err') }} {{ D.badge('not configured', tone='muted') }}
+</p>
+{% endblock %}

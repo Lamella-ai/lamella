@@ -1,0 +1,106 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+-->
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}New entity — Lamella{% endblock %}
+{% block page_class %}page{% endblock %}
+{% block page_title %}New entity{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Add an entity',
+     subtitle='An entity is a "who" — a business, farm, or personal self. Every account path is namespaced under an entity slug.',
+     kicker='Entities'
+) %}
+  {{ B.btn('Back to entities', href='/entities') }}
+{% endcall %}
+
+{% call F.banner(tone='info', title='Entity vs. account?') %}
+  An entity is a person or organization. An account (Assets:Acme:Checking,
+  Expenses:Personal:Groceries) lives <em>under</em> an entity.
+  Personal users typically have one "Personal" entity. Business owners
+  add one entity per business. Households can add an entity per member.
+{% endcall %}
+
+<form method="post" action="/settings/entities" class="form-grid" style="max-width:none" autocomplete="off">
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Display name <span class="subtle">required</span></label>
+      <input class="field-input" type="text" name="display_name" required
+             placeholder="e.g. Acme Co., Smith Family Farm, Personal" />
+    </div>
+    <div class="field">
+      <label class="field-label">Slug <span class="subtle">required, no spaces</span></label>
+      <input id="slug-input" class="field-input" type="text" name="slug" required
+             pattern="[A-Za-z][A-Za-z0-9_-]*"
+             placeholder="Acme, SmithFarm, Personal" />
+      <p class="subtle" style="font-size:0.78rem; margin:0.25rem 0 0">
+        Becomes part of every account path. Use UpperCamelCase.
+        Locked after creation.
+      </p>
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Entity type</label>
+      {# Fixed-set enum (llc, sole_prop, partnership, …) — not a
+         ledger-derived picker, so a real <select> is correct here.
+         ADR-0011 mandates datalist for ledger-derived lists; enums
+         render as proper select with friendly labels. #}
+      <select class="field-input" name="entity_type">
+        <option value="">— choose —</option>
+        {% for value, label in entity_types %}
+          <option value="{{ value }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label class="field-label">Tax schedule <span class="subtle">(if applicable)</span></label>
+      <select class="field-input" name="tax_schedule">
+        {% for value, label in tax_schedules %}
+          <option value="{{ value }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Start date</label>
+      <input class="field-input" type="date" name="start_date" />
+    </div>
+    <div class="field">
+      <label class="field-label">
+        <input type="checkbox" name="is_active" value="1" checked />
+        Active
+      </label>
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="field-label">Notes <span class="subtle">(optional)</span></label>
+    <textarea class="field-input" name="notes" rows="2"
+              placeholder="Internal notes — what this entity is, why it exists…"></textarea>
+  </div>
+
+  <div class="field">
+    <label class="field-label">Classify context <span class="subtle">(AI hint, optional)</span></label>
+    <textarea class="field-input" name="classify_context" rows="3"
+              placeholder="Free-form text the AI uses to decide which entity a transaction belongs to. e.g. 'Acme is a software consultancy in Denver…'"></textarea>
+  </div>
+
+  <div style="display:flex; gap:8px; margin-top:1rem">
+    {{ B.btn('Create entity', type='submit', variant='primary') }}
+    {{ B.btn('Cancel', href='/entities', variant='ghost') }}
+  </div>
+</form>
+{% endblock %}

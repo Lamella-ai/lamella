@@ -1,0 +1,187 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# ===========================================================
+   Auth shell — standalone document for /login and /account/*.
+
+   Modeled on setup_recovery/_layout.html: bypasses base.html
+   (no sidebar, no topbar, no job-dock) so the auth boundary
+   doesn't leak ledger state to an unauthenticated client.
+   Reuses wizard.css for visual fidelity but stacks the brand
+   mark above the wordmark for a "splash" feel.
+
+   Pages fill:
+     {% block title %}      — <title> text
+     {% block heading %}    — h1 above the card
+     {% block subheading %} — supportive line under heading
+     {% block card %}       — main card content (form, etc.)
+   =========================================================== #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{% block title %}Sign in — Lamella{% endblock %}</title>
+
+  {% include "setup_shared/_theme_init.html" %}
+
+  <link rel="stylesheet" href="{{ request.url_for('static', path='app.css') }}?v={{ static_version }}" />
+  <link rel="stylesheet" href="{{ request.url_for('static', path='wizard.css') }}?v={{ static_version }}" />
+  <link rel="icon" type="image/svg+xml" href="{{ request.url_for('static', path='img/favicon.svg') }}" />
+
+  <style>
+    /* Auth-shell centered splash. Uses wizard tokens (--bg, --text,
+       --border, --brand-accent) so light/dark mode just works. */
+    body[data-layout="auth"] {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Inter", "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+    }
+    .auth-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.4rem;
+      padding: clamp(1.2rem, 5vw, 2.5rem);
+    }
+    .auth-brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.55rem;
+      text-decoration: none;
+      color: inherit;
+      letter-spacing: -0.01em;
+      margin-bottom: 0.4rem;
+    }
+    .auth-brand-mark {
+      height: 88px;
+      width: auto;
+      display: block;
+    }
+    .auth-brand-name {
+      font-family: "Poppins", "IBM Plex Sans", system-ui, sans-serif;
+      font-weight: 600;
+      font-size: 2rem;
+      color: var(--brand-wordmark, var(--text));
+      letter-spacing: -0.015em;
+    }
+    .auth-brand-name .brand-wordmark-accent {
+      color: var(--brand-accent, #14b8a6);
+    }
+    .auth-card {
+      width: min(100%, 400px);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      background: var(--bg-elev, var(--bg));
+      padding: 1.5rem 1.6rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+    }
+    .auth-h1 {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 600;
+      letter-spacing: -0.005em;
+    }
+    .auth-sub {
+      margin: 0;
+      color: var(--muted, var(--text));
+      opacity: 0.78;
+      font-size: 0.92rem;
+      line-height: 1.4;
+    }
+    .auth-form { display: flex; flex-direction: column; gap: 0.85rem; }
+    .auth-field { display: flex; flex-direction: column; gap: 0.3rem; }
+    .auth-field label { font-size: 0.85rem; font-weight: 500; }
+    .auth-field input {
+      border: 1.5px solid var(--border);
+      border-radius: 9px;
+      padding: 0.6rem 0.7rem;
+      font-size: 0.95rem;
+      background: var(--bg);
+      color: var(--text);
+      font-family: inherit;
+    }
+    .auth-field input:focus {
+      outline: 2px solid var(--brand-accent, #14b8a6);
+      outline-offset: 1px;
+      border-color: var(--brand-accent, #14b8a6);
+    }
+    .auth-error {
+      background: var(--bg-error, rgba(220, 38, 38, 0.08));
+      border: 1px solid var(--border-error, rgba(220, 38, 38, 0.4));
+      color: var(--text-error, rgb(180, 30, 30));
+      border-radius: 9px;
+      padding: 0.55rem 0.75rem;
+      font-size: 0.88rem;
+    }
+    .auth-ok {
+      background: var(--bg-ok, rgba(20, 184, 166, 0.08));
+      border: 1px solid var(--border-ok, rgba(20, 184, 166, 0.4));
+      color: var(--text-ok, rgb(15, 130, 118));
+      border-radius: 9px;
+      padding: 0.55rem 0.75rem;
+      font-size: 0.88rem;
+    }
+    .auth-submit {
+      margin-top: 0.4rem;
+      border: 1.5px solid var(--brand-accent, #14b8a6);
+      background: var(--brand-accent, #14b8a6);
+      color: #fff;
+      border-radius: 10px;
+      padding: 0.65rem 1rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .auth-submit:hover { filter: brightness(1.04); }
+    .auth-submit:focus {
+      outline: 2px solid var(--brand-accent, #14b8a6);
+      outline-offset: 2px;
+    }
+    .auth-foot {
+      padding: 0.9rem;
+      text-align: center;
+      font-size: 0.78rem;
+      color: var(--muted, var(--text));
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body data-layout="auth">
+
+<main class="auth-stage" id="auth-content">
+  <a class="auth-brand" href="/" aria-label="Lamella">
+    <img class="auth-brand-mark"
+         src="{{ request.url_for('static', path='img/lamella-icon.svg') }}"
+         alt="" />
+    <span class="auth-brand-name">Lame<span class="brand-wordmark-accent">ll</span>a</span>
+  </a>
+
+  <section class="auth-card" aria-labelledby="auth-card-heading">
+    <header>
+      <h1 class="auth-h1" id="auth-card-heading">{% block heading %}{% endblock %}</h1>
+      {% set sub %}{% block subheading %}{% endblock %}{% endset %}
+      {% if sub | trim %}<p class="auth-sub">{{ sub | safe }}</p>{% endif %}
+    </header>
+    {% block card %}{% endblock %}
+  </section>
+</main>
+
+<footer class="auth-foot">v{{ app_version }}</footer>
+
+</body>
+</html>

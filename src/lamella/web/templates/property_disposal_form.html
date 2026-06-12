@@ -1,0 +1,105 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Sell / dispose — {{ property.display_name or property.slug }}{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Sell / dispose{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Sell / dispose',
+     subtitle=property.display_name or property.slug,
+     kicker='Settings · Properties'
+) %}
+  {{ B.btn('Back to property', href='/settings/properties/' ~ property.slug, variant='ghost') }}
+{% endcall %}
+
+{% call C.card() %}
+<p style="margin:0 0 0.5rem">
+  Record an outright disposal of <strong>{{ property.display_name or property.slug }}</strong> —
+  the property leaves your books entirely (sold to a third party, gifted, scrapped). For an intercompany
+  handoff between two of your own entities, use
+  <a href="/settings/properties/{{ property.slug }}/change-ownership">change ownership</a> instead.
+</p>
+<dl style="display:grid; grid-template-columns:auto 1fr; gap:6px 16px; margin:0.75rem 0">
+  <dt class="subtle">Asset account</dt><dd><code>{{ asset_path }}</code></dd>
+  <dt class="subtle">Current book value</dt><dd><strong>{{ D.money(current_book_value, signed=false) }}</strong></dd>
+</dl>
+<p class="subtle" style="margin:0">
+  <strong>Bookkeeping mode.</strong> The system records the sale price and date you enter; it doesn’t compute
+  Section 1245/1250 recapture, capital-gain rate, or basis adjustments. The gain/loss plug captures the gap between
+  book value and proceeds on a slug-named account so your CPA can grep the chart and figure out treatment at tax time.
+</p>
+{% endcall %}
+
+{% if request.query_params.get('error') %}
+{% call F.banner(tone='err', title=request.query_params.get('error')) %}
+  {% if request.query_params.get('detail') %}<code>{{ request.query_params.get('detail') }}</code>{% endif %}
+{% endcall %}
+{% endif %}
+
+<datalist id="dispose-types-datalist">
+  {% for t in valid_types %}<option value="{{ t }}">{% endfor %}
+</datalist>
+
+{% call C.card(title='Disposal details', tone='warn') %}
+<form method="post"
+      action="/settings/properties/{{ property.slug }}/dispose"
+      class="form-grid" style="max-width:none"
+      data-confirm="Record an outright disposal of this property? Closes the asset account, records proceeds in the chosen account, and plugs the gain/loss. Property is marked inactive."
+      data-confirm-strong="DISPOSE"
+      data-confirm-button="Record disposal">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Disposal date</label>
+      <input class="field-input" type="date" name="disposal_date" required value="{{ today }}" />
+    </div>
+    <div class="field">
+      <label class="field-label">Disposal type</label>
+      <input class="field-input" type="text" name="disposal_type" list="dispose-types-datalist" required value="sale" />
+    </div>
+  </div>
+  <div class="field">
+    <label class="field-label">Proceeds (USD)</label>
+    <input class="field-input" type="number" step="0.01" min="0" name="proceeds_amount" required placeholder="e.g. 350000.00" />
+    <p class="subtle" style="margin:6px 0 0">What you received.</p>
+  </div>
+  <div class="field">
+    <label class="field-label">Proceeds destination account</label>
+    <input class="field-input" type="text" name="proceeds_account" required value="{{ default_proceeds_account }}" placeholder="Assets:Personal:Bank:Checking" autocomplete="off" />
+    <p class="subtle" style="margin:6px 0 0">Where the proceeds went / will go. Bank deposit will reconcile against this account when SimpleFIN brings it in.</p>
+  </div>
+  <div class="field">
+    <label class="field-label">Gain / loss plug account</label>
+    <input class="field-input" type="text" name="gain_loss_account" required value="{{ default_gain_loss_account }}" placeholder="Income:Personal:Property:{{ property.slug }}:DisposalGainLoss" autocomplete="off" />
+    <p class="subtle" style="margin:6px 0 0">Captures (proceeds − book value). Slug-embedded so the CPA can find it. We auto-create this account if it doesn’t exist.</p>
+  </div>
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Buyer / party (optional)</label>
+      <input class="field-input" type="text" name="buyer_or_party" placeholder="e.g. Smith family" />
+    </div>
+    <div class="field">
+      <label class="field-label">Notes (optional)</label>
+      <input class="field-input" type="text" name="notes" placeholder="anything the CPA should know" />
+    </div>
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Record disposal', type='submit', variant='danger') }}</div>
+</form>
+{% endcall %}
+
+<p class="subtle" style="margin-top:1.5rem"><a href="/settings/properties/{{ property.slug }}">← back to property detail</a></p>
+{% endblock %}

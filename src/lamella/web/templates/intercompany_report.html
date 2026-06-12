@@ -1,0 +1,119 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Intercompany — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Intercompany{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Intercompany settlement',
+     subtitle='Who owes whom across your entities, based on DueFrom / DueTo balances. As of ' + report.as_of|string + '.',
+     kicker='Insights · Reports'
+) %}
+{% endcall %}
+
+{% if report.outstanding_pairs %}
+{% call L.section(
+     title='Outstanding',
+     subtitle='%d pair%s' % (report.outstanding_pairs|length, '' if report.outstanding_pairs|length == 1 else 's')
+) %}
+<p class="subtle" style="margin-top:0">
+  Negative "receivable vs payable" means the two sides of a pair don't agree
+  — something went wrong on one of the override writes. Expected case is
+  receivable and payable match in absolute value and the pair stays
+  outstanding until settlement.
+</p>
+
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Paying entity</th>
+      <th>Owing entity</th>
+      <th class="num">Outstanding</th>
+      <th class="num">DueFrom balance</th>
+      <th class="num">DueTo balance</th>
+      <th class="num">Transactions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for pair in report.outstanding_pairs %}
+    <tr>
+      <td><strong>{{ pair.paying_entity }}</strong></td>
+      <td>{{ pair.owing_entity }}</td>
+      <td class="num">{{ pair.outstanding }}</td>
+      <td class="num"><code>{{ pair.due_from_balance }}</code></td>
+      <td class="num"><code>{{ pair.due_to_balance }}</code></td>
+      <td class="num">{{ pair.transactions|length }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+
+<details style="margin-top:1.25rem">
+  <summary style="cursor:pointer; font-weight:500"><strong>How to record a settlement</strong></summary>
+  <p class="subtle" style="margin-top:0.5rem">
+    When the owing entity pays the paying entity back via a cash transfer,
+    record a clearing transaction in <code>manual_transactions.bean</code> —
+    four legs for the settlement itself plus the actual money movement.
+    Example for an Acme ← Example LLC 100 USD settlement:
+  </p>
+<pre>2026-05-01 * "Intercompany settlement: ExampleLLC → Acme" #lamella-intercompany-settlement
+  lamella-intercompany-settlement-of: "&lt;first-override-hash&gt;"
+  Liabilities:ExampleLLC:DueTo:Acme       100.00 USD    ; clears payable
+  Assets:Acme:DueFrom:ExampleLLC         -100.00 USD    ; clears receivable
+
+2026-05-01 * "Transfer ExampleLLC → Acme for intercompany settlement"
+  Assets:ExampleLLC:Checking  -100.00 USD
+  Assets:Acme:Checking         100.00 USD</pre>
+</details>
+{% endcall %}
+{% else %}
+{% call L.section(title='Outstanding') %}
+{{ F.empty_state('No outstanding intercompany balances.', icon=icon.checkcircle(28)) }}
+{% endcall %}
+{% endif %}
+
+{% if report.settled_pairs %}
+{% call L.section(
+     title='Settled',
+     subtitle='%d pair%s' % (report.settled_pairs|length, '' if report.settled_pairs|length == 1 else 's')
+) %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Paying entity</th>
+      <th>Owing entity</th>
+      <th class="num">Transactions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for pair in report.settled_pairs %}
+    <tr>
+      <td>{{ pair.paying_entity }}</td>
+      <td>{{ pair.owing_entity }}</td>
+      <td class="num">{{ pair.transactions|length }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+{% endif %}
+{% endblock %}

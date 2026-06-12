@@ -1,0 +1,210 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "setup_recovery/_layout.html" %}
+{% block title %}SimpleFIN — Setup — Lamella{% endblock %}
+
+{% block step_heading %}SimpleFIN sync{% endblock %}
+{% block step_subheading %}
+  SimpleFIN bridges your bank to Lamella so transactions flow in
+  automatically — every fetch then triggers AI classification + receipt
+  matching unprompted. Optional, but it&rsquo;s the difference between
+  &ldquo;I imported a CSV last week&rdquo; and &ldquo;today&rsquo;s
+  transactions are already classified.&rdquo;
+{% endblock %}
+
+{% block step_body %}
+{% set q = request.query_params %}
+
+{% if q.get('connected') %}
+<div class="wiz-banner wiz-banner-ok" style="margin-bottom:1.2em;">
+  <strong style="color:var(--ok);">✓ Connected to SimpleFIN.</strong>
+  Discovered accounts are listed below — bind each one to its ledger account.
+</div>
+{% endif %}
+{% if q.get('disconnected') %}
+<div class="wiz-banner wiz-banner-ok" style="margin-bottom:1.2em;">
+  ✓ Disconnected. Existing account-path bindings are kept; reconnect any time.
+</div>
+{% endif %}
+{% if q.get('bound') %}
+<div class="wiz-banner wiz-banner-ok" style="margin-bottom:1.2em;">
+  ✓ Binding saved for <code>{{ q.get('bound') }}</code>.
+</div>
+{% endif %}
+{% if q.get('error') == 'unknown-path' %}
+<div class="wiz-banner wiz-banner-warn" style="margin-bottom:1.2em;">
+  ⚠ Account path <code>{{ q.get('path') or '' }}</code> isn&rsquo;t a
+  registered open account — pick one from the dropdown.
+</div>
+{% endif %}
+{% if error_message %}
+<div class="wiz-banner wiz-banner-warn" style="margin-bottom:1.2em;">
+  <strong style="color:var(--warn);">⚠ {{ error_message }}</strong>
+</div>
+{% endif %}
+
+
+{# ---------- State 1: unconnected — paste-token form ---------- #}
+{% if sf_state == 'unconnected' %}
+<section class="wiz-card" style="padding:1.4em;">
+  <h2 style="margin:0 0 0.4em; font-size:1.05em;">Not connected yet</h2>
+  <p class="wiz-sub" style="margin:0 0 0.8em;">
+    Paste a one-time setup token from
+    <a href="https://beta-bridge.simplefin.org" target="_blank" rel="noopener">SimpleFIN Bridge</a>.
+    Lamella exchanges it for a long-lived access URL and pulls your
+    accounts. Lamella never stores the setup token itself — only the
+    resulting access URL persists, encrypted in the settings store.
+  </p>
+
+  <form method="post"
+        action="/setup/simplefin/connect"
+        id="sf-connect-form"
+        autocomplete="off"
+        data-loading-form>
+    <div class="wiz-field">
+      <label class="wiz-label" for="sf-token">SimpleFIN setup token</label>
+      <input
+        class="wiz-input {% if error_message %}is-invalid{% endif %}"
+        id="sf-token"
+        type="password"
+        name="simplefin_token"
+        placeholder="Paste the token from SimpleFIN Bridge here"
+        autocomplete="off"
+        spellcheck="false"
+        required
+        autofocus
+      />
+      <span class="wiz-help">
+        Treated as a credential — never echoed back, never logged.
+        On error you&rsquo;ll re-paste rather than seeing what you typed
+        before. That&rsquo;s deliberate.
+      </span>
+    </div>
+
+    <div style="display:flex; gap:0.6em; flex-wrap:wrap; align-items:center; margin-top:0.6em;">
+      <button type="submit" class="wiz-btn wiz-btn-primary" data-loading-target>
+        <span class="wiz-btn-label">Connect SimpleFIN</span>
+        <span class="wiz-btn-loading" aria-hidden="true">Connecting&hellip;</span>
+      </button>
+      <span class="wiz-sub small">or</span>
+    </div>
+  </form>
+
+  <form method="post" action="/setup/simplefin/skip" style="display:inline-block; margin-top:0.6em;">
+    <button type="submit" class="wiz-btn wiz-btn-ghost">
+      Skip — I don&rsquo;t use SimpleFIN
+    </button>
+    <span class="wiz-help" style="display:block; margin-top:0.3em;">
+      Suppresses the SimpleFIN finding on the recovery checklist for
+      a week. Revisit this page any time to opt back in.
+    </span>
+  </form>
+</section>
+
+
+{# ---------- State 2: connected, no accounts discovered ---------- #}
+{% elif sf_state == 'connected_no_accounts' %}
+<section class="wiz-card" style="padding:1.4em;">
+  <strong style="color:var(--ok);">✓ Connected to the SimpleFIN bridge.</strong>
+  <p class="wiz-sub" style="margin:0.4em 0 0.8em;">
+    The bridge accepted the access URL but reports zero accounts.
+    Either no accounts are linked to this bridge yet (visit
+    <a href="https://beta-bridge.simplefin.org" target="_blank" rel="noopener">SimpleFIN Bridge</a>
+    to add some), or the last fetch missed them. You can also disconnect
+    and try a fresh token.
+  </p>
+  <div style="display:flex; gap:0.6em; flex-wrap:wrap; margin-top:0.4em;">
+    <form method="post" action="/setup/simplefin/disconnect" style="display:inline-block;"
+          data-confirm="Disconnect SimpleFIN? Existing account-path bindings are kept; you can reconnect with a fresh token any time."
+          data-confirm-button="Disconnect">
+      <button type="submit" class="wiz-btn wiz-btn-ghost">Disconnect &amp; reconnect with a fresh token</button>
+    </form>
+  </div>
+</section>
+
+
+{# ---------- States 3 + 4: connected with discovered accounts ---------- #}
+{% elif sf_state in ('connected_unbound', 'connected_bound') %}
+
+{% if sf_state == 'connected_bound' %}
+<div class="wiz-banner wiz-banner-ok" style="margin-bottom:1.2em;">
+  <strong style="color:var(--ok);">✓ All discovered accounts are bound.</strong>
+  Future SimpleFIN fetches will route to the right ledger accounts automatically.
+</div>
+{% else %}
+<div class="wiz-banner wiz-banner-warn" style="margin-bottom:1.2em;">
+  <strong style="color:var(--warn);">⚠ {{ unbound_count }} discovered account{{ '' if unbound_count == 1 else 's' }}
+  not yet bound</strong> — without a ledger account_path, SimpleFIN fetches will route those rows to a fallback bucket.
+</div>
+{% endif %}
+
+<table class="field-map" style="width:100%;">
+  <thead>
+    <tr>
+      <th>SimpleFIN account</th>
+      <th>Currency</th>
+      <th>Balance</th>
+      <th>Bound to ledger account</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d in discovered %}
+    <tr style="background:{% if d.bound_to %}var(--ok-soft){% else %}var(--warn-soft){% endif %};">
+      <td>
+        <strong>{{ d.name }}</strong>
+        {% if d.org_name %}
+          <br /><span class="small wiz-sub">{{ d.org_name }}</span>
+        {% endif %}
+        <br /><code class="small">{{ d.account_id }}</code>
+      </td>
+      <td>{{ d.currency }}</td>
+      <td>{{ d.balance or '—' }}</td>
+      <td>
+        <form method="post" action="/setup/simplefin/bind"
+              style="display:flex; gap:0.4em; align-items:center; flex-wrap:wrap;">
+          <input type="hidden" name="simplefin_id" value="{{ d.account_id }}" />
+          <input type="text"
+                 name="account_path"
+                 list="setup-simplefin-paths-datalist"
+                 value="{{ d.bound_to or '' }}"
+                 class="wiz-input"
+                 style="flex:1; min-width:14em;"
+                 placeholder="Assets:Personal:BankOne:Checking"
+                 autocomplete="off" />
+          <button type="submit" class="wiz-btn wiz-btn-secondary small">Save</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<datalist id="setup-simplefin-paths-datalist">
+  {% for path in bindable_paths %}<option value="{{ path }}">{% endfor %}
+</datalist>
+
+<div style="margin-top:1.2em;">
+  <form method="post" action="/setup/simplefin/disconnect" style="display:inline-block;"
+        data-confirm="Disconnect SimpleFIN? Existing account-path bindings on accounts_meta are kept; reconnect any time with a fresh token."
+        data-confirm-button="Disconnect">
+    <button type="submit" class="wiz-btn wiz-btn-ghost">Disconnect SimpleFIN</button>
+  </form>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block step_actions %}
+<a href="/setup/recovery" class="wiz-btn wiz-btn-secondary">← Back to checklist</a>
+{% if sf_state in ('connected_unbound', 'connected_bound') %}
+<form method="post" action="/setup/refresh-progress" style="display:inline-block;">
+  <button type="submit" class="wiz-btn wiz-btn-primary">Done — return to checklist</button>
+</form>
+{% endif %}
+{% endblock %}

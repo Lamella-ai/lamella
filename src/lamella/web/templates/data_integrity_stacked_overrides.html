@@ -1,0 +1,109 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Stacked overrides — Data integrity{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Stacked overrides{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Stacked overrides',
+     subtitle='Override blocks in connector_overrides.bean that all point at the same source transaction. Each extra block is a stale duplicate. Collapsing a group removes every block except the most recent one (by lamella-modified-at).',
+     kicker='Settings · Data integrity'
+) %}
+  {{ B.btn('Back to data integrity', href='/settings/data-integrity', variant='ghost') }}
+{% endcall %}
+
+{% call C.card(title='Data-integrity guarantees', tone='info') %}
+<ul style="margin:0; padding-left:1.2rem; line-height:1.7">
+  <li><strong>Always keeps one per group.</strong> The collapse algorithm picks the newest block (by <code>lamella-modified-at</code>) and drops the earlier copies. It can never leave a group with zero blocks — the design enforces a keep-one minimum.</li>
+  <li><strong>Pre-change backup.</strong> Before editing, <code>connector_overrides.bean</code> is copied to <code>&lt;ledger&gt;/.backups/&lt;timestamp&gt;-dedupe-stacked-overrides/</code>. Recovery is a plain <code>cp</code>.</li>
+  <li><strong>bean-check gate.</strong> Post-change we run <code>bean-check</code>; any new error reverts the whole change atomically.</li>
+</ul>
+{% endcall %}
+
+{% if request.query_params.get('removed') %}
+{% call F.banner(tone='ok', title='Removed ' ~ request.query_params.get('removed') ~ ' stacked-override block(s)') %}
+The remaining blocks are the ones you want to keep.
+{% if request.query_params.get('archive') %}
+<br><span class="subtle">Backup saved at <code>&lt;ledger&gt;/.backups/{{ request.query_params.get('archive') }}-dedupe-stacked-overrides/</code> — restore with <code>cp &lt;backup&gt;/connector_overrides.bean &lt;ledger&gt;/</code> if anything looks wrong.</span>
+{% endif %}
+{% endcall %}
+{% endif %}
+{% if request.query_params.get('error') %}
+{% call F.banner(tone='err', title=request.query_params.get('error')) %}
+{% if request.query_params.get('detail') %}<pre style="white-space:pre-wrap; margin:0; font-family:var(--font-mono); font-size:0.82rem">{{ request.query_params.get('detail') }}</pre>{% endif %}
+{% endcall %}
+{% endif %}
+
+{% if not groups %}
+{{ F.empty_state('No stacked overrides detected.', cta_text='Back to data integrity', cta_href='/settings/data-integrity') }}
+{% else %}
+<p style="margin:-8px 0 1rem">
+  <strong>{{ groups | length }}</strong> stacked group{{ '' if groups|length == 1 else 's' }},
+  <strong>{{ total_excess }}</strong> excess override{{ '' if total_excess == 1 else 's' }}.
+</p>
+
+<form method="post" action="/settings/data-integrity/stacked-overrides/cleanup">
+  <div style="display:flex; gap:8px; align-items:center; margin-bottom:0.75rem; flex-wrap:wrap">
+    {{ B.btn('Collapse every selected group to its newest block', type='submit', variant='primary') }}
+    <span class="subtle" style="font-size:0.85rem">Runs bean-check; reverts the file on any error.</span>
+  </div>
+
+  <label style="display:flex; gap:8px; align-items:center; font-size:0.92rem; margin-bottom:0.75rem">
+    <input type="checkbox" id="select-all-groups" onchange="toggleAll(this.checked)" checked />
+    Select all groups
+  </label>
+
+  {% for g in groups %}
+  {% call C.card() %}
+  <h3 style="margin:0 0 0.25rem; font-size:1rem">
+    <label style="display:flex; gap:8px; align-items:flex-start">
+      <input type="checkbox" name="target_hash" value="{{ g.target_hash }}" class="group-check" checked />
+      <span>
+        {{ g.txn_date }} —
+        {% if g.payee %}<strong>{{ g.payee }}</strong> · {% endif %}
+        <span class="subtle">{{ g.narration[:80] }}</span>
+      </span>
+    </label>
+  </h3>
+  <p class="subtle" style="margin:0.25rem 0 0 1.5rem; font-size:0.85rem">
+    <code>{{ g.target_hash }}</code> · <strong>{{ g.count }}</strong> blocks ({{ g.excess }} excess)
+  </p>
+  <details style="margin:0.5rem 0 0 1.5rem">
+    <summary class="subtle" style="font-size:0.82rem; cursor:pointer">Show all {{ g.count }} blocks</summary>
+    {% for b in g.blocks %}
+    <div style="margin:0.5rem 0; padding:0.5rem; background:var(--bg-elev); border-left:3px solid var(--muted); border-radius:4px">
+      <div class="subtle" style="font-size:0.82rem">modified_at: {{ b.modified_at }}</div>
+      <pre style="white-space:pre-wrap; margin:0.25rem 0 0; font-family:var(--font-mono); font-size:0.82rem">{{ b.preview }}</pre>
+    </div>
+    {% endfor %}
+  </details>
+  {% endcall %}
+  {% endfor %}
+
+  <div class="form-actions" style="margin-top:1rem">
+    {{ B.btn('Cancel', href='/settings/data-integrity', variant='ghost') }}
+    <span class="spacer"></span>
+    {{ B.btn('Collapse every selected group to its newest block', type='submit', variant='primary') }}
+  </div>
+</form>
+<script>
+  function toggleAll(checked) {
+    document.querySelectorAll('.group-check').forEach((cb) => { cb.checked = !!checked; });
+  }
+</script>
+{% endif %}
+{% endblock %}

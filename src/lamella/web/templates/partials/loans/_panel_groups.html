@@ -1,0 +1,112 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# WP5 — multi-leg payment groups (proposed + confirmed). #}
+<h3>Payment groups</h3>
+<p class="muted small">
+  Some loan payments arrive split across several transactions — the
+  servicer's principal + escrow + insurance pulls, or a user who
+  chunked payment across two checking draws. The proposer identifies
+  subsets summing to the expected monthly payment within tolerance.
+  Confirm a group to write the full amortization split across all
+  members in one pass.
+</p>
+
+{% set proposed = payment_groups.proposed if payment_groups else [] %}
+{% set confirmed = payment_groups.confirmed if payment_groups else [] %}
+
+{% if proposed %}
+  <h4>Proposed</h4>
+  {% for g in proposed %}
+    <form method="post"
+          action="/settings/loans/{{ loan.slug }}/groups/{{ g.group_id }}/confirm"
+          class="group-proposal">
+      <div class="group-header">
+        <strong>Group {{ g.group_id }}</strong>
+        <span class="muted">
+          {{ g.date_span_start }} to {{ g.date_span_end }} ·
+          aggregate {{ g.aggregate_amount | money }} ·
+          delta {{ g.sum_delta | money }}
+        </span>
+      </div>
+      <table class="data small">
+        <thead>
+          <tr><th>Primary?</th><th>Member hash</th></tr>
+        </thead>
+        <tbody>
+          {% for h in g.member_hashes %}
+            <tr>
+              <td>
+                <input type="radio" name="primary_hash" value="{{ h }}"
+                       {% if h == g.suggested_primary_hash %}checked{% endif %} />
+              </td>
+              <td><code>{{ h }}</code></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="muted small">
+        Confirming writes the full split across principal/interest/escrow
+        on the primary member, with the others routed through
+        {{ g.suggested_in_flight_path }} as an in-flight staging leg.
+      </p>
+      {# Split fields — users fill in the per-leg amounts matching their
+         loan's amortization for that month. #}
+      <div class="group-splits">
+        <label>Liability (principal)
+          <input type="text" name="split_{{ loan.liability_account_path }}"
+                 placeholder="0.00" />
+        </label>
+        {% if loan.interest_account_path %}
+          <label>Interest
+            <input type="text" name="split_{{ loan.interest_account_path }}"
+                   placeholder="0.00" />
+          </label>
+        {% endif %}
+        {% if loan.escrow_account_path %}
+          <label>Escrow
+            <input type="text" name="split_{{ loan.escrow_account_path }}"
+                   placeholder="0.00" />
+          </label>
+        {% endif %}
+      </div>
+      <button type="submit" class="primary-action">Confirm group</button>
+    </form>
+  {% endfor %}
+{% endif %}
+
+{% if confirmed %}
+  <h4>Confirmed</h4>
+  <table class="data">
+    <thead>
+      <tr>
+        <th>Group</th><th>Primary</th><th>Members</th>
+        <th>Aggregate</th><th>Span</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for g in confirmed %}
+        <tr>
+          <td><code>{{ g.group_id }}</code></td>
+          <td><code>{{ g.primary_hash }}</code></td>
+          <td class="num">{{ g.member_hashes.split(",") | length }}</td>
+          <td class="num">{{ g.aggregate_amount | money }}</td>
+          <td>{{ g.date_span_start }} to {{ g.date_span_end }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endif %}
+
+{% if not proposed and not confirmed %}
+  <p class="muted small">
+    No proposed or confirmed groups — either all uncategorized transactions categorize as
+    single-transaction payments, or there aren't enough unclassified
+    candidates in recent 5-day windows to form a group.
+  </p>
+{% endif %}

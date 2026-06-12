@@ -1,0 +1,38 @@
+;; ---------------------------------------------------------------
+;; Lamella — DEMO LEDGER (public sample)
+;;
+;; This is a synthetic single-user, single-business ledger covering
+;; calendar year 2025. All names are placeholders (per
+;; ADR-0017): John Smith / Acme Co. / BankOne / fictional merchants.
+;;
+;; Generated: 2026-04-29 by scripts/generate_demo.py.
+;; Re-run the script to regenerate; it wipes ledger.demo/ first.
+;;
+;; File:      main.bean
+;; Owner:     user
+;; Schema:    lamella-ledger-version=3
+;; ---------------------------------------------------------------
+
+option "title"              "Lamella Demo Ledger — John Smith / Acme Co."
+option "operating_currency" "USD"
+
+2026-01-01 custom "lamella-ledger-version" "3"
+
+plugin "beancount_lazy_plugins.auto_accounts"
+
+include "accounts.bean"
+include "commodities.bean"
+include "prices.bean"
+include "events.bean"
+include "manual_transactions.bean"
+
+include "connector_accounts.bean"
+include "connector_links.bean"
+include "connector_overrides.bean"
+include "connector_rules.bean"
+include "connector_budgets.bean"
+include "connector_config.bean"
+include "connector_transfers.bean"
+include "simplefin_transactions.bean"
+
+include "mileage_summary.bean"

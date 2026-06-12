@@ -1,0 +1,254 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}SimpleFIN — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}SimpleFIN{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='SimpleFIN',
+     subtitle='Bank-feed integration. Set up an access key, map accounts, pick a mode, and let the scheduled fetch run on its interval.',
+     kicker='Intake'
+) %}
+{% endcall %}
+
+{% if saved %}{% call F.banner(tone='ok', title='Saved') %}{% if message %}{{ message }}{% endif %}{% endcall %}{% endif %}
+{% if error %}{% call F.banner(tone='err', title='Error') %}{{ error }}{% endcall %}{% endif %}
+
+{% call L.section(title='1. Access key') %}
+{% call C.card() %}
+<p class="subtle" style="margin-top:0">
+  Paste either a <strong>setup token</strong> (the one-shot base64 string from
+  your SimpleFIN Bridge — we'll claim the access URL for you) or a full
+  <strong>access URL</strong> (<code>https://user:pass@bridge.example/simplefin</code>).
+  {% if has_access_url %}<br><em>An access URL is currently configured. Leave blank to keep it.</em>{% endif %}
+</p>
+<form method="post" action="/simplefin/settings" class="form-grid" style="max-width:none">
+  <div class="field">
+    <label class="field-label" for="sf-key">Setup token or access URL</label>
+    <input class="field-input" id="sf-key" type="password" name="simplefin_access_url"
+           placeholder="{% if has_access_url %}(configured — leave blank to keep){% else %}paste token or access URL{% endif %}"
+           autocomplete="off" />
+  </div>
+  <div class="form-actions">
+    <span class="spacer"></span>
+    {{ B.btn('Save key', type='submit', variant='primary') }}
+  </div>
+</form>
+{% endcall %}
+{% endcall %}
+
+{% call L.section(title='2. Accounts') %}
+{% call C.card() %}
+<p class="subtle" style="margin-top:0">
+  Ask the bridge what accounts it exposes, then pick the matching Beancount
+  account for each one. Mappings are stored in the <code>accounts_meta</code>
+  table and apply to every fetch from now on.
+</p>
+<form method="post" action="/simplefin/discover">
+  {{ B.btn('Discover accounts from SimpleFIN', type='submit', icon=icon.refresh(), disabled=(not has_access_url)) }}
+  {% if not has_access_url %}<span class="subtle"> — save an access key first.</span>{% endif %}
+</form>
+{% endcall %}
+
+{% if discovered %}
+<datalist id="sf-account-list">
+  {% for label in fancy_labels %}<option value="{{ label }}">{% endfor %}
+</datalist>
+{% call C.card(flush=true) %}
+<form method="post" action="/simplefin/map" autocomplete="off">
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>SimpleFIN account</th>
+        <th>Bank</th>
+        <th class="num">Balance</th>
+        <th>Beancount account</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for acc in discovered %}
+      <tr>
+        <td>
+          <strong>{{ acc.name }}</strong>
+          <br><code class="muted-text">{{ acc.account_id }}</code>
+        </td>
+        <td>{{ acc.org_name or '' }}</td>
+        <td class="num">{% if acc.balance %}{{ acc.balance }} {{ acc.currency }}{% endif %}</td>
+        <td>
+          <input class="field-input" type="text"
+                 name="map[{{ acc.account_id }}]"
+                 list="sf-account-list"
+                 autocomplete="off"
+                 spellcheck="false"
+                 placeholder="Type to search…"
+                 value="{{ acc.mapped_to_label or '' }}"
+                 style="min-width:24rem" />
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div style="padding:12px 18px; border-top:1px solid var(--border-soft); display:flex; gap:1rem; align-items:center; flex-wrap:wrap">
+    <span class="subtle">
+      Start typing the bank, kind, or last four — the matching account
+      will appear. Leave blank to clear a mapping.
+    </span>
+    <span style="margin-left:auto"></span>
+    {{ B.btn('Save mappings', type='submit', variant='primary') }}
+  </div>
+</form>
+{% endcall %}
+{% else %}
+{% call C.card() %}
+{{ F.empty_state('No accounts discovered yet. Click the button above after saving your access key.') }}
+{% endcall %}
+{% endif %}
+{% endcall %}
+
+{% call L.section(title='3. Mode & schedule') %}
+<div class="info-grid">
+  {% call C.card(title='Mode') %}
+  <form method="post" action="/simplefin/mode" class="form-grid" style="max-width:none">
+    <label style="display:block; padding:8px 12px; background:var(--panel-2); border-radius:6px; margin-bottom:6px">
+      <input type="radio" name="mode" value="disabled" {% if mode == 'disabled' %}checked{% endif %} />
+      <strong>Disabled</strong>
+      <div class="subtle" style="margin-left:24px">No fetch. Pause the integration without losing configuration.</div>
+    </label>
+    <label style="display:block; padding:8px 12px; background:var(--panel-2); border-radius:6px; margin-bottom:6px">
+      <input type="radio" name="mode" value="shadow" {% if mode == 'shadow' %}checked{% endif %} />
+      <strong>Shadow</strong>
+      <div class="subtle" style="margin-left:24px">Fetch and classify, but write to the preview file so you can inspect results before they land.</div>
+    </label>
+    <label style="display:block; padding:8px 12px; background:var(--panel-2); border-radius:6px">
+      <input type="radio" name="mode" value="active" {% if mode == 'active' %}checked{% endif %} />
+      <strong>Active</strong>
+      <div class="subtle" style="margin-left:24px">This app writes <code>simplefin_transactions.bean</code>.</div>
+    </label>
+    <div class="form-actions">
+      <span class="spacer"></span>
+      {{ B.btn('Save mode', type='submit', variant='primary') }}
+    </div>
+  </form>
+  {% endcall %}
+
+  {% call C.card(title='Schedule') %}
+  <form method="post" action="/simplefin/settings" class="form-grid" style="max-width:none">
+    <div class="field">
+      <label class="field-label">Fetch interval (hours)</label>
+      <input class="field-input" type="number" min="1" max="24" name="simplefin_fetch_interval_hours" value="{{ interval_hours }}" />
+    </div>
+    <div class="field">
+      <label class="field-label">Lookback window (days)</label>
+      <input class="field-input" type="number" min="1" max="90" name="simplefin_lookback_days" value="{{ lookback_days }}" />
+    </div>
+    <div class="form-actions">
+      <span class="spacer"></span>
+      {{ B.btn('Save schedule', type='submit', variant='primary') }}
+    </div>
+  </form>
+  {% endcall %}
+</div>
+{% endcall %}
+
+{% call L.section(title='4. Fetch') %}
+{% call C.card() %}
+<form hx-post="/simplefin/fetch" hx-target="body" hx-swap="beforeend">
+  {{ B.btn('Fetch now', type='submit', icon=icon.refresh(), variant='primary', disabled=(mode == 'disabled' or not has_access_url)) }}
+  {% if mode == 'disabled' %}<span class="subtle"> — switch out of Disabled to enable.</span>
+  {% elif not has_access_url %}<span class="subtle"> — set an access key first.</span>{% endif %}
+</form>
+{% endcall %}
+{% endcall %}
+
+{% call L.section(title='Last 7 days') %}
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi-label">New txns</div><div class="kpi-value num">{{ counters.new_txns }}</div></div>
+  <div class="kpi"><div class="kpi-label">Duplicates ignored</div><div class="kpi-value num">{{ counters.duplicate_txns }}</div></div>
+  <div class="kpi"><div class="kpi-label">Uncategorized</div><div class="kpi-value num">{{ counters.fixme_txns }}</div></div>
+  <div class="kpi"><div class="kpi-label">By rule</div><div class="kpi-value num">{{ counters.by_rule }}</div></div>
+  <div class="kpi"><div class="kpi-label">By AI</div><div class="kpi-value num">{{ counters.by_ai }}</div></div>
+</div>
+{% endcall %}
+
+{% call L.section(title='Recent ingests') %}
+{% if ingests %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Started</th>
+      <th>Trigger</th>
+      <th>Mode</th>
+      <th class="num">New</th>
+      <th class="num">Dup</th>
+      <th class="num">Uncat</th>
+      <th class="num">Rule</th>
+      <th class="num">AI</th>
+      <th>bean-check</th>
+      <th>Error</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in ingests %}
+    {% include "partials/ingest_row.html" %}
+  {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% else %}
+{{ F.empty_state('No ingest runs recorded yet.') }}
+{% endif %}
+{% endcall %}
+
+<details style="margin-top:2rem">
+  <summary style="cursor:pointer; font-weight:500">Advanced: bulk YAML import</summary>
+  {% call C.card() %}
+    <p class="subtle" style="margin-top:0">
+      Paste a YAML block of <code>&lt;simplefin-id&gt;: &lt;account-path&gt;</code>
+      pairs to import many mappings at once. Saving here writes the file at
+      <code>{{ account_map_path }}</code> AND applies each pair to
+      <code>accounts_meta</code> immediately.
+    </p>
+    {% if account_map %}
+    <ul class="list-clean" style="font-family:var(--font-mono); font-size:0.85rem">
+      {% for sf_id, account in account_map %}
+      <li><code>{{ sf_id }}</code> → <code>{{ account }}</code></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <form method="post" action="/simplefin/account-map" class="form-grid" style="max-width:none; margin-top:1rem">
+      <div class="field">
+        <label class="field-label">Edit YAML</label>
+        <textarea class="field-textarea" name="contents" rows="10" style="font-family:var(--font-mono)">{{ account_map_raw }}</textarea>
+      </div>
+      <div class="form-actions">
+        <span class="spacer"></span>
+        {{ B.btn('Save YAML', type='submit', variant='primary') }}
+      </div>
+    </form>
+  {% endcall %}
+</details>
+
+<style>
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+</style>
+{% endblock %}

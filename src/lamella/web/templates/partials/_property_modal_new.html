@@ -1,0 +1,80 @@
+{# "+ Add property" modal — HTMX fragment. Slim form; detailed
+   fields edited on /settings/properties/{slug} after save. #}
+{% import "_components/_modal.html" as M %}
+
+{% call M.modal(
+     id='property-new-modal',
+     title='Add a property',
+     subtitle='The basics. Address, purchase price, valuations, and the asset-account path are edited on the property\'s detail page.',
+     open=true,
+     size='md'
+) %}
+<form method="post" action="/settings/properties"
+      hx-post="/settings/properties"
+      hx-target="this"
+      autocomplete="off"
+      class="form-grid"
+      style="max-width:none">
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Display name <span class="subtle">required</span></label>
+      <input class="field-input" type="text" name="display_name" required
+             placeholder="e.g. Main residence, Office park" />
+    </div>
+    <div class="field">
+      <label class="field-label">Slug <span class="subtle">optional, auto-derives</span></label>
+      <input class="field-input" type="text" name="slug"
+             pattern="[A-Z][A-Za-z0-9_-]*"
+             placeholder="MainHouse" />
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Type</label>
+      <input class="field-input" type="text" name="property_type"
+             list="property-modal-types"
+             value="house"
+             placeholder="house, land, rental…" />
+      <datalist id="property-modal-types">
+        {% for t in property_types %}<option value="{{ t }}">{% endfor %}
+      </datalist>
+    </div>
+    <div class="field">
+      <label class="field-label">Owning entity</label>
+      <input class="field-input" type="text" name="entity_slug"
+             list="property-modal-entities"
+             placeholder="Personal, Acme, …" />
+      <datalist id="property-modal-entities">
+        {% for e in entities %}<option value="{{ e.slug }}" label="{{ e.display_name or e.slug }}">{% endfor %}
+      </datalist>
+    </div>
+  </div>
+
+  <div class="field">
+    <label style="display:flex; align-items:center; gap:6px">
+      <input type="checkbox" name="is_active" value="1" checked />
+      <span class="subtle">Active</span>
+    </label>
+  </div>
+
+  {% call M.actions() %}
+    <button type="button" class="btn btn-ghost"
+            onclick="this.closest('.modal-backdrop').classList.remove('is-open')">
+      Cancel
+    </button>
+    <button type="submit" class="btn btn-primary">Add property</button>
+  {% endcall %}
+</form>
+
+<script>
+(function () {
+  if (!window.LamellaSlug) return;
+  var modal = document.getElementById('property-new-modal');
+  if (!modal) return;
+  var form = modal.querySelector('form');
+  if (form) window.LamellaSlug.attach({form: form, kind: 'properties'});
+})();
+</script>
+{% endcall %}

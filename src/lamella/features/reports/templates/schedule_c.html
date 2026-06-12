@@ -1,0 +1,67 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# schedule_c 2025 — IRS Form 1040 Schedule C, Part II expenses focus.
+   Tied to config/schedule_c_lines.yml line numbers. #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Schedule C — {{ entity }} {{ year }}</title>
+  <style>{% include "_print_base.css" %}</style>
+</head>
+<body>
+  <h1>Schedule C (Form 1040)</h1>
+  <p class="muted">Profit or Loss From Business (Sole Proprietorship) — entity {{ entity }}, tax year {{ year }}.</p>
+
+  <h2>Part I — Income</h2>
+  <table class="lines">
+    <thead><tr><th>Line</th><th>Description</th><th class="amt">Amount</th></tr></thead>
+    <tbody>
+      <tr><td class="line">1</td><td>Gross receipts</td><td class="amt">{{ gross_receipts | money }}</td></tr>
+      <tr><td class="line">2</td><td>Returns and allowances</td><td class="amt">0.00</td></tr>
+      <tr><td class="line">3</td><td>Subtract line 2 from line 1</td><td class="amt">{{ gross_receipts | money }}</td></tr>
+      <tr><td class="line">4</td><td>Cost of goods sold (Part III, line 42)</td><td class="amt">{{ cogs | money }}</td></tr>
+      <tr><td class="line">7</td><td>Gross income</td><td class="amt">{{ gross_income | money }}</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Part II — Expenses</h2>
+  <table class="lines">
+    <thead><tr><th>Line</th><th>Description</th><th class="amt">Amount</th><th class="cnt">Txns</th></tr></thead>
+    <tbody>
+      {% for row in summary %}
+        <tr>
+          <td class="line">{{ row.line }}</td>
+          <td>{{ row.description }}</td>
+          <td class="amt">{{ row.amount | money }}</td>
+          <td class="cnt">{{ row.txn_count }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="totals">Line 28 — total expenses: {{ total_expenses | money }}</p>
+  <p class="totals">Line 31 — net profit / (loss): {{ net | money_signed }}</p>
+
+  {% if mileage_rows %}
+  <h2>Part IV — Vehicle information</h2>
+  <table class="lines">
+    <thead><tr><th>Vehicle</th><th class="amt">Miles (business)</th><th class="amt">Deduction</th></tr></thead>
+    <tbody>
+      {% for v in mileage_rows %}
+        <tr>
+          <td>{{ v.vehicle }}</td>
+          <td class="amt">{{ v.miles | money }}</td>
+          <td class="amt">{{ v.deduction_usd | money }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% block title %}{{ flow.title }} — Terms source{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block content %}
+{% include "partials/loans/_wizard_progress.html" %}
+
+<h1>{{ flow.title }}</h1>
+<h2>Step 1: How will you provide loan terms?</h2>
+<p class="muted">
+  If you have the original loan documents, "full original terms" is
+  the most accurate path. If you only have a recent payoff statement,
+  the wizard will derive an approximate original principal from it.
+</p>
+
+{% include "partials/_wizard_errors.html" %}
+
+<form method="post" action="/settings/loans/wizard/{{ flow_name }}/step"
+      class="stacked-form">
+  <input type="hidden" name="step" value="terms_source" />
+
+  <label>
+    <input type="radio" name="terms_source" value="full"
+           {% if params.terms_source == 'full' %}checked{% endif %} />
+    I have the full original terms (principal, funded date, term, APR)
+  </label>
+  <label>
+    <input type="radio" name="terms_source" value="statement"
+           {% if params.terms_source == 'statement' %}checked{% endif %} />
+    I just have a recent statement (balance + remaining months + APR)
+  </label>
+
+  <button type="submit" class="primary-action">Next →</button>
+  <a href="/settings/loans" class="secondary">Cancel</a>
+</form>
+{% endblock %}

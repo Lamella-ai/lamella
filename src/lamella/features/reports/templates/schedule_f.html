@@ -1,0 +1,50 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# schedule_f 2025 — IRS Form 1040 Schedule F, farm expenses focus. #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Schedule F — {{ entity }} {{ year }}</title>
+  <style>{% include "_print_base.css" %}</style>
+</head>
+<body>
+  <h1>Schedule F (Form 1040)</h1>
+  <p class="muted">Profit or Loss From Farming — entity {{ entity }}, tax year {{ year }}.</p>
+
+  <h2>Part I — Farm Income</h2>
+  <p class="muted">Income totals from <code>Income:{{ entity }}:*</code> postings.</p>
+  <table class="lines">
+    <thead><tr><th>Account</th><th class="amt">Amount</th></tr></thead>
+    <tbody>
+      {% for row in income_rows %}
+        <tr><td>{{ row.account }}</td><td class="amt">{{ row.amount | money }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="totals">Total farm income: {{ gross_receipts | money }}</p>
+
+  <h2>Part II — Farm Expenses</h2>
+  <table class="lines">
+    <thead><tr><th>Line</th><th>Description</th><th class="amt">Amount</th><th class="cnt">Txns</th></tr></thead>
+    <tbody>
+      {% for row in summary %}
+        <tr>
+          <td class="line">{{ row.line }}</td>
+          <td>{{ row.description }}</td>
+          <td class="amt">{{ row.amount | money }}</td>
+          <td class="cnt">{{ row.txn_count }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="totals">Total expenses: {{ total_expenses | money }}</p>
+  <p class="totals">Net farm profit / (loss): {{ net | money_signed }}</p>
+</body>
+</html>

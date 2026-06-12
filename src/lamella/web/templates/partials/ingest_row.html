@@ -1,0 +1,20 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<tr class="{% if row.error %}row-error{% elif row.bean_check_ok %}row-ok{% else %}row-pending{% endif %}">
+  <td>{{ row.started_label }}</td>
+  <td>{{ row.trigger }}</td>
+  <td>{{ row.mode or '—' }}</td>
+  <td>{{ row.new_txns }}</td>
+  <td>{{ row.duplicate_txns }}</td>
+  <td>{{ row.fixme_txns }}</td>
+  <td>{{ row.classified_by_rule }}</td>
+  <td>{{ row.classified_by_ai }}</td>
+  <td>{% if row.bean_check_ok %}OK{% elif row.error %}rolled back{% else %}—{% endif %}</td>
+  <td class="muted small">{{ row.error or '' }}</td>
+</tr>

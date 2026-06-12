@@ -1,0 +1,227 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "setup_recovery/_layout.html" %}
+{% block title %}Accounts — Setup — Lamella{% endblock %}
+
+{% block step_heading %}Accounts{% endblock %}
+{% block step_subheading %}
+  Every bank / credit-card / loan account needs <strong>kind</strong>
+  and <strong>entity</strong> at a minimum so the AI classifier
+  knows which entity&rsquo;s chart to route charges through and which
+  companion accounts (Interest, Bank:Fees, Bank:Cashback, etc.) to
+  scaffold. Institution + last-4 are optional but dramatically
+  improve AI classification.
+{% endblock %}
+
+{% block step_body %}
+{% set q = request.query_params %}
+{% if q.get('added') %}
+<div class="wiz-banner wiz-banner-ok" style="margin-bottom:1.2em;">
+  <strong style="color:var(--ok);">✓ Added <code>{{ q.get('added') }}</code>.</strong>
+  Companion accounts (Interest / Bank:Fees / Cashback / Transfers / OpeningBalances)
+  scaffolded automatically based on the kind you picked.
+</div>
+{% endif %}
+{% if q.get('error') %}
+<div class="wiz-banner wiz-banner-warn" style="margin-bottom:1.2em;">
+  ⚠ {{ q.get('error') }}
+</div>
+{% endif %}
+
+<section id="setup-accounts-banner"
+         style="margin:0 0 1.2em; padding:0.8em 1em; background:{% if all_labeled %}var(--ok-soft){% else %}var(--warn-soft){% endif %}; border-left:4px solid {% if all_labeled %}var(--ok){% else %}var(--warn){% endif %}; border-radius:4px;">
+  {% include "partials/_setup_accounts_banner_body.html" %}
+</section>
+
+<div style="display:flex; gap:0.6em; margin:0 0 1.2em; align-items:center; flex-wrap:wrap;">
+  <a href="/setup/accounts?add=account" class="wiz-btn wiz-btn-primary">
+    + Add account
+  </a>
+  <span class="wiz-sub small" style="margin:0;">
+    Most accounts arrive via SimpleFIN or import. Use this to add a
+    one-off (cash account, secondary card) that&rsquo;s outside those flows.
+  </span>
+</div>
+
+{% if accounts %}
+<table class="field-map" style="width:100%; max-width:none;">
+  <thead>
+    <tr>
+      <th style="width:26em;">Account path</th>
+      <th>Setup</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for a in accounts %}
+      {% with a=a, account_kinds=account_kinds, entities=entities %}
+        {% include "partials/_setup_account_row.html" %}
+      {% endwith %}
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<section class="wiz-card" style="padding:1.5em; text-align:center;">
+  <strong>No accounts yet.</strong>
+  <p class="wiz-sub" style="margin:0.4em 0 0;">
+    Import a ledger via /setup/import, connect SimpleFIN at /setup/simplefin,
+    or use the + Add button above for a one-off.
+  </p>
+</section>
+{% endif %}
+
+{# Shared datalist for the per-row entity_slug autocomplete inputs.
+   One datalist for the whole page; each row's <input list="..."> +
+   the modal's entity_slug field reference it by id. Per CLAUDE.md
+   rule 5: entity slugs are long-tail user data and must use
+   autocomplete, not <select>. #}
+<datalist id="setup-accounts-entities-datalist">
+  {% for slug in entities %}<option value="{{ slug }}">{% endfor %}
+</datalist>
+
+<style>
+  .setup-account-complete { background: var(--ok-soft); }
+  .setup-account-row td { vertical-align: top; padding:0.6em 0.5em; }
+</style>
+{% endblock %}
+
+{% block step_actions %}
+<a href="/setup/recovery" class="wiz-btn wiz-btn-secondary">← Back to checklist</a>
+<form method="post" action="/setup/refresh-progress" style="display:inline-block;">
+  <button type="submit" class="wiz-btn wiz-btn-primary">Done — return to checklist</button>
+</form>
+{% endblock %}
+
+{# ----- Modal block. Phase 4 of /setup/recovery. ----- #}
+{% block modal %}
+{% if open_modal == 'account' %}
+{% set fv = form_values or {} %}
+{% set fe = field_errors or {} %}
+{% import "wizard/_modal.html" as M %}
+{% call M.modal(
+    title="Add an account",
+    submit_form_id="account-modal-form",
+    action_label="Add account",
+    cancel_href="/setup/accounts",
+    width="640px"
+) %}
+<form method="post"
+      action="/setup/accounts/add"
+      id="account-modal-form"
+      class="wiz-modal-form">
+
+  <div class="wiz-field">
+    <label class="wiz-label">Account path</label>
+    <input
+      class="wiz-input {% if fe.get('account_path') %}is-invalid{% endif %}"
+      type="text"
+      name="account_path"
+      value="{{ fv.get('account_path', '') }}"
+      maxlength="120"
+      required autofocus
+      placeholder="Assets:Personal:BankOne:Checking"
+    />
+    <span class="wiz-help">
+      Full canonical path. Must start with <code>Assets:</code> or
+      <code>Liabilities:</code>, have at least 3 segments
+      (<code>Root:Entity:Leaf</code>), and use Pascal-case segments.
+    </span>
+    {% if fe.get('account_path') %}
+      <span class="wiz-error">{{ fe['account_path'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field" style="display:flex; gap:1em; flex-wrap:wrap;">
+    <div style="flex:1; min-width:10em;">
+      <label class="wiz-label">Kind</label>
+      {% set sel_kind = fv.get('kind', '') %}
+      <select class="wiz-input {% if fe.get('kind') %}is-invalid{% endif %}" name="kind" required>
+        <option value="" disabled {% if not sel_kind %}selected{% endif %}>— pick a kind —</option>
+        {% for k in account_kinds %}
+          <option value="{{ k }}" {% if sel_kind == k %}selected{% endif %}>{{ k | humanize }}</option>
+        {% endfor %}
+      </select>
+      <span class="wiz-help">
+        Drives companion-account scaffolding (Interest, Bank:Fees,
+        Bank:Cashback, OpeningBalances, Transfers:InFlight) at save
+        time.
+      </span>
+      {% if fe.get('kind') %}
+        <span class="wiz-error">{{ fe['kind'] }}</span>
+      {% endif %}
+    </div>
+    <div style="flex:1; min-width:10em;">
+      <label class="wiz-label">Owning entity</label>
+      <input
+        class="wiz-input {% if fe.get('entity_slug') %}is-invalid{% endif %}"
+        type="text"
+        name="entity_slug"
+        list="setup-accounts-entities-datalist"
+        value="{{ fv.get('entity_slug', '') }}"
+        placeholder="Personal"
+        autocomplete="off"
+        required
+      />
+      <span class="wiz-help">
+        Pick an existing entity. Register a new one at
+        <a href="/setup/entities?add=person">Entities → Add</a> first
+        if it isn&rsquo;t in the dropdown.
+      </span>
+      {% if fe.get('entity_slug') %}
+        <span class="wiz-error">{{ fe['entity_slug'] }}</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="wiz-field" style="display:flex; gap:1em; flex-wrap:wrap;">
+    <div style="flex:2; min-width:10em;">
+      <label class="wiz-label">Institution (optional)</label>
+      <input
+        class="wiz-input"
+        type="text"
+        name="institution"
+        value="{{ fv.get('institution', '') }}"
+        maxlength="80"
+        placeholder="Bank One"
+      />
+    </div>
+    <div style="flex:1; min-width:5em;">
+      <label class="wiz-label">Last 4 (optional)</label>
+      <input
+        class="wiz-input"
+        type="text"
+        name="last_four"
+        value="{{ fv.get('last_four', '') }}"
+        pattern="[0-9]{0,4}"
+        maxlength="4"
+        placeholder="####"
+      />
+    </div>
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Opening date (optional)</label>
+    <input
+      class="wiz-input {% if fe.get('opening_date') %}is-invalid{% endif %}"
+      type="date"
+      name="opening_date"
+      value="{{ fv.get('opening_date', '') }}"
+    />
+    <span class="wiz-help">
+      Date to put on the Open directive. Defaults to 1900-01-01 so
+      historical postings can backfill without bean-check rejecting
+      them as &ldquo;inactive account.&rdquo;
+    </span>
+    {% if fe.get('opening_date') %}
+      <span class="wiz-error">{{ fe['opening_date'] }}</span>
+    {% endif %}
+  </div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

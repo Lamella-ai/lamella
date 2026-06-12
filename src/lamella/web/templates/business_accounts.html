@@ -1,0 +1,99 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+-->
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}{{ entity.display_name or entity.slug }} accounts — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Accounts{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title=(entity.display_name or entity.slug) ~ ' · accounts',
+     subtitle='Every account this entity owns, with current balance.',
+     kicker='Business'
+) %}
+  {{ B.btn('Back to ' ~ (entity.display_name or entity.slug),
+           href='/businesses/' ~ entity.slug) }}
+  {{ B.btn('All transactions',
+           href='/businesses/' ~ entity.slug ~ '/transactions') }}
+  {{ B.btn('Expenses only',
+           href='/businesses/' ~ entity.slug ~ '/expenses') }}
+{% endcall %}
+
+{% if unregistered_count %}
+{% call F.banner(tone='info', title=unregistered_count|string ~ ' unregistered account(s)') %}
+  {{ unregistered_count }} of {{ registered_count + unregistered_count }} accounts touched by
+  {{ entity.display_name or entity.slug }} aren't yet in the accounts registry.
+  Registering an account lets you set the institution, last-four, kind, and
+  SimpleFIN link.
+  <div style="margin-top:0.5rem">
+    {{ B.btn('Manage accounts →', href='/settings/accounts?entity=' + entity.slug, variant='primary', size='sm') }}
+  </div>
+{% endcall %}
+{% endif %}
+
+{% if not sections %}
+{{ F.empty_state(
+  'No accounts touch ' ~ entity.slug ~ ' yet. Add an Open directive (or scaffold via /settings/entities) before posting transactions.',
+  cta_text='Scaffold accounts',
+  cta_href='/settings/entities',
+) }}
+{% else %}
+
+{% for sec in sections %}
+{% call L.section(title=sec.root, subtitle='Subtotal ' ~ (sec.subtotal | money)) %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Account</th>
+      <th>Institution</th>
+      <th class="num">Balance</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for a in sec.accounts %}
+    <tr class="row-clickable {% if not a.registered %}row-warn{% endif %}"
+        onclick="window.location='/accounts/{{ a.account_path }}'">
+      <td>
+        <strong>{{ a.account_path | alias }}</strong>
+        {% if a.display_name and a.display_name != a.account_path %}
+        <br><span class="subtle" style="font-size:0.78rem">{{ a.display_name }}</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if a.institution %}{{ a.institution }}{% endif %}
+        {% if a.last_four %}<span class="subtle">··{{ a.last_four }}</span>{% endif %}
+      </td>
+      <td class="num">{{ a.balance | money(a.currency) }}</td>
+      <td>
+        {% if a.closed_on %}{{ D.badge('Closed', tone='quiet') }}
+        {% elif a.registered %}{{ D.badge(a.kind or 'registered', tone='ok') }}
+        {% else %}{{ D.badge('Unregistered', tone='warn') }}
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+{% endfor %}
+
+{% if grand_total %}
+<p class="subtle" style="margin-top:1rem">
+  <strong>Net of Assets &minus; Liabilities:</strong> {{ grand_total | money }}
+</p>
+{% endif %}
+
+{% endif %}
+{% endblock %}

@@ -1,0 +1,103 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Trip templates — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Trip templates{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Trip templates',
+     subtitle='Save a recurring route (office, rental, client) once; spawn a prefilled trip in one tap from the mileage form.',
+     kicker='Vehicles'
+) %}
+  {{ B.btn('Back to mileage', href='/mileage', variant='ghost') }}
+{% endcall %}
+
+{% if request.query_params.get('saved') %}{% call F.banner(tone='ok', title='Saved') %}{% endcall %}{% endif %}
+
+<datalist id="vt-vehicles-datalist">{% for v in vehicles %}<option value="{{ v.slug }}" label="{{ v.display_name or v.slug }}">{% endfor %}</datalist>
+<datalist id="vt-category-datalist">
+  <option value="business">
+  <option value="commuting">
+  <option value="personal">
+  <option value="mixed">
+</datalist>
+
+{% if templates %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr><th>Name</th><th>Vehicle</th><th>Entity</th><th>From → To</th><th class="num">Miles</th><th>Cat</th><th>Round?</th><th>Active</th><th class="shrink"></th></tr>
+  </thead>
+  <tbody>
+    {% for t in templates %}
+    <tr>
+      <td>{{ t.display_name }}</td>
+      <td>{{ t.vehicle_slug or '—' }}</td>
+      <td>{{ t.entity or '—' }}</td>
+      <td>{{ t.default_from or '' }}{% if t.default_from and t.default_to %} → {% endif %}{{ t.default_to or '' }}</td>
+      <td class="num">{{ '{:,.1f}'.format(t.default_miles) if t.default_miles else '' }}</td>
+      <td>{{ t.default_category or '—' }}</td>
+      <td>{% if t.is_round_trip %}{{ D.badge('yes', tone='accent') }}{% else %}—{% endif %}</td>
+      <td>{% if t.is_active %}{{ D.badge('active', tone='ok') }}{% else %}{{ D.badge('inactive', tone='muted') }}{% endif %}</td>
+      <td class="shrink">
+        <form method="post" action="/vehicle-templates/{{ t.slug }}/delete"
+              data-confirm="Delete trip template '{{ t.display_name }}'? Existing logged trips that used this template are NOT affected — only future quick-log won't have it as an option."
+              data-confirm-button="Delete template">
+          {{ B.btn('Delete', type='submit', variant='ghost', size='sm') }}
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% else %}
+{{ F.empty_state('No templates yet.') }}
+{% endif %}
+
+{% call L.section(title='Add a template') %}
+{% call C.card() %}
+<form method="post" action="/vehicle-templates" class="form-grid" style="max-width:none" autocomplete="off">
+  <div class="form-row-2">
+    <div class="field"><label class="field-label">Display name</label><input class="field-input" type="text" name="display_name" required placeholder="e.g. Office → Client A" /></div>
+    <div class="field"><label class="field-label">Slug (auto-derived if blank)</label><input class="field-input" type="text" name="slug" pattern="[A-Z][A-Za-z0-9-]*" /></div>
+  </div>
+  <div class="form-row-2">
+    <div class="field"><label class="field-label">Vehicle</label><input class="field-input" type="text" name="vehicle_slug" list="vt-vehicles-datalist" placeholder="(any)" /></div>
+    <div class="field"><label class="field-label">Entity</label><input class="field-input" type="text" name="entity" /></div>
+  </div>
+  <div class="form-row-2">
+    <div class="field"><label class="field-label">From</label><input class="field-input" type="text" name="default_from" /></div>
+    <div class="field"><label class="field-label">To</label><input class="field-input" type="text" name="default_to" /></div>
+  </div>
+  <div class="form-row-2">
+    <div class="field"><label class="field-label">Miles (one-way)</label><input class="field-input" type="number" step="0.1" name="default_miles" /></div>
+    <div class="field"><label class="field-label">Category</label><input class="field-input" type="text" name="default_category" list="vt-category-datalist" /></div>
+  </div>
+  <div class="field"><label class="field-label">Purpose</label><input class="field-input" type="text" name="default_purpose" /></div>
+  <div class="field">
+    <label style="display:flex; gap:8px; align-items:center; font-size:0.92rem">
+      <input type="checkbox" name="is_round_trip" value="1" />
+      Round trip (doubles miles + appends “(round trip)” on spawn)
+    </label>
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Save template', type='submit', variant='primary', icon=icon.plus()) }}</div>
+</form>
+{% endcall %}
+{% endcall %}
+{% endblock %}

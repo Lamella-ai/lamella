@@ -1,0 +1,392 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Categorize — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Categorize{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Categorize',
+     subtitle=open_count|string + ' uncategorized transaction' + ('' if open_count == 1 else 's') + ' left',
+     kicker='Daily'
+) %}
+  {{ B.btn('Review queue', href='/review', icon=icon.checkcircle()) }}
+{% endcall %}
+
+<style>
+  /* Restore the legacy card padding for the categorize article — my
+     new .page .card override (max-width:none; padding:0) would otherwise
+     break this page's tightly-coupled HTMX layout. Scoped so other
+     pages keep the new styling. */
+  .page > .categorize-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    max-width: 720px;
+  }
+  .page > .categorize-card .card-head { margin-bottom: 1rem; padding: 0; border-bottom: 0; }
+  .page > .categorize-card .card-title { font-size: 1.2rem; font-weight: 600; }
+  .page > .categorize-card .card-meta { display: flex; gap: 1rem; align-items: baseline; margin-top: 0.2rem; color: var(--muted); }
+  .page > .categorize-card .card-meta .amount { font-size: 1.4rem; font-weight: 600; color: var(--fg); }
+  .page > .categorize-card .card-charged { margin-top: 0.5rem; color: var(--fg); }
+</style>
+
+<article class="card categorize-card" id="card-{{ card.item_id }}">
+  <header class="card-head">
+    <div class="card-title">{{ card.merchant or card.narration.split('·')[0]|trim or 'Transaction' }}</div>
+    <div class="card-meta">
+      <time>{{ card.txn_date }}</time>
+      <span class="amount">{{ card.amount | money(card.currency) }}</span>
+    </div>
+    <div class="card-charged">
+      <span class="muted">Charged to</span>
+      <strong title="{{ card.from_account }}">{{ card.from_account_display }}</strong>
+    </div>
+  </header>
+
+  {% if card.pair %}
+    <div class="banner info">
+      <p>
+        <strong>↔ Looks like a transfer</strong> between your accounts.
+        Partner: <code title="{{ card.pair.partner_account }}">{{ card.pair.partner_display }}</code>
+        {% if card.pair.ref %}· REF {{ card.pair.ref }}{% endif %}.
+      </p>
+      <form method="post" action="/review/{{ card.item_id }}/mark_transfer"
+            hx-post="/review/{{ card.item_id }}/mark_transfer"
+            hx-target="closest article" hx-swap="outerHTML">
+        <button type="submit" class="primary-action transfer-action">
+          ✓ Yes, this is a transfer
+        </button>
+      </form>
+    </div>
+  {% else %}
+    <details class="banner transfer-manual" {% if card.transfer_suggestion and card.transfer_suggestion.confident %}open{% endif %}>
+      <summary>
+        ↔ This is a transfer to another account of mine…
+        {% if card.transfer_suggestion and card.transfer_suggestion.confident %}
+          <span class="muted small">· the narration mentions "transfer" and matches
+          <strong>{{ card.transfer_suggestion.display_name }}</strong>
+          {% if card.transfer_suggestion.last_four %}(…{{ card.transfer_suggestion.last_four }}){% endif %}</span>
+        {% elif card.transfer_suggestion %}
+          <span class="muted small">· looks like it may match
+          <strong>{{ card.transfer_suggestion.display_name }}</strong></span>
+        {% endif %}
+      </summary>
+      <p class="muted small">
+        Use this for brokerage sweeps, cash pulls to BrokerageOne, or any intra-me
+        move where the other side isn't in the ledger yet. One override is
+        written; the other side becomes visible once that account's feed catches
+        up (or you add it to the ledger yourself).
+      </p>
+      <form method="post" action="/review/{{ card.item_id }}/mark_transfer_to"
+            hx-post="/review/{{ card.item_id }}/mark_transfer_to"
+            hx-target="closest article" hx-swap="outerHTML"
+            autocomplete="off">
+        <label>Other-side account
+          <input type="text" name="target_account" list="accounts-datalist"
+                 value="{{ card.transfer_suggestion.target_account if card.transfer_suggestion else '' }}"
+                 placeholder="Assets:Personal:BrokerageOne:Brokerage" required autocomplete="off" />
+        </label>
+        <button type="submit" class="primary-action transfer-action">Mark as transfer</button>
+        <p class="muted small">
+          New account? Add it at
+          <a href="/settings/accounts" target="_blank" rel="noopener">Settings → Accounts</a>
+          (kind <code>brokerage</code> for BrokerageOne / Schwab / etc.), then return.
+        </p>
+      </form>
+    </details>
+  {% endif %}
+
+  <form method="post" action="/card/{{ card.item_id }}/save"
+        hx-post="/card/{{ card.item_id }}/save"
+        hx-target="body" hx-swap="outerHTML"
+        class="card-form" id="card-form-{{ card.item_id }}">
+
+    <fieldset>
+      <legend>Which business?</legend>
+      <div class="radio-row">
+        {% for e in card.entities %}
+          <label class="radio-pill">
+            <input type="radio" name="business" value="{{ e.slug }}"
+                   {% if card.defaults.business == e.slug %}checked{% endif %}
+                   hx-get="/card/categories-for/{{ e.slug }}"
+                   hx-target="#category-options-{{ card.item_id }}"
+                   hx-swap="innerHTML" />
+            <span>{{ e.display_name or e.slug }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>What kind of expense?</legend>
+
+      {% if card.defaults.recent %}
+        <div class="recent-categories">
+          <span class="muted small">Recently used for this merchant:</span>
+          {% for r in card.defaults.recent %}
+            <label class="chip">
+              <input type="radio" name="recent_target" value="{{ r.target_account }}"
+                     onclick="document.getElementById('target-account-input-{{ card.item_id }}').value='{{ r.target_account }}';" />
+              <span title="{{ r.target_account }}">{{ r.display_name }}</span>
+              <small class="muted">×{{ r.use_count }}</small>
+            </label>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="category-select">
+        <input type="text"
+               name="target_account"
+               id="target-account-input-{{ card.item_id }}"
+               list="accounts-datalist"
+               autocomplete="off"
+               placeholder="Start typing: &quot;gas&quot;, &quot;office&quot;, &quot;utilities&quot;…"
+               value="{{ card.defaults.target_account or '' }}" />
+        <small class="muted small" id="target-account-hint-{{ card.item_id }}"></small>
+        <span id="category-options-{{ card.item_id }}" class="visually-hidden"></span>
+      </div>
+      <script>
+        (function() {
+          const inp = document.getElementById('target-account-input-{{ card.item_id }}');
+          const hint = document.getElementById('target-account-hint-{{ card.item_id }}');
+          if (!inp || !hint) return;
+          function showHint() {
+            const v = inp.value;
+            if (!v || !window.__acctLabels) { hint.textContent = ''; return; }
+            const pretty = window.__acctLabels[v];
+            hint.textContent = pretty && pretty !== v ? '→ ' + pretty : '';
+          }
+          inp.addEventListener('input', showHint);
+          inp.addEventListener('change', showHint);
+          // __acctLabels is populated by the datalist loader below.
+          setTimeout(showHint, 400);
+        })();
+      </script>
+
+      <details class="splits">
+        <summary>+ Split across businesses / categories</summary>
+        <p class="muted small">
+          Use this for multi-item purchases (Warehouse Club run with personal and
+          business items). Every split line picks its own business and
+          category, and amounts must sum to the total.
+        </p>
+        <div id="split-lines-{{ card.item_id }}">
+          <!-- Filled by the + button below -->
+        </div>
+        <button type="button" class="secondary"
+                onclick="addSplitLine({{ card.item_id }}, '{{ card.amount }}')">
+          + Add split line
+        </button>
+      </details>
+    </fieldset>
+
+    <fieldset>
+      <legend>Receipt</legend>
+      {% if card.candidate_receipts %}
+        <p class="muted small">
+          Check every document that belongs to this transaction — invoice,
+          packing slip, receipt, etc. They can all attach in one save.
+        </p>
+        {% for cr in card.candidate_receipts %}
+          <div class="receipt-candidate" style="margin-bottom: 0.5rem;">
+            <a class="candidate-thumb" href="/paperless/preview/{{ cr.paperless_id }}"
+               target="_blank" rel="noopener"
+               title="Open full preview for #{{ cr.paperless_id }}">
+              <img src="/paperless/thumb/{{ cr.paperless_id }}"
+                   loading="lazy" alt="#{{ cr.paperless_id }}" />
+            </a>
+            <div class="candidate-detail">
+              <label style="display:block;">
+                <input type="checkbox" name="receipt_paperless_id"
+                       value="{{ cr.paperless_id }}"
+                       {% if cr.auto_attach and loop.first %}checked{% endif %} />
+                <strong>#{{ cr.paperless_id }}</strong>
+                {{ cr.title or '(untitled)' }}
+                <span class="score">{{ "%.2f"|format(cr.score) }}</span>
+              </label>
+              <div class="candidate-meta small">
+                {% if cr.correspondent %}<span class="corr">{{ cr.correspondent }}</span>{% endif %}
+                {% if cr.vendor and cr.vendor != cr.correspondent %}<span class="corr">{{ cr.vendor }}</span>{% endif %}
+                {% if cr.document_type %}<span class="muted">{{ cr.document_type }}</span>{% endif %}
+                {% if cr.date %}<time>{{ cr.date }}</time>{% endif %}
+              </div>
+              <div class="candidate-meta small">
+                {% if cr.total %}<span class="amt"><strong>Total</strong> ${{ cr.total }}</span>{% endif %}
+                {% if cr.subtotal %}<span class="muted">Subtotal ${{ cr.subtotal }}</span>{% endif %}
+                {% if cr.tax %}<span class="muted">Tax ${{ cr.tax }}</span>{% endif %}
+                {% if cr.last_four %}<span class="muted">****{{ cr.last_four }}</span>{% endif %}
+              </div>
+              <small class="muted">{{ ' · '.join(cr.reasons) }}</small>
+              {% if cr.content_excerpt %}
+                <details>
+                  <summary class="muted small">Show OCR excerpt</summary>
+                  <pre class="excerpt">{{ cr.content_excerpt }}</pre>
+                </details>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="muted small">No Paperless candidate found.</p>
+      {% endif %}
+    </fieldset>
+
+    <fieldset>
+      <legend>Note (optional)</legend>
+      <textarea name="note" rows="2" placeholder="e.g. door knobs for the shop office"></textarea>
+    </fieldset>
+
+    <div class="card-actions">
+      <button type="submit" class="primary-action">Save</button>
+      <button type="submit" formaction="/card/{{ card.item_id }}/skip"
+              hx-post="/card/{{ card.item_id }}/skip"
+              class="secondary">Skip for now</button>
+      <details class="advanced">
+        <summary>Advanced</summary>
+        <p class="small muted">
+          Raw transaction hash: <code>{{ card.txn_hash }}</code><br />
+          Source account: <code>{{ card.from_account }}</code>
+        </p>
+      </details>
+    </div>
+  </form>
+</article>
+
+{% if recent_actions %}
+<section class="recent-drawer">
+  <details>
+    <summary>Recently categorized ({{ recent_actions|length }})</summary>
+    <ul>
+      {% for a in recent_actions %}
+      <li>
+        <time>{{ a.created_at }}</time>
+        · <code class="small muted">{{ a.txn_hash[:8] }}</code>
+        · <em>{{ a.action_type }}</em>
+        <form method="post" action="/card/undo/{{ a.id }}"
+              hx-post="/card/undo/{{ a.id }}"
+              hx-target="body" hx-swap="outerHTML"
+              class="inline-form">
+          <button type="submit" class="secondary small">Undo</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+  </details>
+</section>
+{% endif %}
+
+<script>
+  function addSplitLine(itemId, totalStr) {
+    const container = document.getElementById('split-lines-' + itemId);
+    const idx = container.children.length;
+    const row = document.createElement('div');
+    row.className = 'split-line';
+    row.innerHTML = `
+      <input type="text" name="target_account" list="accounts-datalist"
+             placeholder="Expenses:..." />
+      <input type="number" step="0.01" name="split_amount" placeholder="0.00" />
+      <button type="button" class="secondary small"
+              onclick="this.parentNode.remove();">Remove</button>
+    `;
+    container.appendChild(row);
+  }
+</script>
+<datalist id="accounts-datalist"></datalist>
+<script>
+  // Entity-scoped dropdown — when the user picks a business radio,
+  // rebuild the datalist to show that entity's Expenses (+ a handful
+  // of universally-useful paths like Equity:OpeningBalances). The
+  // user complained that the previous flat list showed every
+  // account across every entity, which made picking a target slow
+  // and error-prone for multi-entity ledgers.
+  (function () {
+    const dl = document.getElementById('accounts-datalist');
+    let allAccounts = [];
+    let labels = {};
+
+    function populateForEntity(entitySlug) {
+      if (!dl) return;
+      dl.innerHTML = '';
+      // Always keep a handful of universal accounts at the top so
+      // Equity / Income / universal Assets stay visible regardless
+      // of selected entity.
+      const universalRoots = ['Equity:', 'Income:', 'Assets:Transfers:', 'Liabilities:Transfers:'];
+      // Entity-specific prefixes (pick whichever exist in allAccounts).
+      const entPrefixes = entitySlug
+        ? [
+            `Expenses:${entitySlug}:`,
+            `Income:${entitySlug}:`,
+            `Assets:${entitySlug}:`,
+            `Liabilities:${entitySlug}:`,
+          ]
+        : [];
+      function addOpt(name) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        if (labels[name] && labels[name] !== name) opt.label = labels[name];
+        dl.appendChild(opt);
+      }
+      const seen = new Set();
+      // Priority 1: entity-specific
+      for (const name of allAccounts) {
+        if (entPrefixes.some((p) => name.startsWith(p)) && !seen.has(name)) {
+          seen.add(name);
+          addOpt(name);
+        }
+      }
+      // Priority 2: universal.
+      for (const name of allAccounts) {
+        if (universalRoots.some((p) => name.startsWith(p)) && !seen.has(name)) {
+          seen.add(name);
+          addOpt(name);
+        }
+      }
+      // Priority 3: everything else — keeps picker useful when the
+      // entity-first rule is violated (legacy :Fees:, etc.).
+      for (const name of allAccounts) {
+        if (!seen.has(name)) {
+          seen.add(name);
+          addOpt(name);
+        }
+      }
+    }
+
+    function wireEntityRadios() {
+      const radios = document.querySelectorAll('input[name="business"]');
+      radios.forEach((r) => {
+        r.addEventListener('change', () => {
+          populateForEntity(r.value);
+        });
+      });
+      // Populate once on load using whichever radio is initially checked.
+      const initial = document.querySelector('input[name="business"]:checked');
+      populateForEntity(initial ? initial.value : null);
+    }
+
+    fetch('/api/accounts', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data || !Array.isArray(data.all)) return;
+        allAccounts = data.all;
+        labels = (data.labels && typeof data.labels === 'object') ? data.labels : {};
+        window.__acctLabels = labels;
+        wireEntityRadios();
+      })
+      .catch(() => undefined);
+  })();
+</script>
+{% endblock %}

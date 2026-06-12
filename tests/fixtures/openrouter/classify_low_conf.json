@@ -1,0 +1,15 @@
+{
+  "id": "gen-test-classify-low",
+  "model": "anthropic/claude-haiku-4.5",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"target_account\": \"Expenses:Acme:Supplies\", \"confidence\": 0.45, \"reasoning\": \"Not sure — could also be shipping.\"}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {"prompt_tokens": 380, "completion_tokens": 40, "total_tokens": 420}
+}

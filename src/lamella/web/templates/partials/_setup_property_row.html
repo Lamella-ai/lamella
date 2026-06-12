@@ -1,0 +1,76 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{#
+  One property's row on /setup/properties. Renders on initial page
+  load AND as the HTMX swap response from
+  /setup/properties/<slug>/scaffold so the user sees "N missing →
+  all open" in-place without a page reload. Mirrors the vehicles
+  pattern from commit 8b947a6.
+#}
+<section id="setup-property-{{ p.slug }}"
+         style="border:1px solid var(--border); border-radius:6px; padding:0.9em 1.1em; margin:0.8em 0; background:{% if p.missing_count == 0 %}var(--ok-soft){% else %}var(--warn-soft){% endif %};">
+  <div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:0.6em;">
+    <div>
+      <strong>
+        {% if p.missing_count == 0 %}✓{% else %}⚠{% endif %}
+        {{ p.display_name or p.slug }}
+      </strong>
+      <span class="small muted">
+        slug <code>{{ p.slug }}</code>
+        · entity
+        {% if p.has_entity %}<code>{{ p.entity_slug | entity }}</code>{% else %}<span style="color:var(--warn);">not set</span>{% endif %}
+        {% if p.is_rental %}· <span class="badge preferred">rental</span>{% endif %}
+        {% if p.is_primary_residence %}· <span class="badge preferred">primary residence</span>{% endif %}
+      </span>
+      {% if p.address %}<div class="small muted">{{ p.address }}</div>{% endif %}
+    </div>
+    <div style="display:flex; gap:0.4em; align-items:center;">
+      {# Phase 8 step 5: per-row Edit opens an in-page modal. The
+         "Set owning entity →" CTA on missing-entity rows now points
+         at the same modal (it pre-focuses the entity field via the
+         normal modal flow). The full editor at /settings/properties
+         /{slug} still exists for power-user state-change ops
+         (change-ownership / disposal / valuation history); the
+         recovery-flow row no longer breaks out for routine field
+         edits. #}
+      {% if p.missing_count and p.has_entity %}
+        <form method="post" action="/setup/properties/{{ p.slug }}/scaffold"
+              hx-post="/setup/properties/{{ p.slug }}/scaffold"
+              hx-target="#setup-property-{{ p.slug }}"
+              hx-swap="outerHTML"
+              style="display:inline;"
+              data-confirm="Open {{ p.missing_count }} canonical account{{ '' if p.missing_count == 1 else 's' }} for {{ p.display_name or p.slug }}{% if p.is_rental %} (rental){% endif %}? Writes Open directives into connector_accounts.bean. Bean-check runs after the batch."
+              data-confirm-button="Scaffold {{ p.missing_count }} account{{ '' if p.missing_count == 1 else 's' }}">
+          <button type="submit" class="primary small">
+            Scaffold {{ p.missing_count }} missing
+          </button>
+        </form>
+      {% endif %}
+      {% if not p.has_entity %}
+        <a href="/setup/properties?edit={{ p.slug }}" class="small">Set owning entity →</a>
+      {% else %}
+        <a href="/setup/properties?edit={{ p.slug }}" class="small">Edit →</a>
+      {% endif %}
+    </div>
+  </div>
+  {% if p.chart %}
+  <details style="margin-top:0.5em;">
+    <summary class="small muted">Canonical chart ({{ p.chart | length }} accounts)</summary>
+    <ul class="small" style="margin:0.3em 0 0 1.5em;">
+      {% for c in p.chart %}
+        <li>
+          {% if c.exists %}<span style="color:var(--ok);">✓</span>{% else %}<span style="color:var(--warn);">✗</span>{% endif %}
+          <code>{{ c.path }}</code>
+          <span class="muted small">— {{ c.purpose }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+</section>

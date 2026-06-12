@@ -1,0 +1,200 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Set up Lamella{% endblock %}
+{% block layout %}setup{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block page_title %}Setup{% endblock %}
+
+{% block content %}
+{# Friendly per-scenario subtitle. The raw scenario slug + detection
+   state move into the Advanced / expert details at the bottom — they
+   were noisy on the main screen for 99% of users. #}
+{% set _subtitle = (
+  'Quick checklist to bring this install up to the current schema.'
+    if scenario == 'fixup_existing_install' else
+  'Welcome — let\'s get a canonical layout in place.'
+    if scenario == 'fresh_start' else
+  'Existing Beancount files detected — let\'s import them.'
+    if scenario == 'import_foreign_ledger' else
+  'Beancount couldn\'t parse the ledger — fix it before continuing.'
+    if scenario == 'repair_broken_ledger' else
+  'A few setup steps left.'
+) %}
+
+{% call L.page_head(
+     title='Set up Lamella',
+     subtitle=_subtitle,
+     kicker='Setup'
+) %}
+{% endcall %}
+
+{% if request.query_params.get('info') %}
+{% call F.banner(tone='ok', title=request.query_params.get('info') | replace('-', ' ')) %}{% endcall %}
+{% endif %}
+{% if request.query_params.get('error') %}
+{% call F.banner(tone='err', title=request.query_params.get('error') | replace('-', ' ')) %}{% endcall %}
+{% endif %}
+
+{% if scenario == "fixup_existing_install" %}
+{% call C.card(title='Welcome back — quick checklist after a software update', tone='info') %}
+<p style="margin:0 0 0.75rem">
+  <strong>Nothing is wrong.</strong> Your ledger and data are intact. Lamella shipped a
+  schema update since your last visit and a few items need a one-time
+  pass before the dashboard unlocks — typically applying a ledger
+  migration, scaffolding a new account category, or labeling a newly
+  required field.
+</p>
+<p style="margin:0 0 0.75rem">
+  Click through the checklist below — most items are one-click. The
+  recovery system runs each step in a snapshot envelope, so anything
+  that fails rolls back automatically.
+</p>
+{% if detection.state.value == 'needs_version_stamp' and has_bcg_markers %}
+<p style="margin:0 0 0.75rem">
+  One quick first step: your ledger has <code>lamella-*</code> directives
+  but no schema-version stamp. Stamp it as v1, then continue.
+</p>
+<form method="post" action="/setup/stamp-version">{{ B.btn('Stamp ledger as v1 + continue', type='submit', variant='primary') }}</form>
+{% else %}
+{{ B.btn('Continue guided setup', href='/setup/recovery', variant='primary') }}
+{% endif %}
+{% endcall %}
+
+{% elif scenario == "fresh_start" %}
+{% call C.card(title='Fresh start — no ledger at ' ~ ledger_dir, tone='ok') %}
+<p style="margin:0 0 0.75rem">
+  {% if detection.state.value == 'missing' %}
+    No <code>main.bean</code> exists. We’ll scaffold a canonical v1 layout (13 files — <code>main.bean</code>
+    + the connector-owned files + user skeletons), USD-only, stamped as v1. After scaffolding, you’ll walk
+    the guided checklist to label entities, accounts, and expense categories.
+  {% elif detection.state.value == 'structurally_empty' %}
+    <code>main.bean</code> exists but contains no transactions. If this is a brand-new install you meant
+    to scaffold, do that below. If you meant to <em>import</em> bean files from another tool, use the
+    Import flow instead.
+  {% endif %}
+</p>
+<form method="post" action="/setup/scaffold"
+      data-confirm="Create a fresh canonical ledger at {{ ledger_dir }}? Scaffolds main.bean and 12 connector-owned files. Nothing is overwritten — the server refuses if any of these files already exist."
+      data-confirm-button="Create fresh ledger">
+  {{ B.btn(('Create fresh ledger + continue' if not main_bean_exists else 'Scaffold canonical layout + continue'), type='submit', variant='primary') }}
+</form>
+{% endcall %}
+
+{% elif scenario == "import_foreign_ledger" %}
+{% call C.card(title='Import existing beancount files', tone='info') %}
+<p style="margin:0 0 0.75rem">
+  Your ledger parses and has content, but carries no <code>lamella-*</code> metadata — so this app has never
+  managed it. Importing walks every directive and classifies it as <strong>Keep</strong> (user-authored, leave alone),
+  <strong>Transform</strong> (rewrite into a canonical shape we own), or <strong>Foreign</strong> (unrecognized
+  — default keep). You approve the plan before anything is written.
+</p>
+<p style="margin:0 0 0.75rem">
+  After import, you’ll go through the guided checklist to label entities, accounts, and categories — same
+  as a fresh install but starting from your existing data.
+</p>
+{{ B.btn('Open import analyzer', href='/setup/import', variant='primary') }}
+{% endcall %}
+
+{% elif scenario == "repair_broken_ledger" %}
+{% call C.card(title='Ledger failed bean-check — needs repair before you can continue', tone='err') %}
+<p style="margin:0 0 0.5rem">
+  <code>main.bean</code> exists at <code>{{ ledger_main }}</code> but beancount refused to parse it. Specific errors:
+</p>
+<ul style="margin:0 0 0.75rem; padding-left:1.2rem">
+  {% for err in detection.parse_errors[:6] %}
+    <li><code>{{ err }}</code></li>
+  {% endfor %}
+  {% if detection.parse_errors|length > 6 %}
+    <li>… and {{ detection.parse_errors|length - 6 }} more.</li>
+  {% endif %}
+</ul>
+{% if has_dup_close %}
+{% call F.banner(tone='warn', title='Auto-recovery available') %}
+  These “Duplicate close directive” errors come from an earlier bug where two Close directives got written
+  for the same account. One click to dedupe. Backup saved as <code>connector_accounts.bean.predup.bak</code>.
+  <form method="post" action="/setup/fix-duplicate-closes" style="margin-top:0.5rem">
+    {{ B.btn('Dedupe connector_accounts.bean', type='submit', variant='primary') }}
+  </form>
+{% endcall %}
+{% else %}
+<p style="margin:0 0 0.75rem">
+  Fix the specific error above, or restore from a backup. Safe manual recovery path: open <code>{{ ledger_dir }}</code>
+  in an editor, fix the line, save. This page refreshes on load — once parsing clears, the setup flow resumes automatically.
+</p>
+{% endif %}
+{{ B.btn('View setup checklist anyway', href='/setup/recovery', variant='ghost') }}
+{% endcall %}
+{% endif %}
+
+{% if has_orphan_overrides %}
+{% call C.card(title='Orphan-override blocks detected (' ~ orphan_override_count ~ ')', tone='warn') %}
+<p style="margin:0 0 0.75rem">
+  {{ orphan_override_count }} override block{{ '' if orphan_override_count == 1 else 's' }}
+  in <code>connector_overrides.bean</code> reference a transaction hash that no longer exists in the ledger.
+  These accumulate when a migrate flow re-walks its own previously-written overrides. They’re parseable but
+  corrupt the orphan + target balances. One click to clean them up. Backup saved as
+  <code>connector_overrides.bean.preclean.bak</code>.
+</p>
+<form method="post" action="/setup/fix-orphan-overrides"
+      data-confirm="Remove {{ orphan_override_count }} orphan override block{{ '' if orphan_override_count == 1 else 's' }} from connector_overrides.bean? Backup written to connector_overrides.bean.preclean.bak. Reversible by restoring the backup."
+      data-confirm-button="Clean up {{ orphan_override_count }} block{{ '' if orphan_override_count == 1 else 's' }}">
+  {{ B.btn('Clean up orphan overrides', type='submit', variant='primary') }}
+</form>
+{% endcall %}
+{% endif %}
+
+<details style="margin-top:1.5rem">
+  <summary style="cursor:pointer; font-weight:600; color:var(--muted)">Advanced / expert: alternate setup paths + diagnostics</summary>
+  <p class="subtle" style="margin:0.75rem 0">
+    The automatic scenario detection above picks the right flow for your current state. These alternates
+    exist for edge cases — only use them if you know what you’re doing.
+  </p>
+
+  <p class="subtle" style="margin:0.75rem 0; font-size:0.82rem">
+    <strong>Diagnostics:</strong>
+    detected scenario <code>{{ scenario }}</code>
+    · detection state <code>{{ detection.state.value }}</code>
+    · bcg markers <code>{{ has_bcg_markers }}</code>
+    · setup complete <code>{{ setup_complete }}</code>
+    · spec <code>docs/specs/LEDGER_LAYOUT.md</code>
+  </p>
+
+  {% if main_bean_exists %}
+  {% call C.card(title='Start fresh (disabled — ledger exists)', tone='err') %}
+  <p class="subtle" style="margin:0 0 0.75rem">
+    Your <code>main.bean</code> already has {{ main_bean_bytes }} bytes of data. Scaffolding would require
+    overwriting it, which the server refuses. Back it up manually first if you want to truly start over.
+  </p>
+  {{ B.btn('Disabled (main.bean exists)', variant='danger', disabled=true) }}
+  {% endcall %}
+  {% endif %}
+
+  {% if scenario != "import_foreign_ledger" and import_available %}
+  {% call C.card(title='Import analyzer') %}
+  <p class="subtle" style="margin:0 0 0.75rem">Re-run the import analysis on an existing ledger. Useful if you want to see what the Keep/Transform/Foreign classifier currently says about your file.</p>
+  {{ B.btn('Open analyzer', href='/setup/import', variant='ghost') }}
+  {% endcall %}
+  {% endif %}
+
+  {% if db_state_empty and has_bcg_markers %}
+  {% call C.card(title='Reconstruct from ledger') %}
+  <p class="subtle" style="margin:0 0 0.75rem">Ledger has <code>lamella-*</code> markers but SQLite state is empty. Rebuild every state table from the ledger directives.</p>
+  {{ B.btn('Open reconstruction wizard', href='/setup/reconstruct', variant='ghost') }}
+  {% endcall %}
+  {% endif %}
+</details>
+
+{% endblock %}
