@@ -1,0 +1,85 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# One legacy-path finding. Renders summary + detail + per-action
+   form. Phase 3: only Close and Move-and-close exist; the proposed
+   action is preselected, alternatives are listed below it as
+   secondary buttons. #}
+{% set proposed = f.proposed_fix_dict %}
+{% set proposed_action = proposed.get('action') %}
+<section class="recovery-finding"
+         style="border:1px solid var(--border); border-radius:6px; padding:1em 1.2em; margin-bottom:1em; background:var(--bg-elev);">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1em; flex-wrap:wrap;">
+    <div style="flex:1; min-width:0;">
+      <strong style="font-family:var(--font-mono); word-break:break-all; font-size:0.95em;">
+        {{ f.target }}
+      </strong>
+      <div class="small muted" style="margin-top:0.3em;">{{ f.summary }}</div>
+      {% if f.detail %}
+        <details style="margin-top:0.5em;">
+          <summary class="small muted" style="cursor:pointer;">Why is this flagged?</summary>
+          <div class="small" style="margin:0.4em 0 0; line-height:1.5; color:var(--muted-strong);">
+            {{ f.detail }}
+          </div>
+        </details>
+      {% endif %}
+    </div>
+    <div style="display:flex; flex-direction:column; gap:0.4em; align-items:stretch; min-width:14em;">
+      {# Primary action: the detector's proposed_fix. Preselected
+         in the user's view as a single-click button. #}
+      <form method="post" action="/setup/legacy-paths/heal" style="margin:0;">
+        <input type="hidden" name="finding_id" value="{{ f.id }}" />
+        <input type="hidden" name="action" value="{{ proposed_action }}" />
+        {% if proposed_action == 'move' %}
+          <input type="hidden" name="canonical" value="{{ proposed.canonical }}" />
+          <button type="submit" class="wiz-btn wiz-btn-primary"
+                  style="width:100%;"
+                  title="Rewrite postings to {{ proposed.canonical }}, scaffold the canonical Open if needed, then close {{ f.target }}.">
+            Move &amp; close →
+          </button>
+          <span class="small muted" style="text-align:center;">
+            to <code style="font-size:0.82em;">{{ proposed.canonical }}</code>
+          </span>
+        {% elif proposed_action == 'close' %}
+          <button type="submit" class="wiz-btn wiz-btn-primary"
+                  style="width:100%;"
+                  title="Append a Close directive to connector_accounts.bean.">
+            Close
+          </button>
+        {% else %}
+          <button type="submit" class="wiz-btn wiz-btn-secondary" style="width:100%;">
+            {{ proposed_action }}
+          </button>
+        {% endif %}
+      </form>
+
+      {# Alternatives: secondary buttons under the primary. #}
+      {% for alt in f.alternatives_dicts %}
+        {% set alt_action = alt.get('action') %}
+        <form method="post" action="/setup/legacy-paths/heal" style="margin:0;">
+          <input type="hidden" name="finding_id" value="{{ f.id }}" />
+          <input type="hidden" name="action" value="{{ alt_action }}" />
+          {% if alt_action == 'move' %}
+            <input type="hidden" name="canonical" value="{{ alt.canonical }}" />
+            <button type="submit" class="wiz-btn wiz-btn-secondary" style="width:100%;">
+              Move &amp; close → <code style="font-size:0.82em;">{{ alt.canonical }}</code>
+            </button>
+          {% elif alt_action == 'close' %}
+            <button type="submit" class="wiz-btn wiz-btn-secondary" style="width:100%;">
+              Close instead
+            </button>
+          {% else %}
+            <button type="submit" class="wiz-btn wiz-btn-secondary" style="width:100%;">
+              {{ alt_action }}
+            </button>
+          {% endif %}
+        </form>
+      {% endfor %}
+    </div>
+  </div>
+</section>

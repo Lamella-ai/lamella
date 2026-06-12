@@ -1,0 +1,97 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Balance audit · all accounts{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Balance audit{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Balance audit · portfolio',
+     subtitle='Every account with at least one balance anchor. Non-zero total drift means one or more segments do not reconcile.',
+     kicker='Insights · Reports'
+) %}
+  {{ B.btn('All reports', href='/reports', icon=icon.barchart()) }}
+{% endcall %}
+
+{% if not audits %}
+{{ F.empty_state(
+    'No accounts have balance anchors yet.',
+    'Open the accounts list to start adding anchors',
+    '/accounts',
+    icon=icon.checkcircle(28)
+) }}
+{% else %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Account</th>
+      <th class="num">Anchors</th>
+      <th>First → Last</th>
+      <th class="num">First balance</th>
+      <th class="num">Last balance</th>
+      <th class="num">Total drift</th>
+      <th class="shrink"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for a in audits %}
+      {% set total_drift = a.segments | map(attribute='drift') | sum %}
+      {% set m = meta_by_path.get(a.account_path, {}) %}
+      {% set parts = [] %}
+      {% set disp = m.get("display_name") if (m.get("display_name") and m["display_name"] != a.account_path) else None %}
+      {% set has_entity_in_disp = disp and m.get("entity_slug") and m["entity_slug"] in disp %}
+      {% if m.get("entity_slug") and not has_entity_in_disp %}{% set _ = parts.append(m["entity_slug"]) %}{% endif %}
+      {% if m.get("institution") %}{% set _ = parts.append(m["institution"]) %}{% endif %}
+      {% if disp %}{% set _ = parts.append(disp) %}{% endif %}
+      {% if m.get("last_four") %}{% set _ = parts.append("…" ~ m["last_four"]) %}{% endif %}
+      <tr {% if total_drift != 0 %}class="row-warn"{% endif %}>
+        <td>
+          <strong>{% if parts %}{{ parts | join(' · ') }}{% else %}{{ a.account_path }}{% endif %}</strong>
+          <div style="color:var(--muted-soft); font-size:0.78rem; font-family:var(--font-mono); margin-top:2px">{{ a.account_path }}</div>
+        </td>
+        <td class="num">{{ a.anchors | length }}</td>
+        <td>
+          {% if a.anchors %}{{ a.anchors[0].as_of_date }} → {{ a.anchors[-1].as_of_date }}{% else %}—{% endif %}
+        </td>
+        <td class="num">
+          {% if a.anchors %}{{ "{:,.2f}".format(a.anchors[0].balance) }}{% endif %}
+        </td>
+        <td class="num">
+          {% if a.anchors %}{{ "{:,.2f}".format(a.anchors[-1].balance) }}{% endif %}
+        </td>
+        <td class="num" {% if total_drift != 0 %}style="color:var(--err); font-weight:600"{% endif %}>
+          {{ "{:,.2f}".format(total_drift) }}
+        </td>
+        <td class="shrink">
+          <a href="/settings/accounts/{{ a.account_path }}/balances" class="muted-text" style="font-size:0.82rem">anchors →</a>
+          {% if m.get("entity_slug") %}
+          <br><a href="/businesses/{{ m['entity_slug'] }}" class="muted-text" style="font-size:0.82rem">{{ m.get('entity_display_name') or m['entity_slug'] }} →</a>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endif %}
+
+<p class="subtle" style="margin-top:1.5rem">
+  Tip: use the SimpleFIN "today" balances to quickly stamp current anchors
+  across every connected account, then work backwards from statements.
+</p>
+{% endblock %}

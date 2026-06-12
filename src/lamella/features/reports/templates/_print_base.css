@@ -1,0 +1,67 @@
+/*
+ * Copyright 2026 Lamella LLC
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+ * https://lamella.ai
+ */
+
+@page {
+  size: Letter;
+  margin: 0.75in 0.75in;
+  @bottom-center { content: counter(page) " of " counter(pages); font-size: 9pt; color: #555; }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 10pt;
+  color: #111;
+  margin: 0;
+}
+
+h1 { font-size: 16pt; margin: 0 0 0.4em; }
+h2 { font-size: 12pt; margin: 0.6em 0 0.3em; border-bottom: 1px solid #999; padding-bottom: 2px; }
+h3 { font-size: 11pt; margin: 0.4em 0 0.2em; }
+.muted { color: #555; font-size: 9pt; }
+
+table.lines {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1em;
+}
+table.lines th, table.lines td {
+  padding: 4px 6px;
+  border-bottom: 1px solid #ccc;
+  font-size: 10pt;
+}
+table.lines th {
+  text-align: left;
+  background: #f1f1f1;
+}
+table.lines td.line { width: 4em; font-family: "Courier New", monospace; }
+table.lines td.amt { text-align: right; font-variant-numeric: tabular-nums; width: 7em; }
+table.lines td.cnt { text-align: right; width: 4em; color: #555; }
+
+.totals { margin-top: 0.5em; text-align: right; font-weight: bold; }
+
+.txn-card {
+  page-break-inside: avoid;
+  border: 1px solid #ddd;
+  padding: 0.4em 0.6em;
+  margin-bottom: 0.4em;
+}
+.txn-card .row { display: flex; justify-content: space-between; }
+.txn-card .row dt { font-weight: bold; }
+.receipt-img { max-width: 100%; max-height: 5in; display: block; margin: 0.5em auto; }
+
+.cover {
+  text-align: center;
+  padding-top: 1in;
+}
+.cover h1 { font-size: 22pt; }
+.cover .meta { margin-top: 0.5in; font-size: 11pt; }
+
+.audit-page { page-break-after: always; }
+.audit-page:last-child { page-break-after: auto; }

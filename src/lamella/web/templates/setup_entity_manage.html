@@ -1,0 +1,250 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% block title %}Manage entity — {{ entity.slug }}{% endblock %}
+{% block layout %}setup{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block content %}
+<h1>Manage <code>{{ entity.slug }}</code></h1>
+
+{% if migrated %}
+<div class="banner ok">
+  ✓ Migrated {{ migrated }} posting{{ '' if migrated == 1 else 's' }} via override directives.
+  {% if failed %}<span class="muted small">({{ failed }} failed)</span>{% endif %}
+</div>
+{% endif %}
+{% if cleaned %}
+<div class="banner ok">✓ Cleared {{ cleaned }} stale accounts_meta reference{{ '' if cleaned == 1 else 's' }}.</div>
+{% endif %}
+{% if closed_count %}
+<div class="banner ok">✓ Closed {{ closed_count }} unused account{{ '' if closed_count == 1 else 's' }}.</div>
+{% endif %}
+{% if error %}
+<div class="banner warn" style="background:var(--err-soft);border:1px solid var(--err-soft);">{{ error }}</div>
+{% endif %}
+
+<section style="border:1px solid var(--border); border-radius:6px; padding:0.9em 1.1em; margin-bottom:0.8em;">
+  <p style="margin:0;">
+    <strong>Type:</strong>
+    {% if (entity.entity_type or '') == '' %}
+      <span style="color:var(--warn);">(unset)</span>
+    {% elif entity.entity_type == 'skip' %}
+      <span style="color:var(--accent);">⤳ skip</span>
+      <span class="muted small">— ignored by classifier and reports</span>
+    {% else %}
+      <code>{{ entity.entity_type }}</code>
+    {% endif %}
+    &nbsp;·&nbsp;
+    <strong>Active:</strong>
+    {% if entity.is_active %}
+      <span style="color:var(--ok);">yes</span>
+    {% else %}
+      <span style="color:var(--muted);">no</span>
+    {% endif %}
+    &nbsp;·&nbsp;
+    <strong>Account refs:</strong>
+    {{ accounts | length }}
+    &nbsp;·&nbsp;
+    <strong>Total postings:</strong>
+    {{ total_postings }}
+  </p>
+  <p class="small muted" style="margin-top:0.4em;">
+    {% if deletable %}
+      <span style="color:var(--ok);">✓ Safe to delete</span> — no accounts and no postings reference this entity.
+    {% elif total_postings == 0 and n_meta_only_stale > 0 %}
+      <span style="color:var(--warn);">⚠ Stale accounts_meta references only</span> — {{ n_meta_only_stale }} account_meta row{{ '' if n_meta_only_stale == 1 else 's' }} point here but the account path doesn't use the slug. Click <strong>Cleanup stale refs</strong> below to clear them, then delete.
+    {% elif n_path_unused > 0 %}
+      <span style="color:var(--warn);">⚠ Path-owned accounts with no postings</span> — {{ n_path_unused }} open account{{ '' if n_path_unused == 1 else 's' }} have zero postings. Click <strong>Close unused opens</strong> to write Close directives, then delete.
+    {% else %}
+      <span style="color:var(--warn);">⚠ Has live postings</span> — migrate or deactivate before deleting.
+    {% endif %}
+  </p>
+</section>
+
+<section style="display:flex; gap:0.5em; flex-wrap:wrap; margin-bottom:1em;">
+  {% if (entity.entity_type or '') != 'skip' %}
+  <form method="post" action="/setup/entities/{{ entity.slug }}/skip" style="display:inline;"
+        data-confirm="Mark '{{ entity.slug }}' as skipped? It satisfies the setup gate but is excluded from the classifier, chart scaffolding, and reports. Reversible."
+        data-confirm-button="Skip entity">
+    <button type="submit" class="secondary">⤳ Skip entity</button>
+  </form>
+  {% endif %}
+  {% if entity.is_active %}
+  <form method="post" action="/setup/entities/{{ entity.slug }}/deactivate" style="display:inline;"
+        data-confirm="Deactivate '{{ entity.slug }}'? Postings stay; the entity disappears from setup, classifier, and pickers. Reversible via Reactivate."
+        data-confirm-button="Deactivate">
+    <button type="submit" class="secondary">⊘ Deactivate</button>
+  </form>
+  {% else %}
+  <form method="post" action="/setup/entities/{{ entity.slug }}/reactivate" style="display:inline;">
+    <button type="submit" class="secondary">↺ Reactivate</button>
+  </form>
+  {% endif %}
+  {% if n_meta_only_stale > 0 %}
+  <form method="post" action="/setup/entities/{{ entity.slug }}/cleanup-stale-meta" style="display:inline;"
+        data-confirm="Clear accounts_meta.entity_slug on {{ n_meta_only_stale }} row{{ '' if n_meta_only_stale == 1 else 's' }} where the account path doesn't use the slug? These are stale results from an earlier discovery pass — no ledger changes, just a cache field gets nulled. Safe and reversible (re-run discovery to repopulate)."
+        data-confirm-button="Clear {{ n_meta_only_stale }} stale ref{{ '' if n_meta_only_stale == 1 else 's' }}">
+    <button type="submit" class="secondary">🧹 Cleanup stale refs ({{ n_meta_only_stale }})</button>
+  </form>
+  {% endif %}
+  {% if n_path_unused > 0 %}
+  <form method="post" action="/setup/entities/{{ entity.slug }}/close-unused-opens" style="display:inline;"
+        data-confirm="Write Close directives for {{ n_path_unused }} path-owned account{{ '' if n_path_unused == 1 else 's' }} with zero postings? Goes into connector_accounts.bean; bean-check runs after the batch — any failure rolls back."
+        data-confirm-button="Close {{ n_path_unused }} unused">
+    <button type="submit" class="secondary">🔒 Close unused opens ({{ n_path_unused }})</button>
+  </form>
+  {% endif %}
+  {% if deletable %}
+  <form method="post" action="/setup/entities/{{ entity.slug }}/delete" style="display:inline;"
+        data-confirm="Permanently delete entity '{{ entity.slug }}'? This is empty scaffolding — no postings, no labels, no account references. Writes a ``custom 'entity-deleted'`` tombstone to the ledger so the next boot's discovery pass doesn't re-create the row. Reversible only by re-adding the entity manually with a fresh slug."
+        data-confirm-strong="{{ entity.slug }}"
+        data-confirm-button="Delete entity">
+    <button type="submit" class="danger">✗ Delete entity</button>
+  </form>
+  {% else %}
+  <button type="button" class="danger" disabled
+          title="Cannot delete — entity has user-set fields (display_name / entity_type / tax_schedule), live transactions on owned accounts, or unresolved account references. Use Deactivate to hide the row instead, or migrate postings + close accounts + clear fields first.">
+    ✗ Delete entity
+  </button>
+  {% endif %}
+</section>
+
+<h2 style="margin-top:1.5em;">Accounts referencing <code>{{ entity.slug }}</code></h2>
+{% if not accounts %}
+<p class="muted">No accounts reference this slug. You can safely delete the entity above.</p>
+{% else %}
+<p class="small muted">
+  <strong>ref:</strong>
+  <code>path</code> = slug appears in the account path ·
+  <code>meta</code> = only <code>accounts_meta.entity_slug</code> points here (usually stale discovery) ·
+  <code>both</code> = both agree.
+  For <code>path</code>-owned accounts with postings, use the Migrate form to rewrite each posting to a canonical path via an override directive. For <code>meta</code>-only refs, use <strong>Cleanup stale refs</strong> above.
+</p>
+
+<table class="field-map" style="width:100%; max-width:none;">
+  <thead>
+    <tr>
+      <th>Account path</th>
+      <th>Ref</th>
+      <th class="num">Postings</th>
+      <th>Sample / migrate</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for a in accounts %}
+    <tr>
+      <td style="font-family:monospace; vertical-align:top;">
+        <code>{{ a.path }}</code>
+        {% if a.closed %}<span class="muted small"> · closed</span>{% endif %}
+        {% if a.kind %}<br /><span class="small muted">kind: {{ a.kind | humanize }}</span>{% endif %}
+        {% if a.entity_slug %}<br /><span class="small muted">meta.entity_slug: <code>{{ a.entity_slug }}</code></span>{% endif %}
+      </td>
+      <td style="vertical-align:top;">
+        {% if a.ref_source == 'path' %}
+          <span class="badge" style="background:#eef2ff;color:#3730a3;">path</span>
+        {% elif a.ref_source == 'meta' %}
+          <span class="badge" style="background:var(--warn-soft);color:var(--warn);">meta (stale?)</span>
+        {% else %}
+          <span class="badge" style="background:var(--ok-soft);color:var(--ok);">both</span>
+        {% endif %}
+      </td>
+      <td class="num" style="vertical-align:top;">{{ a.posting_count }}</td>
+      <td style="vertical-align:top;">
+        {% if a.samples %}
+          <details>
+            <summary class="small muted">Sample (5 most recent)</summary>
+            <table class="small" style="margin:0.3em 0 0; font-size:0.85em;">
+              {% for s in a.samples %}
+              <tr>
+                <td style="padding-right:0.6em; white-space:nowrap;">{{ s.date }}</td>
+                <td style="padding-right:0.6em;">
+                  {% if s.payee %}<strong>{{ s.payee }}</strong>{% endif %}
+                  {% if s.narration %}<span class="muted">{{ s.narration }}</span>{% endif %}
+                </td>
+                <td class="num" style="white-space:nowrap;">{{ s.amount }}</td>
+              </tr>
+              {% endfor %}
+            </table>
+          </details>
+        {% elif a.posting_count == 0 %}
+          <span class="small muted">(no postings)</span>
+          {% if a.ref_source in ('path', 'both') and not a.closed %}
+            <form method="post" action="/setup/accounts/close"
+                  hx-post="/setup/accounts/close"
+                  hx-target="closest tr"
+                  hx-swap="outerHTML"
+                  style="display:inline; margin-left:0.5em;"
+                  data-confirm="Close {{ a.path }}? 0 postings — writes a Close directive (or drops the stale accounts_meta row if no explicit Open exists). Reversible."
+                  data-confirm-button="Close account">
+              <input type="hidden" name="account_path" value="{{ a.path }}" />
+              <button type="submit" class="secondary small"
+                      style="font-size:0.82em; padding:0.15em 0.55em;">
+                🔒 Close this account
+              </button>
+            </form>
+          {% endif %}
+        {% endif %}
+        {% if a.ref_source in ('path', 'both') and a.posting_count > 0 %}
+        <form method="post" action="/setup/entities/{{ entity.slug }}/migrate-account"
+              style="display:flex; gap:0.4em; align-items:center; flex-wrap:wrap; margin-top:0.4em;"
+              data-confirm="Migrate {{ a.posting_count }} posting{{ '' if a.posting_count == 1 else 's' }} from `{{ a.path }}` to the new target? Writes {{ a.posting_count }} override directive{{ '' if a.posting_count == 1 else 's' }} into connector_overrides.bean. Bean-check runs after each one — any failure halts the batch."
+              data-confirm-button="Apply migration">
+          <input type="hidden" name="account" value="{{ a.path }}" />
+          <input type="text" name="target"
+                 value="{{ a.suggested_target }}"
+                 list="accounts-datalist"
+                 style="flex:1; min-width:20em; font-family:monospace;" required />
+          <button type="submit" class="primary small">Migrate</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<datalist id="accounts-datalist"></datalist>
+<script>
+  fetch('/api/accounts', {credentials:'same-origin'})
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      if (!d || !Array.isArray(d.all)) return;
+      const dl = document.getElementById('accounts-datalist');
+      for (const n of d.all) {
+        const o = document.createElement('option');
+        o.value = n;
+        dl.appendChild(o);
+      }
+    }).catch(() => undefined);
+</script>
+{% endif %}
+
+<style>
+  button.danger {
+    background:var(--err-soft); color:var(--err); border:1px solid var(--err-soft);
+    padding:0.3em 0.8em; border-radius:3px; cursor:pointer;
+  }
+  button.danger:hover { background:var(--err-soft); }
+  button.danger:disabled { opacity:0.5; cursor:not-allowed; }
+  .banner.ok {
+    background:var(--ok-soft); border:1px solid var(--ok); color:var(--ok);
+    padding:0.5em 0.8em; border-radius:4px; margin:0.5em 0;
+  }
+  .badge {
+    display:inline-block; padding:0.1em 0.5em; border-radius:3px;
+    font-size:0.8em; font-weight:600;
+  }
+</style>
+
+<p style="margin-top:1.5em;">
+  <a href="/setup/entities">← back to entities setup</a>
+  &nbsp;·&nbsp;
+  <a href="/settings/entities">/settings/entities</a>
+</p>
+{% endblock %}

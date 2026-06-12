@@ -1,0 +1,150 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Add vehicle{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Add vehicle{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Add vehicle',
+     subtitle='A display name is enough to get started. Checking “Create the expense tree” scaffolds the standard subtree (Expenses:{Entity}:Vehicles:{slug}:{Fuel, Insurance, Maintenance, …}) so fuel receipts have a place to land.',
+     kicker='Vehicles'
+) %}
+  {{ B.btn('Back to vehicles', href='/vehicles', variant='ghost') }}
+{% endcall %}
+
+<datalist id="veh-entities-datalist">
+  {% for e in entities %}<option value="{{ e.slug }}" label="{{ e.display_name or e.slug }}">{% endfor %}
+</datalist>
+<datalist id="veh-fuel-datalist">
+  <option value="gasoline" label="Gasoline">
+  <option value="diesel" label="Diesel">
+  <option value="ev" label="EV (battery electric)">
+  <option value="phev" label="PHEV (plug-in hybrid)">
+  <option value="hybrid" label="Hybrid">
+  <option value="other" label="Other">
+</datalist>
+
+{% call L.form_split() %}
+
+{% call L.form_col() %}
+<form method="post" action="/vehicles" autocomplete="off"
+      class="form-split-form--paired">
+  <input type="hidden" name="intent" value="create" />
+
+  {% call C.card(title='Identity') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="field">
+      <label class="field-label">Owned by</label>
+      <input class="field-input" type="text" name="entity_slug" list="veh-entities-datalist" required placeholder="pick the owning entity" />
+    </div>
+    <div class="field">
+      <label class="field-label">Display name</label>
+      <input class="field-input" type="text" name="display_name" placeholder="e.g. a full-size pickup truck" required />
+    </div>
+    <div class="field">
+      <label class="field-label">Slug</label>
+      <input class="field-input" type="text" name="slug" pattern="[A-Z][A-Za-z0-9-]*" placeholder="e.g. V2015TruckB (must start with a capital letter)" />
+    </div>
+    <div class="form-row-2">
+      <div class="field"><label class="field-label">Year</label><input class="field-input" type="number" name="year" /></div>
+      <div class="field"><label class="field-label">Make</label><input class="field-input" type="text" name="make" /></div>
+    </div>
+    <div class="form-row-2">
+      <div class="field"><label class="field-label">Model</label><input class="field-input" type="text" name="model" /></div>
+      <div class="field"><label class="field-label">License plate</label><input class="field-input" type="text" name="license_plate" /></div>
+    </div>
+    <div class="field"><label class="field-label">VIN</label><input class="field-input" type="text" name="vin" /></div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Owned by</h3>
+    <p>Chart accounts scaffold as <code>Expenses:&lt;Entity&gt;:Vehicle:&lt;slug&gt;:Fuel</code>, etc. If the vehicle is personal, pick <strong>Personal</strong>.</p>
+    <h3>Display name vs. slug</h3>
+    <p><strong>Display name</strong> is what shows in pickers and reports — year + make + model reads well. <strong>Slug</strong> is the Beancount path segment; auto-derived if blank, must start with a capital letter.</p>
+    <p><strong>VIN + plate</strong> are optional but useful for downstream lookups (insurance, tolls, parking citations).</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Purchase') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field"><label class="field-label">Purchase date</label><input class="field-input" type="date" name="purchase_date" /></div>
+      <div class="field"><label class="field-label">Purchase price</label><input class="field-input" type="text" name="purchase_price" placeholder="e.g. 18500.00" /></div>
+    </div>
+    <div class="field">
+      <label class="field-label">Odometer at purchase</label>
+      <input class="field-input" type="number" name="current_mileage" />
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Purchase</h3>
+    <p>Date + price set the depreciable basis. <strong>Odometer at purchase</strong> is the baseline for mileage tracking — yearly start/end goes in the detail view after creation.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Depreciation identity', subtitle='Optional — Form 4562 fields. Skip if you’re not sure; the edit page always has them.') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field"><label class="field-label">GVWR (lb)</label><input class="field-input" type="number" name="gvwr_lbs" placeholder="e.g. 6800" /></div>
+      <div class="field"><label class="field-label">Placed in service</label><input class="field-input" type="date" name="placed_in_service_date" /></div>
+    </div>
+    <div class="field">
+      <label class="field-label">Fuel type</label>
+      <input class="field-input" type="text" name="fuel_type" list="veh-fuel-datalist" />
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block tone-warn">
+    <h3>Depreciation identity</h3>
+    <p>All optional. <strong>GVWR &gt; 6,000 lb</strong> lifts §280F luxury-auto caps; <strong>placed in service</strong> may differ from purchase date; <strong>fuel type</strong> drives EV/PHEV credit eligibility.</p>
+    <p>Skip and fill in later via the edit page if you’re not sure.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Scaffold + notes') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="field">
+      <label style="display:flex; gap:8px; align-items:center; font-size:0.92rem">
+        <input type="checkbox" name="create_expense_tree" value="1" checked />
+        Create the expense tree ({{ categories|length }} categories + book-value asset account)
+      </label>
+    </div>
+    <div class="field"><label class="field-label">Notes</label><textarea class="field-textarea" name="notes" rows="2"></textarea></div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Expense tree</h3>
+    <p>Leaving this checked scaffolds <code>Expenses:&lt;Entity&gt;:Vehicle:&lt;slug&gt;:{Fuel,Insurance,Maintenance,…}</code> plus the book-value asset. Uncheck only if you already have those accounts opened by hand.</p>
+  </div>
+  {% endcall %}
+
+  <div class="form-actions" style="margin-top:1.5rem">
+    {{ B.btn('Cancel', href='/vehicles', variant='ghost') }}
+    <span class="spacer"></span>
+    {{ B.btn('Add vehicle', type='submit', variant='primary', icon=icon.plus()) }}
+  </div>
+</form>
+{% endcall %}
+
+{% call L.help_col() %}{% endcall %}
+
+{% endcall %}
+{% endblock %}

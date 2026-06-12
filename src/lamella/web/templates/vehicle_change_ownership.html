@@ -1,0 +1,141 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Change ownership — {{ vehicle.display_name or vehicle.slug }}{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Change ownership{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Change ownership',
+     subtitle=vehicle.display_name or vehicle.slug,
+     kicker='Vehicles'
+) %}
+  {{ B.btn('Back to vehicle', href='/vehicles/' ~ vehicle.slug ~ '/edit', variant='ghost') }}
+{% endcall %}
+
+{% call C.card() %}
+<p style="margin:0 0 0.5rem">
+  Currently owned by <code>{{ vehicle.entity_slug | entity }}</code>.
+  {% if posting_count %}
+    <strong>{{ posting_count }} historical posting{{ '' if posting_count == 1 else 's' }}</strong>
+    are tied to this vehicle.
+  {% else %}
+    No historical postings yet — the blast radius is small, but the rules below still apply so you don’t break future tax accounting.
+  {% endif %}
+</p>
+<p class="subtle" style="margin:0">
+  The two options below aren’t interchangeable. Pick carefully. If you pick wrong, your tax reports will quietly report wrong numbers.
+</p>
+{% endcall %}
+
+<datalist id="veh-change-entities">
+  {% for e in entities %}{% if e.slug != vehicle.entity_slug %}<option value="{{ e.slug }}" label="{{ e.display_name or e.slug }}">{% endif %}{% endfor %}
+</datalist>
+
+{% call L.section(title='Option A — Misattribution fix (rename)', subtitle='Pick this if you originally labeled the vehicle with the wrong entity and just want to correct that label.') %}
+{% call C.card(tone='warn') %}
+<p style="margin:0 0 0.5rem">
+  Every posting, Open directive, and account path moves from
+  <code>Expenses:{{ vehicle.entity_slug }}:Vehicle:{{ vehicle.slug }}:*</code>
+  to <code>Expenses:&lt;NewEntity&gt;:Vehicle:{{ vehicle.slug }}:*</code>.
+  <strong>No disposal is recorded</strong> — as far as Schedule C is concerned, this vehicle was always owned by the new entity.
+</p>
+<p class="subtle" style="margin:0 0 0.75rem">
+  Safe only when: you didn’t file a prior tax return using the old entity’s numbers. If you did, this option would quietly retract the depreciation you already claimed on the old entity’s Schedule C.
+</p>
+<form method="post" action="/vehicles/{{ vehicle.slug }}/change-ownership/rename"
+      class="form-grid" style="max-width:none"
+      data-confirm="Rewrite every posting and Open directive for this vehicle from {{ vehicle.entity_slug | entity }} to the new entity? No disposal is recorded. Only safe if you haven't filed taxes using the old entity's numbers for this vehicle."
+      data-confirm-strong="RENAME"
+      data-confirm-button="Apply rename">
+  <div class="field">
+    <label class="field-label">New owning entity</label>
+    <input class="field-input" type="text" name="new_entity_slug" list="veh-change-entities" required placeholder="pick the correct entity" />
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Apply rename (A)', type='submit', variant='primary') }}</div>
+</form>
+{% endcall %}
+{% endcall %}
+
+{% call L.section(title='Option B — Intercompany transfer', subtitle='Pick this if the vehicle’s ownership actually changed hands between two entities you own. Real-world event on a specific date.') %}
+{% call C.card(tone='err') %}
+<ol style="margin:0 0 0.75rem; padding-left:1.2rem; line-height:1.7">
+  <li>Historical postings on <code>{{ vehicle.entity_slug | entity }}</code> <strong>stay where they are</strong> — that entity’s books are frozen as of the transfer date.</li>
+  <li>A disposal entry posts on <code>{{ vehicle.entity_slug }}</code>: asset out at book value, cash leg into <code>Assets:{{ vehicle.entity_slug }}:Vehicle:{{ vehicle.slug }}:SaleClearing</code>, equity leg into <code>Equity:{{ vehicle.entity_slug }}:Vehicle:{{ vehicle.slug }}:SaleEquity</code>. Any gap plugs to <code>...:SaleRecapture</code>.</li>
+  <li>An acquisition entry posts on the target entity at the basis you choose below.</li>
+  <li>The old vehicle record is marked inactive; a fresh vehicle row gets created under the target entity.</li>
+  <li>The canonical operating chart (Fuel / Oil / Tires / etc.) is scaffolded under the target entity.</li>
+</ol>
+<p class="subtle" style="margin:0 0 0.75rem"><strong>This is bookkeeping, not tax.</strong> The system records facts you state. Your CPA looks at the SaleRecapture / SaleEquity entries and decides treatment.</p>
+
+<form method="post" action="/vehicles/{{ vehicle.slug }}/change-ownership/transfer"
+      class="form-grid" style="max-width:none"
+      data-confirm="Record an intercompany transfer of this vehicle from {{ vehicle.entity_slug | entity }} to the chosen target entity? The system writes a disposal on {{ vehicle.entity_slug | entity }} and an acquisition on the target. Historical postings stay where they are."
+      data-confirm-strong="TRANSFER"
+      data-confirm-button="Apply transfer">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Target entity</label>
+      <input class="field-input" type="text" name="new_entity_slug" list="veh-change-entities" required placeholder="pick the receiving entity" />
+    </div>
+    <div class="field">
+      <label class="field-label">Transfer date</label>
+      <input class="field-input" type="date" name="transfer_date" required />
+    </div>
+  </div>
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Cash portion (USD)</label>
+      <input class="field-input" type="number" step="0.01" min="0" name="cash_amount" value="0" />
+      <p class="subtle" style="margin:6px 0 0">Real money exchanged. Leave at 0 for pure paper transfer.</p>
+    </div>
+    <div class="field">
+      <label class="field-label">Equity portion (USD)</label>
+      <input class="field-input" type="number" step="0.01" min="0" name="equity_amount" value="0" />
+      <p class="subtle" style="margin:6px 0 0">Owner contribution / distribution. Posts to SaleEquity / PurchaseEquity.</p>
+    </div>
+  </div>
+  <div class="field">
+    <label class="field-label">Asset basis on target entity</label>
+    <div style="display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--border); border-radius:6px">
+      <label style="display:flex; gap:8px; align-items:center">
+        <input type="radio" name="basis_choice" value="carryover" required />
+        Carry over the previous NBV (whatever <code>Assets:{{ vehicle.entity_slug }}:Vehicle:{{ vehicle.slug }}</code> currently nets to)
+      </label>
+      <label style="display:flex; gap:8px; align-items:center">
+        <input type="radio" name="basis_choice" value="sale_price" />
+        Use cash + equity total as new basis
+      </label>
+      <label style="display:flex; gap:8px; align-items:center">
+        <input type="radio" name="basis_choice" value="explicit" />
+        Let me enter explicitly:
+        <input class="field-input" type="number" step="0.01" min="0" name="basis_explicit" placeholder="e.g. 12500.00" style="width:11rem" />
+      </label>
+    </div>
+    <p class="subtle" style="margin:6px 0 0"><strong>Consult your CPA.</strong> Bookkeeping mode just records what you tell it.</p>
+  </div>
+  <div class="field">
+    <label class="field-label">Notes (optional)</label>
+    <input class="field-input" type="text" name="notes" placeholder="anything the CPA should know" />
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Apply transfer (B)', type='submit', variant='danger') }}</div>
+</form>
+{% endcall %}
+{% endcall %}
+
+<p class="subtle" style="margin-top:1.5rem"><a href="/vehicles/{{ vehicle.slug }}/edit">← back to edit vehicle</a></p>
+{% endblock %}

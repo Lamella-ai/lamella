@@ -1,0 +1,63 @@
+{# Account picker popup partial — B6 Step 0.
+
+   Returned by GET /api/accounts/suggest as an HTMX-friendly fragment.
+   The vanilla controller in static/account_picker.js swaps this into
+   the picker's `.acct-picker-popup` host element.
+
+   Context expected:
+     items          list of dicts, keys: path, display_name, entity, kind
+     has_more       bool
+     remaining      int — how many results were dropped past the limit
+     q              str — the original query, echoed back for the more-button
+     kind           str — current kind filter ('' if none)
+     entity         str — current entity hint ('' if none)
+     boost_active   bool — was entity-boost on for this query
+     allow_create   bool — surface "Press Enter to use as-is" on no-match
+     kind_filter_active bool — true when kind is non-empty (for §1.2 escape-hatch)
+#}
+{%- if kind_filter_active %}
+<div class="acct-picker-filter-strip" data-kind="{{ kind }}">
+  <span class="acct-picker-filter-label">Showing {{ kind }} only</span>
+  <button type="button"
+          class="acct-picker-clear-filter"
+          data-clear-filter
+          aria-label="Remove {{ kind }} filter and search all accounts">
+    × clear filter
+  </button>
+</div>
+{%- endif %}
+{%- if items %}
+<ul class="acct-picker-list" role="listbox">
+  {%- for item in items %}
+  <li class="acct-picker-row"
+      role="option"
+      data-value="{{ item.path }}"
+      data-display="{{ item.display_name }}"
+      data-entity="{{ item.entity or '' }}"
+      data-kind="{{ item.kind or '' }}">
+    <span class="acct-picker-row__name">{{ item.display_name }}</span>
+    {%- if item.entity %}
+    <span class="acct-picker-row__entity">{{ item.entity }}</span>
+    {%- endif %}
+    <span class="acct-picker-row__path">{{ item.path }}</span>
+  </li>
+  {%- endfor %}
+</ul>
+{%- if has_more %}
+<button type="button"
+        class="acct-picker-more"
+        data-q="{{ q }}"
+        data-kind="{{ kind }}"
+        data-entity="{{ entity }}">
+  More — show {{ remaining }} more{% if boost_active %} without entity boost{% endif %}
+</button>
+{%- endif %}
+{%- else %}
+<div class="acct-picker-empty">
+  {%- if allow_create and q %}
+    No matches. Press Enter to use “{{ q }}” as-is.
+  {%- else %}
+    No matches.
+  {%- endif %}
+</div>
+{%- endif %}

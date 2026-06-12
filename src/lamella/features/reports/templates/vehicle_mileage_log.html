@@ -1,0 +1,91 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# IRS substantiation mileage log. One row per trip — date, miles,
+   business purpose, destination, odometer. Matches the column set
+   an auditor expects. #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Mileage log — {{ ctx.vehicle_display_name or 'Fleet' }} {{ ctx.year }}</title>
+  <style>{% include "_print_base.css" %}</style>
+</head>
+<body>
+  <h1>Mileage log — {{ ctx.year }}</h1>
+  <p class="muted">
+    {% if ctx.vehicle_display_name %}
+      Vehicle: <strong>{{ ctx.vehicle_display_name }}</strong>
+      ({{ ctx.vehicle_slug }})
+    {% else %}
+      All vehicles.
+    {% endif %}
+  </p>
+  <p class="muted small">
+    Worksheet for IRS substantiation — transcribe to your records or
+    return. Contemporaneous log maintained by Lamella.
+  </p>
+
+  <table class="lines">
+    <thead>
+      <tr>
+        <th style="width:9%">Date</th>
+        <th style="width:16%">Vehicle</th>
+        <th>Business purpose</th>
+        <th style="width:22%">From → To</th>
+        <th class="amt" style="width:7%">Miles</th>
+        <th class="amt" style="width:10%">Odometer</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in ctx.rows %}
+      <tr>
+        <td>{{ r.entry_date.isoformat() }}</td>
+        <td>{{ r.vehicle }}</td>
+        <td>{{ r.business_purpose or '' }}</td>
+        <td>
+          {{ r.from_loc or '' }}
+          {% if r.from_loc and r.to_loc %}→{% endif %}
+          {{ r.to_loc or '' }}
+        </td>
+        <td class="amt">{{ '%.1f'|format(r.miles) }}</td>
+        <td class="amt">{% if r.odometer %}{{ '{:,}'.format(r.odometer) }}{% endif %}</td>
+      </tr>
+      {% endfor %}
+      {% if not ctx.rows %}
+      <tr>
+        <td colspan="6" class="muted" style="text-align:center;">
+          No trips recorded for this year.
+        </td>
+      </tr>
+      {% endif %}
+    </tbody>
+    {% if ctx.rows %}
+    <tfoot>
+      <tr>
+        <th colspan="4" style="text-align:right;">Totals</th>
+        <th class="amt">
+          {{ '%.1f'|format(ctx.total_business_miles
+                         + ctx.total_commuting_miles
+                         + ctx.total_personal_miles) }}
+        </th>
+        <th></th>
+      </tr>
+    </tfoot>
+    {% endif %}
+  </table>
+
+  {% if ctx.rows %}
+  <p class="totals">
+    Business {{ '%.1f'|format(ctx.total_business_miles) }} ·
+    Commuting {{ '%.1f'|format(ctx.total_commuting_miles) }} ·
+    Personal {{ '%.1f'|format(ctx.total_personal_miles) }}
+  </p>
+  {% endif %}
+</body>
+</html>

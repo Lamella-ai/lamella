@@ -1,0 +1,185 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Import mileage — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Import mileage{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Import a mileage log',
+     subtitle='Paste your log or upload a CSV. The parser accepts CSV (matching vehicles.csv), two-anchor lines, or single-anchor / timestamped markers.',
+     kicker='Mileage'
+) %}
+  {{ B.btn('Back to mileage log', href='/mileage', variant='ghost') }}
+{% endcall %}
+
+{% call C.card(title='Format reference') %}
+<ul style="margin:0; padding-left:1.2rem; font-size:0.9rem; line-height:1.6">
+  <li><strong>CSV:</strong> <code>date,vehicle,odometer_start,odometer_end,miles,purpose,entity,from,to,notes</code> — one trip per row, explicit start/end.</li>
+  <li><strong>Two-anchor lines:</strong> <code>2025-01-01, 69001, 69011, Home → Warehouse Club</code> — each line is a full trip.</li>
+  <li><strong>Single-anchor / timestamped markers:</strong> <code>2025-01-01 08:00 69001 Set out for Warehouse Club</code>, then <code>2025-01-01 12:00 PM 69011 Done shopping</code>. Miles derived between consecutive readings.</li>
+</ul>
+{% endcall %}
+
+{% if error %}{% call F.banner(tone='err', title='Parse error') %}{{ error }}{% endcall %}{% endif %}
+
+{% if commit_result %}
+{% call F.banner(tone='ok', title='Imported %d trip%s for %s' % (commit_result.rows_written, '' if commit_result.rows_written == 1 else 's', commit_result.vehicle)) %}
+Batch <code>#{{ commit_result.batch_id }}</code> · {{ commit_result.rows_skipped }} skipped · {{ commit_result.conflicts }} conflict{{ '' if commit_result.conflicts == 1 else 's' }} flagged.
+{% if commit_result.messages %}
+<details style="margin-top:0.5rem">
+  <summary>Messages ({{ commit_result.messages|length }})</summary>
+  <ul style="font-size:0.85rem; margin:0.5rem 0 0; padding-left:1.2rem">
+    {% for m in commit_result.messages %}<li>{{ m }}</li>{% endfor %}
+  </ul>
+</details>
+{% endif %}
+{% endcall %}
+{% endif %}
+
+<datalist id="import-vehicle-datalist">
+  {% for v in vehicles %}<option value="{{ v.slug }}" label="{{ v.name }}{% if v.entity_slug %} · {{ v.entity_slug | entity }}{% endif %}">{% endfor %}
+</datalist>
+<datalist id="import-entity-datalist">
+  <option value="Personal" label="Personal">
+  {% for e in entities %}<option value="{{ e }}">{% endfor %}
+</datalist>
+
+{% call C.card(title='Paste or upload') %}
+<form method="post" action="/mileage/import/preview" enctype="multipart/form-data" class="form-grid" style="max-width:none">
+  <div class="field">
+    <label class="field-label">Vehicle</label>
+    <input class="field-input" type="text" name="vehicle" list="import-vehicle-datalist" required value="{{ selected_vehicle.slug if selected_vehicle else '' }}" placeholder="{% if not vehicles %}(no vehicles — add one in Settings → Vehicles){% endif %}" />
+    <p class="subtle" style="margin:6px 0 0">
+      Trips inherit the attribution of the selected vehicle ({{ (selected_vehicle.entity_display_name or selected_vehicle.entity_slug) if selected_vehicle and selected_vehicle.entity_slug else 'Personal' }} for the current selection).
+      Business-vs-personal split per row comes from <code>Business Miles</code> / <code>Personal Miles</code> CSV columns when present.
+    </p>
+  </div>
+  <details>
+    <summary class="subtle" style="cursor:pointer; font-size:0.85rem">Override attribution for this batch</summary>
+    <div class="field" style="margin-top:0.75rem">
+      <label class="field-label">Entity</label>
+      <input class="field-input" type="text" name="entity" list="import-entity-datalist" value="{{ selected_entity or '' }}" placeholder="(inherit from vehicle)" />
+    </div>
+  </details>
+  <div class="field">
+    <label class="field-label">Paste log text</label>
+    <textarea class="field-textarea" name="text" rows="10" style="font-family:var(--font-mono); font-size:0.88rem"
+              placeholder="2025-01-01 08:00 69001 Set out for Warehouse Club&#10;2025-01-01 12:00 PM 69011 Done shopping, home&#10;2025-01-02 4:00 PM 69011 Leaving for post office&#10;2025-01-02 4:10 PM 69015 Arrived post office">{{ text }}</textarea>
+  </div>
+  <div class="field">
+    <label class="field-label">Or upload a CSV</label>
+    <input class="field-input" type="file" name="file" accept=".csv,text/csv,.txt,text/plain" />
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Parse preview', type='submit', variant='primary') }}</div>
+</form>
+{% endcall %}
+
+{% if preview_rows is not none %}
+{% call L.section(title='Preview', subtitle='Format detected: %s · %d ready · %d errors · %d conflicts' % (source_format, valid_count, error_count, conflict_count)) %}
+{% if preview_rows %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th class="num shrink">#</th><th>Date</th><th>Time</th><th class="num">Start</th><th class="num">End</th><th class="num">Miles</th>
+      {% if has_splits %}<th class="num">Biz</th><th class="num">Com</th><th class="num">Pers</th><th>Cat</th>{% endif %}
+      <th>Description</th><th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in preview_rows %}
+    <tr>
+      <td class="num subtle">{{ r.line_no }}</td>
+      <td>{{ r.entry_date.isoformat() if r.entry_date else '—' }}</td>
+      <td class="subtle">{{ r.entry_time or '' }}</td>
+      <td class="num">{{ r.odometer_start if r.odometer_start is not none else '' }}</td>
+      <td class="num">{{ r.odometer_end if r.odometer_end is not none else '' }}</td>
+      <td class="num">{{ '%.1f'|format(r.miles) if r.miles is not none else '—' }}</td>
+      {% if has_splits %}
+        <td class="num">{{ '%.1f'|format(r.business_miles) if r.business_miles is not none else '' }}</td>
+        <td class="num">{{ '%.1f'|format(r.commuting_miles) if r.commuting_miles is not none else '' }}</td>
+        <td class="num">{{ '%.1f'|format(r.personal_miles) if r.personal_miles is not none else '' }}</td>
+        <td class="subtle">{{ r.category or '' }}</td>
+      {% endif %}
+      <td>{{ r.description or '' }}</td>
+      <td>
+        {% if r.error %}{{ D.badge('error', tone='err') }}<div class="subtle" style="font-size:0.82rem">{{ r.error }}</div>
+        {% elif r.conflict %}{{ D.badge('conflict', tone='warn') }}<div class="subtle" style="font-size:0.82rem">{{ r.conflict }}</div>
+        {% else %}{{ D.badge('ready', tone='ok') }}{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+
+{% if selected_vehicle and valid_count > 0 %}
+<form method="post" action="/mileage/import/commit" style="margin-top:1rem">
+  <input type="hidden" name="vehicle" value="{{ selected_vehicle.slug }}" />
+  <input type="hidden" name="entity" value="{{ selected_entity or 'Personal' }}" />
+  <input type="hidden" name="filename" value="{{ filename or '' }}" />
+  <textarea name="text" style="display:none">{{ text }}</textarea>
+  <div class="form-actions">
+    {{ B.btn('Cancel', href='/mileage/import', variant='ghost') }}
+    <span class="spacer"></span>
+    {{ B.btn('Import ' ~ valid_count ~ ' trip' ~ ('' if valid_count == 1 else 's') ~ ' to ' ~ selected_vehicle.name, type='submit', variant='primary') }}
+  </div>
+</form>
+{% elif valid_count == 0 %}
+{{ F.empty_state('No valid rows to import — fix the errors above or check your format.') }}
+{% endif %}
+{% else %}
+{{ F.empty_state('No rows parsed from the input.') }}
+{% endif %}
+{% endcall %}
+{% endif %}
+
+{% call L.section(title='Recent import batches') %}
+{% if batches %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr><th>When</th><th>Vehicle</th><th>Format</th><th class="num">Rows</th><th class="num">Skipped</th><th class="num">Conflicts</th><th>Source</th><th class="shrink"></th></tr>
+  </thead>
+  <tbody>
+    {% for b in batches %}
+    <tr>
+      <td class="subtle" style="font-size:0.85rem">{{ b.imported_at }}</td>
+      <td>{{ b.vehicle_slug or '—' }}</td>
+      <td class="subtle">{{ b.source_format }}</td>
+      <td class="num">{{ b.row_count }}</td>
+      <td class="num">{{ b.skipped_count }}</td>
+      <td class="num">{{ b.conflict_count }}</td>
+      <td class="subtle">{{ b.source_filename or '(pasted)' }}</td>
+      <td class="shrink">
+        <form method="post" action="/mileage/import/batches/{{ b.id }}/delete"
+              data-confirm="Undo import batch #{{ b.id }} ({{ b.source_filename or 'pasted' }})? Deletes all {{ b.row_count }} mileage row{{ '' if b.row_count == 1 else 's' }} that came in with this batch. Cannot be undone."
+              data-confirm-button="Undo batch">
+          {{ B.btn('Undo', type='submit', variant='ghost', size='sm') }}
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% else %}
+{{ F.empty_state('No imports yet.') }}
+{% endif %}
+{% endcall %}
+{% endblock %}

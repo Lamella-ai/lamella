@@ -1,0 +1,131 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Reconstruct from ledger — Lamella{% endblock %}
+{% block layout %}setup{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block page_title %}Reconstruct from ledger{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Reconstruct from ledger',
+     subtitle='This install is running against an empty database with a populated ledger at ' ~ ledger_main ~ '. Every section below is what we found and can rebuild into SQLite. Nothing is written until you click Run reconstruction.',
+     kicker='Setup'
+) %}
+{% endcall %}
+
+{% if state_empty and not results %}
+{% call F.banner(tone='warn', title='Why am I seeing this page?') %}
+The app auto-redirected you here because SQLite state is empty but your ledger carries configuration
+directives (settings, rules, loans, notes, mileage splits, etc.). Click <strong>Run reconstruction</strong>
+below to rebuild everything from the ledger; after that the dashboard works normally.
+{% endcall %}
+{% endif %}
+
+{% call F.banner(tone=('warn' if state_empty else 'ok'), title=('State tables look empty' if state_empty else 'State tables already have rows')) %}
+{% if state_empty %}
+This is what you’d see after a fresh install, a <code>docker volume rm</code>, or a migration that
+started from scratch.
+{% else %}
+The reconstructor will refuse to overwrite unless you tick <strong>Force overwrite</strong> below. Your cache
+tables (review queue, embeddings, paperless index) stay intact either way.
+{% endif %}
+{% endcall %}
+
+{% call L.section(title='Ledger snapshot') %}
+{% call C.kpi_grid() %}
+  {{ C.kpi_tile(label='Total entries', value=ledger_counts.entries) }}
+  {{ C.kpi_tile(label='Transactions', value=ledger_counts.transactions) }}
+  {{ C.kpi_tile(label='Open directives', value=ledger_counts.opens) }}
+  {{ C.kpi_tile(label='Close directives', value=ledger_counts.closes) }}
+  {{ C.kpi_tile(label='Balance assertions', value=ledger_counts.balances) }}
+  {{ C.kpi_tile(label='Pad directives', value=ledger_counts.pads) }}
+  {{ C.kpi_tile(label='Custom directives', value=ledger_counts.customs) }}
+{% endcall %}
+{% endcall %}
+
+{% call L.section(title='What reconstruction will rebuild', subtitle='Each card is one section of the rebuild. The count is what the reader found in the ledger before anything runs.') %}
+<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:0.75rem">
+  {% for s in sections %}
+  {% call C.card(title=s.title) %}
+  <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:0.5rem">
+    <span style="font-size:1.4rem">{{ s.icon }}</span>
+    <span class="num" style="font-weight:600; color:{% if s.found %}var(--ok){% else %}var(--muted){% endif %}">{{ s.found }} {{ s.label }}</span>
+  </div>
+  <p class="subtle" style="margin:0">{{ s.description }}</p>
+  {% if s.detail %}<p class="subtle" style="font-size:0.82rem; margin:0.4rem 0 0">{{ s.detail }}</p>{% endif %}
+  {% endcall %}
+  {% endfor %}
+</div>
+{% endcall %}
+
+{% call C.card(title='Run reconstruction', tone='info') %}
+<form method="post" action="/setup/reconstruct" class="form-grid" style="max-width:none">
+  <div class="field">
+    <label style="display:flex; gap:8px; align-items:flex-start">
+      <input type="checkbox" name="force" value="1" {% if not state_empty %}required{% endif %} />
+      <span>
+        {% if state_empty %}
+          Force overwrite (state tables are already empty; not required)
+        {% else %}
+          <strong>Force overwrite</strong> — wipe the populated state tables first, then rebuild. Required when state tables already have rows.
+        {% endif %}
+      </span>
+    </label>
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Run reconstruction', type='submit', variant='primary') }}</div>
+</form>
+<p class="subtle" style="margin:0.75rem 0 0">
+  Clicking runs every registered reconstruct pass and writes results into SQLite. Cache tables (review queue,
+  vector embeddings, business cache, paperless index) are untouched.
+</p>
+{% endcall %}
+
+{% if results %}
+  {% if results.status == "refused" %}
+  {% call F.banner(tone='err', title='Reconstruction refused') %}{{ results.detail }}{% endcall %}
+  {% else %}
+  {% call F.banner(tone='ok', title='Reconstruction complete') %}
+    {{ results.total_written }} rows rebuilt across {{ results.reports | length }} passes.
+  {% endcall %}
+  {% call C.card(flush=true) %}
+  <table class="tbl">
+    <thead><tr><th>Pass</th><th class="num">Rows written</th><th>Notes</th></tr></thead>
+    <tbody>
+      {% for r in results.reports %}
+      <tr>
+        <td>{{ r.pass_name }}</td>
+        <td class="num" style="color:{% if r.rows_written %}var(--ok){% else %}var(--muted){% endif %}">{{ r.rows_written }}</td>
+        <td class="subtle">{{ r.notes | join(", ") }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endcall %}
+  <div style="margin-top:1rem; display:flex; gap:8px; flex-wrap:wrap">
+    {{ B.btn('Continue to dashboard', href='/', variant='primary') }}
+    {{ B.btn('Re-run', href='/setup/reconstruct', variant='ghost') }}
+  </div>
+  {% endif %}
+{% endif %}
+
+<p class="subtle" style="margin-top:2rem">
+  <strong>Not seeing data you expected?</strong> If a section reports zero but you know you had rows in
+  SQLite, that means the ledger doesn’t carry a matching <code>custom "…"</code> directive yet. Run
+  <code>python -m lamella.core.transform.export_state --apply</code> on the machine that still holds the
+  SQLite data to emit the directives, then re-run this page against the updated ledger.
+</p>
+{% endblock %}

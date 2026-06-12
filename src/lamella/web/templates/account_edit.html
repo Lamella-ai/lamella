@@ -1,0 +1,172 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Edit {{ label }} — Account{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Edit account{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Edit account',
+     subtitle=label if label != a.account_path else '',
+     kicker=a.account_path
+) %}
+  {{ B.btn('Cancel', href='/accounts/' + a.account_path, variant='ghost') }}
+{% endcall %}
+
+<datalist id="acct-kind-datalist">
+  {% for k in account_kinds %}<option value="{{ k }}" label="{{ k | humanize }}">{% endfor %}
+</datalist>
+<datalist id="acct-entity-datalist">
+  {% for e in entities %}<option value="{{ e.slug }}" label="{{ e.display_name or e.slug }}">{% endfor %}
+</datalist>
+
+{% call L.form_split() %}
+
+{% call L.form_col() %}
+<form method="post" action="/accounts/{{ a.account_path }}/edit"
+      class="form-split-form--paired" autocomplete="off">
+
+  {% call C.card(title='Display name') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="field">
+      <label class="field-label" for="acct-display-name">Display name</label>
+      <input class="field-input" id="acct-display-name" type="text" name="display_name"
+             value="{{ a.display_name or '' }}"
+             placeholder="e.g. Primary Checking" autocomplete="off" />
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Display name</h3>
+    <p>What gets shown in account pickers, the dashboard, and reports — anywhere the raw Beancount path would be ugly. Example: a path like <code>Liabilities:Acme:Card:4821</code> reads better as <em>“Acme Visa · 4821”</em>.</p>
+    <p>Leave blank to fall back to the account path or the auto-generated label.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Kind & entity') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label" for="acct-kind">Kind</label>
+        <input class="field-input" id="acct-kind" type="text" name="kind"
+               list="acct-kind-datalist"
+               value="{{ a.kind or '' }}"
+               placeholder="(unlabeled)" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="acct-entity">Entity</label>
+        <input class="field-input" id="acct-entity" type="text" name="entity_slug"
+               list="acct-entity-datalist"
+               value="{{ a.entity_slug or '' }}"
+               placeholder="(unassigned)" autocomplete="off" />
+      </div>
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Kind</h3>
+    <p>Used by the AI classifier to decide what kinds of transactions can land here, and by the cards / loans / vehicles UIs to know which account types to surface.</p>
+    <p>Common values: <code>checking</code>, <code>savings</code>, <code>credit_card</code>, <code>loan</code>, <code>cash</code>, <code>investment</code>, <code>asset_book_value</code>.</p>
+    <h3>Entity</h3>
+    <p>Determines which Schedule (C / E / A) this account’s activity rolls up under at tax time. Set it on every account you actively use; leave blank only on system accounts (clearing, opening balances).</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Institution') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label" for="acct-institution">Institution</label>
+        <input class="field-input" id="acct-institution" type="text" name="institution"
+               value="{{ a.institution or '' }}"
+               placeholder="e.g. Example Bank" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="acct-last-four">Last four</label>
+        <input class="field-input" id="acct-last-four" type="text" name="last_four"
+               value="{{ a.last_four or '' }}"
+               maxlength="4" placeholder="e.g. 4821" autocomplete="off" />
+      </div>
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Institution + last four</h3>
+    <p>Helps disambiguate “Visa” → “Acme Visa · 4821” vs. “Personal Visa · 9032”. The card UX uses both fields together when rendering payment selectors.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='SimpleFIN') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="field">
+      <label class="field-label" for="acct-sf-id">SimpleFIN account ID</label>
+      <input class="field-input" id="acct-sf-id" type="text" name="simplefin_account_id"
+             value="{{ a.simplefin_account_id or '' }}" autocomplete="off" />
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block tone-warn">
+    <h3>SimpleFIN account ID</h3>
+    <p>Paste the SimpleFIN <code>account_id</code> that maps to this ledger account so the periodic pull lands transactions here.</p>
+    <p>One ledger account ↔ one SimpleFIN account. If a single ledger account aggregates several real bank accounts, leave this blank and split via overrides.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Notes') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="field">
+      <label class="field-label" for="acct-notes">Notes</label>
+      <textarea class="field-textarea" id="acct-notes" name="notes" rows="3">{{ a.notes or '' }}</textarea>
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block">
+    <h3>Notes</h3>
+    <p>Free-form context for your future self — what makes this account distinct, gotchas during setup, links to relevant documents. Surfaced on the account detail page.</p>
+  </div>
+  {% endcall %}
+
+  {% call C.card(title='Status / close-out') %}
+  <div class="form-grid" style="max-width:none">
+    <div class="field">
+      <label class="field-label" for="acct-closed">Closed on</label>
+      <input class="field-input" id="acct-closed" type="date" name="closed_on" value="{{ a.closed_on or '' }}" />
+    </div>
+  </div>
+  {% endcall %}
+  {% call L.pair_help() %}
+  <div class="help-block tone-err">
+    <h3>Closed on</h3>
+    <p>Leave blank unless the account is actually closed. Setting a date emits a Beancount <code>Close</code> directive on next reconstruct, freezes balance reporting at that day, and grays out the account in pickers (still selectable for historical edits, but excluded from new-transaction defaults).</p>
+  </div>
+  {% endcall %}
+
+  <div class="form-actions" style="margin-top:1.5rem">
+    {{ B.btn('Cancel', href='/accounts/' + a.account_path, variant='ghost') }}
+    <span class="spacer"></span>
+    {{ B.btn('Save', type='submit', variant='primary') }}
+  </div>
+</form>
+{% endcall %}
+
+{% call L.help_col() %}{% endcall %}
+
+{% endcall %}
+{% endblock %}

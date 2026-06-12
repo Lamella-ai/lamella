@@ -1,0 +1,91 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Import — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Import{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Import a spreadsheet',
+     subtitle='Drop a CSV / XLSX / ODS. The app classifies it, maps columns, categorizes rows, previews the diff, and writes to the year file after bean-check passes.',
+     kicker='Intake'
+) %}
+  {{ B.btn('Paste intake', href='/intake', icon=icon.filetext()) }}
+{% endcall %}
+
+{% call C.card(title='Upload a spreadsheet') %}
+<form method="post" action="/import" enctype="multipart/form-data" class="form-grid" style="max-width:none">
+  <div class="field">
+    <label class="field-label" for="import-file">File</label>
+    <input class="field-input" id="import-file" type="file" name="file" required accept=".csv,.xlsx,.xls,.ods" />
+    <span class="field-hint">Max {{ (max_upload_bytes / 1_000_000) | int }} MB.</span>
+  </div>
+  <div class="form-actions">
+    <span class="spacer"></span>
+    {{ B.btn('Upload', type='submit', variant='primary', icon=icon.upload()) }}
+  </div>
+</form>
+{% endcall %}
+
+{% call L.section(title='Recent imports', subtitle=('%d total' % recent|length) if recent else '') %}
+{% if recent %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Created</th>
+      <th>Filename</th>
+      <th>Class</th>
+      <th>Entity</th>
+      <th class="num">Rows</th>
+      <th>Status</th>
+      <th class="shrink"></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for record in recent %}
+    <tr>
+      <td>{{ record.created_at }}</td>
+      <td><code>{{ record.filename }}</code></td>
+      <td>{{ record.source_class or "—" }}</td>
+      <td>{{ record.entity or "—" }}</td>
+      <td class="num">
+        {% if record.rows_committed %}{{ record.rows_committed }} committed
+        {% else %}{{ record.rows_imported }} ingested{% endif %}
+      </td>
+      <td>
+        {% set tone = {
+          'pending': 'muted', 'preview': 'info',
+          'ingested': 'ok', 'committed': 'ok',
+          'failed': 'err', 'cancelled': 'muted'
+        }.get(record.status, 'muted') %}
+        {{ D.badge(record.status, tone=tone) }}
+        {% if record.error %}<br><span style="color:var(--err); font-size:0.82rem">{{ record.error | truncate(80) }}</span>{% endif %}
+      </td>
+      <td class="shrink">
+        <a href="/import/{{ record.id }}" class="muted-text" style="font-size:0.82rem">open →</a>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% else %}
+{{ F.empty_state('No imports yet.', icon=icon.upload(28)) }}
+{% endif %}
+{% endcall %}
+{% endblock %}

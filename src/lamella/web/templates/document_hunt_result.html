@@ -1,0 +1,134 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Receipt hunt results — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Receipt hunt results{% endblock %}
+
+{% block content %}
+{% if report._blocked_by_sync %}
+{% call F.banner(tone='warn', title='Receipt hunt paused') %}
+A Paperless sync is currently running — matching against a mid-growth index produces racing/stale candidates.
+Try again when <a href="/status">/status</a> shows the sync complete. Your selection is preserved; hit
+<a href="/search">back to search</a> and rerun.
+{% endcall %}
+{% endif %}
+
+{% call L.page_head(
+     title='Receipt hunt results',
+     subtitle='Two-pass match on your selected transactions. Pass 1 auto-linked anything with an unambiguous Paperless candidate (same amount, within ±' ~ report.tolerance_days|string ~ ' days). Pass 2 left ambiguous cases for you to pick.'
+) %}
+  {{ B.btn('Back to search', href='/search?q=' ~ report.q ~ '&lookback_days=' ~ report.lookback_days|string, variant='ghost') }}
+{% endcall %}
+
+{% call C.kpi_grid() %}
+  {{ C.kpi_tile(label='Auto-linked', value=report.auto_linked|length, tone='ok') }}
+  {{ C.kpi_tile(label='Ambiguous', value=report.ambiguous|length, tone='warn', meta='pick below') }}
+  {{ C.kpi_tile(label='No matching receipt', value=report.no_match|length) }}
+  {{ C.kpi_tile(label='Already linked', value=report.already_linked|length, meta='skipped') }}
+  {% if report.errors %}{{ C.kpi_tile(label='Errors', value=report.errors|length, tone='err') }}{% endif %}
+{% endcall %}
+
+{% if report.auto_linked %}
+{% call L.section(title='Auto-linked', subtitle='%d transactions' % report.auto_linked|length) %}
+{% call C.card(flush=true, tone='ok') %}
+<table class="tbl">
+  <thead><tr><th>Date</th><th class="num">Amount</th><th>Txn payee</th><th>Linked to</th></tr></thead>
+  <tbody>
+    {% for row in report.auto_linked %}
+    <tr>
+      <td>{{ row.date }}</td>
+      <td class="num">${{ row.amount }}</td>
+      <td>{{ row.payee or row.narration }}</td>
+      <td>
+        <a href="/paperless/preview/{{ row.paperless_id }}" target="_blank" rel="noopener">#{{ row.paperless_id }}</a>
+        {% if row.vendor %} · {{ row.vendor }}{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+{% if report.ambiguous %}
+{% call L.section(title='Ambiguous — pick from candidates', subtitle='%d transactions match multiple Paperless docs' % report.ambiguous|length) %}
+{% for row in report.ambiguous %}
+{% call C.card(tone='warn') %}
+<p style="margin:0 0 0.5rem"><strong>{{ row.date }} · ${{ row.amount }} · {{ row.payee or row.narration }}</strong></p>
+<ul style="margin:0; padding-left:1.25rem">
+  {% for c in row.candidates %}
+  <li style="margin-bottom:0.4rem">
+    <a href="/paperless/preview/{{ c.paperless_id }}" target="_blank" rel="noopener">#{{ c.paperless_id }}</a>
+    · {{ c.vendor or '(no vendor)' }} · receipt dated {{ c.document_date }} · ${{ c.total_amount }}
+    {% if c.title %}· {{ c.title }}{% endif %}
+    <form method="post" action="/documents/{{ c.paperless_id }}/link" style="display:inline; margin-left:6px">
+      <input type="hidden" name="txn_hash" value="{{ row.txn_hash }}" />
+      <input type="hidden" name="txn_date" value="{{ row.date }}" />
+      <input type="hidden" name="txn_amount" value="{{ row.amount }}" />
+      {{ B.btn('Link this one', type='submit', variant='primary', size='sm') }}
+    </form>
+  </li>
+  {% endfor %}
+</ul>
+{% endcall %}
+{% endfor %}
+{% endcall %}
+{% endif %}
+
+{% if report.no_match %}
+{% call L.section(title='No matching receipt', subtitle='%d transactions' % report.no_match|length) %}
+{% call C.card() %}
+<p class="subtle" style="margin:0 0 0.5rem">
+  No Paperless doc found within ±{{ report.tolerance_days }} days at the exact transaction amount. Live-API fallback was attempted: we queried Paperless directly for docs in the date window but found none matching the transaction amount.
+</p>
+<p class="subtle" style="margin:0">
+  Context: <strong>{{ report.total_paperless_docs_indexed }}</strong> Paperless docs are currently in the local index, with a sync lookback of
+  <strong>{{ report.paperless_sync_lookback_days }} days</strong>. If your Paperless archive has receipts older than that window, bump the lookback in
+  <a href="/settings">/settings</a> then hit “Full sync now” on <a href="/status">/status</a>.
+</p>
+<details style="margin-top:0.75rem">
+  <summary class="subtle" style="font-size:0.85rem; cursor:pointer">Show list</summary>
+  <table class="tbl" style="margin-top:0.5rem">
+    <thead><tr><th>Date</th><th class="num">Amount</th><th>Payee / narration</th></tr></thead>
+    <tbody>
+      {% for row in report.no_match %}
+      <tr><td>{{ row.date }}</td><td class="num">${{ row.amount }}</td><td>{{ row.payee or row.narration }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</details>
+{% endcall %}
+{% endcall %}
+{% endif %}
+
+{% if report.already_linked %}
+{% call L.section(title='Already linked', subtitle='%d skipped' % report.already_linked|length) %}
+<p class="subtle">These txns already had a Paperless link and were skipped.</p>
+{% endcall %}
+{% endif %}
+
+{% if report.errors %}
+{% call L.section(title='Errors', subtitle='%d items' % report.errors|length) %}
+{% call C.card(tone='err') %}
+<ul style="margin:0; padding-left:1.2rem">
+  {% for row in report.errors %}<li><code>{{ row.txn_hash[:8] }}…</code>: {{ row.reason }}</li>{% endfor %}
+</ul>
+{% endcall %}
+{% endcall %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,41 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Payment history from ledger. Columns mirror the classic template. #}
+<h3>Payments from ledger</h3>
+{% if payments %}
+  <table class="data">
+    <thead>
+      <tr>
+        <th>Date</th><th>Source</th>
+        <th>Principal</th><th>Interest</th><th>Escrow</th>
+        <th>Narration</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in payments %}
+        <tr{% if p.unresolved_source %} class="row-warning"{% endif %}>
+          <td>{{ p.date }}</td>
+          <td>
+            {% if p.from_account %}
+              <code>{{ p.from_account | alias }}</code>
+            {% else %}
+              <span class="muted">?</span>
+            {% endif %}
+          </td>
+          <td class="num">{{ p.principal | money }}</td>
+          <td class="num">{{ p.interest | money }}</td>
+          <td class="num">{{ p.escrow | money }}</td>
+          <td>{{ p.narration }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p class="muted small">No payments against this loan have been recorded yet.</p>
+{% endif %}

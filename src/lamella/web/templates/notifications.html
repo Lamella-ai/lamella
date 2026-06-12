@@ -1,0 +1,70 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Notifications — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Notifications{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Notifications',
+     subtitle='Recent push messages plus the channels they ran through.'
+) %}
+  <form method="post" action="/notifications/test" style="margin:0">
+    {{ B.btn('Send test notification', type='submit', variant='ghost', icon=icon.bell()) }}
+  </form>
+{% endcall %}
+
+{% if message %}{% call F.banner(tone='ok', title='Sent') %}{{ message }}{% endcall %}{% endif %}
+{% if error %}{% call F.banner(tone='err', title='Failed') %}{{ error }}{% endcall %}{% endif %}
+
+{% call L.section(title='Channels') %}
+{% if not channels %}
+{{ F.empty_state('No channels available. Configure ntfy or Pushover in Settings.', cta_text='Open Settings', cta_href='/settings') }}
+{% else %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead><tr><th>Channel</th><th>Status</th></tr></thead>
+  <tbody>
+    {% for ch in channels %}
+    <tr>
+      <td><strong>{{ ch.name }}</strong></td>
+      <td>{% if ch.enabled %}{{ D.badge('enabled', tone='ok') }}{% else %}{{ D.badge('disabled', tone='muted') }}{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endif %}
+{% endcall %}
+
+{% call L.section(title='Recent') %}
+{% if rows %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr><th>When</th><th>Channel</th><th>Priority</th><th>Title</th><th>Status</th><th>Actions</th></tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}{% include "partials/notification_row.html" %}{% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% else %}
+{{ F.empty_state('No notifications yet.') }}
+{% endif %}
+{% endcall %}
+{% endblock %}

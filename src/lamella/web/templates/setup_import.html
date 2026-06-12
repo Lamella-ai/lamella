@@ -1,0 +1,152 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Import existing ledger — Lamella{% endblock %}
+{% block layout %}setup{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block page_title %}Import existing ledger{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Import existing ledger',
+     subtitle='Analyze a source directory, review what would change, apply with rollback on failure.',
+     kicker='Setup'
+) %}
+{% endcall %}
+
+{% call C.card() %}
+<form method="get" action="/setup/import" class="form-grid" style="max-width:none">
+  <div class="field">
+    <label class="field-label">Source directory</label>
+    <input class="field-input" type="text" id="source" name="source" value="{{ source }}" placeholder="{{ default_source }}" style="font-family:var(--font-mono)" />
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Analyze', type='submit', variant='primary') }}</div>
+</form>
+{% endcall %}
+
+{% if error %}
+{% call F.banner(tone='err', title='Error') %}<pre style="margin:0; white-space:pre-wrap">{{ error }}</pre>{% endcall %}
+{% endif %}
+
+{% if analysis %}
+  {% if analysis.plugin_block_reason %}
+  {% call F.banner(tone='warn', title='Import blocked — unsupported plugin(s) declared') %}
+    <p style="margin:0 0 0.5rem">{{ analysis.plugin_block_reason }}</p>
+    <p style="margin:0">Remove the offending <code>plugin</code> line(s) from <code>main.bean</code> and re-run Analyze.</p>
+  {% endcall %}
+  {% elif analysis.parse_errors %}
+  {% call F.banner(tone='err', title='Parse errors in source ledger') %}
+    <ul style="margin:0; padding-left:1.2rem">
+    {% for e in analysis.parse_errors[:10] %}<li><code>{{ e }}</code></li>{% endfor %}
+    </ul>
+  {% endcall %}
+  {% else %}
+  {% set counts = analysis.count_by_bucket %}
+  {% call L.section(title='Plan', subtitle='%d directives' % analysis.decisions|length) %}
+  {% call C.kpi_grid() %}
+    {{ C.kpi_tile(label='Total directives', value=analysis.decisions|length) }}
+    {{ C.kpi_tile(label='Keep', value=counts.keep, tone='ok') }}
+    {{ C.kpi_tile(label='Transform', value=counts.transform, tone='warn') }}
+    {{ C.kpi_tile(label='Foreign (keep w/ warning)', value=counts.foreign, tone='err') }}
+  {% endcall %}
+
+  {% set groups = analysis.decision_groups %}
+  {% call C.card() %}
+  <details open>
+    <summary><strong>Per-directive detail</strong> — {{ groups|length }} group(s) covering {{ analysis.decisions|length }} directive(s)</summary>
+    <p class="subtle" style="margin:0.5rem 0 0.75rem">Identical decisions are grouped — same file, directive, bucket, action and reason. Click the count to see the source lines.</p>
+    {% for file, file_groups in groups|groupby('source_file') %}
+    <p style="margin:1rem 0 0.25rem"><strong style="font-family:var(--font-mono); font-size:0.9em">{{ file.split('/')[-1] }}</strong></p>
+    <table class="tbl" style="font-size:0.9rem; table-layout:auto; width:100%">
+      <thead>
+        <tr>
+          <th class="shrink">Directive</th>
+          <th class="shrink">Bucket</th>
+          <th class="shrink">Action</th>
+          <th class="num shrink">Count</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for g in file_groups %}
+        <tr>
+          <td class="shrink"><code>{{ g.directive_label }}</code></td>
+          <td class="shrink">
+            {% if g.bucket == 'keep' %}{{ D.badge('keep', tone='ok') }}
+            {% elif g.bucket == 'transform' %}{{ D.badge('transform', tone='warn') }}
+            {% else %}{{ D.badge('foreign', tone='err') }}{% endif %}
+          </td>
+          <td class="shrink">{{ g.action }}</td>
+          <td class="num shrink">
+            {% if g.count == 1 %}
+              <span title="line {{ g.lines[0] }}">1</span>
+            {% else %}
+              <details style="display:inline-block">
+                <summary style="cursor:pointer; list-style:none">{{ g.count }}</summary>
+                <div class="subtle" style="font-family:var(--font-mono); font-size:0.85em; font-weight:normal; max-height:8rem; max-width:18rem; overflow:auto; white-space:normal; margin-top:0.25rem; text-align:left">{{ g.lines|join(', ') }}</div>
+              </details>
+            {% endif %}
+          </td>
+          <td class="subtle" style="word-break:break-word">{{ g.reason }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endfor %}
+  </details>
+  {% endcall %}
+
+  {% if plan %}
+  {% call C.card(title='Dry-run preview', subtitle='%d file(s) transformed, %d created%s' % (plan.transforms_planned|length, plan.files_to_create|length, ', version stamp added' if plan.version_stamp_planned else '')) %}
+  {% if plan.files_to_create %}
+    <p style="margin:0 0 0.5rem"><strong>New files:</strong></p>
+    <ul style="margin:0 0 1rem; padding-left:1.2rem">
+      {% for p in plan.files_to_create %}<li><code>{{ p.name }}</code></li>{% endfor %}
+    </ul>
+  {% endif %}
+  {% for tp in plan.transforms_planned %}
+    <p style="margin:0.5rem 0"><strong>{{ tp.path.name }}</strong> — {{ tp.directives_commented }} directive(s) commented out</p>
+    <pre style="background:var(--bg-elev); color:var(--fg); padding:0.75rem; overflow-x:auto; font-size:0.85rem; border-radius:4px; border:1px solid var(--border)">{{ tp.unified_diff }}</pre>
+  {% endfor %}
+  {% if not plan.files_to_create and not plan.transforms_planned and not plan.version_stamp_planned %}
+    <p style="color:var(--ok); margin:0"><strong>No changes needed.</strong> Ledger is already canonical.</p>
+  {% endif %}
+  {% endcall %}
+  {% endif %}
+
+  {% call C.card(title='Ready to apply?', tone='ok') %}
+  <form method="post" action="/setup/import/apply">
+    <input type="hidden" name="source" value="{{ source }}" />
+    <p style="margin:0 0 0.75rem">
+      Every change runs through bean-check; any failure rolls back every file to its pre-apply bytes.
+      Transforms are commented-out, never deleted — every removal leaves a reversible
+      <code>; [lamella-removed …]</code> marker. After bean-check passes, SQLite state (rules, budgets,
+      dismissals, settings) is rebuilt from the imported ledger. If that fails, the ledger and DB are both
+      rolled back and you’ll see exactly which directives we couldn’t interpret.
+    </p>
+    <div class="form-actions">
+      {{ B.btn('Preview changes (dry run)', type='submit', name='dry_run', value='1', variant='ghost') }}
+      <span class="spacer"></span>
+      {{ B.btn('Apply ' ~ counts.transform ~ ' transform(s)', type='submit', variant='primary') }}
+    </div>
+  </form>
+  {% endcall %}
+  {% endcall %}
+  {% endif %}
+{% endif %}
+
+<p class="subtle" style="margin-top:1.5rem"><a href="/setup">← back to setup</a></p>
+{% endblock %}

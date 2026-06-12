@@ -1,0 +1,95 @@
+{# "+ Add vehicle" modal — HTMX fragment swapped into <body>.
+
+   Slim form: entity, display name, year/make/model. Slug auto-derives
+   from display name (or you can type one). Detailed fields (VIN,
+   plate, GVWR, fuel type, purchase price, asset account) live on
+   the per-vehicle detail page at /vehicles/{slug}. After save, the
+   server returns HX-Refresh so the dashboard reloads with the new
+   card in place. #}
+{% import "_components/_modal.html" as M %}
+
+{% call M.modal(
+     id='vehicle-new-modal',
+     title='Add a vehicle',
+     subtitle='The basics. Detailed fields are edited on the vehicle\'s detail page after save.',
+     open=true,
+     size='md'
+) %}
+<form method="post" action="/vehicles"
+      hx-post="/vehicles"
+      hx-target="this"
+      autocomplete="off"
+      class="form-grid"
+      style="max-width:none">
+
+  <input type="hidden" name="intent" value="create" />
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Owned by <span class="subtle">required</span></label>
+      <input class="field-input" type="text" name="entity_slug" required
+             list="vehicle-modal-entities"
+             placeholder="Personal, Acme, …" />
+      <datalist id="vehicle-modal-entities">
+        {% for e in entities %}<option value="{{ e.slug }}" label="{{ e.display_name or e.slug }}">{% endfor %}
+      </datalist>
+    </div>
+    <div class="field">
+      <label class="field-label">Display name <span class="subtle">required</span></label>
+      <input class="field-input" type="text" name="display_name" required
+             placeholder="e.g. 2018 work truck" />
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Slug <span class="subtle">optional, auto-derives</span></label>
+      <input class="field-input" type="text" name="slug"
+             pattern="[A-Z][A-Za-z0-9-]*"
+             placeholder="V2018WorkTruck" />
+    </div>
+    <div class="field">
+      <label class="field-label">Year</label>
+      <input class="field-input" type="number" name="year" min="1900" max="2099"
+             placeholder="e.g. 2018" />
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Make</label>
+      <input class="field-input" type="text" name="make"
+             placeholder="make" />
+    </div>
+    <div class="field">
+      <label class="field-label">Model</label>
+      <input class="field-input" type="text" name="model"
+             placeholder="model" />
+    </div>
+  </div>
+
+  {% call M.actions() %}
+    <button type="button" class="btn btn-ghost"
+            onclick="this.closest('.modal-backdrop').classList.remove('is-open')">
+      Cancel
+    </button>
+    <button type="submit" class="btn btn-primary">Add vehicle</button>
+  {% endcall %}
+</form>
+
+<p class="subtle" style="margin-top:0.75rem; font-size:0.82rem">
+  Want the full form (VIN, plate, fuel type, purchase price, asset account,
+  expense-tree scaffolding)?
+  <a href="/vehicles/new">Open the focused new-vehicle page →</a>
+</p>
+
+<script>
+(function () {
+  if (!window.LamellaSlug) return;
+  var modal = document.getElementById('vehicle-new-modal');
+  if (!modal) return;
+  var form = modal.querySelector('form');
+  if (form) window.LamellaSlug.attach({form: form, kind: 'vehicles'});
+})();
+</script>
+{% endcall %}

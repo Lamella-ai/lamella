@@ -1,0 +1,127 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+-->
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}{{ entity.display_name or entity.slug }} — Edit entity{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Edit entity{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title=entity.display_name or entity.slug,
+     subtitle='Edit details for one entity. The slug is part of every account path under this entity and cannot change here without a migration.',
+     kicker='Entities'
+) %}
+  {{ B.btn('Back to entities', href='/entities') }}
+  {% if entity.entity_type == 'business' %}
+  {{ B.btn('Open business dashboard →', href='/businesses/' + entity.slug, variant='ghost') }}
+  {% endif %}
+{% endcall %}
+
+{% if saved %}
+{% call F.banner(tone='ok', title='Saved') %}Entity updated.{% endcall %}
+{% endif %}
+
+<form method="post" action="/settings/entities" class="form-grid" style="max-width:none" autocomplete="off">
+  <input type="hidden" name="slug" value="{{ entity.slug }}" />
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Slug</label>
+      <input class="field-input" type="text" value="{{ entity.slug }}" disabled
+             title="Slug is locked once an entity exists; rename via the bulk editor with care." />
+    </div>
+    <div class="field">
+      <label class="field-label">Display name</label>
+      <input class="field-input" type="text" name="display_name"
+             value="{{ entity.display_name or '' }}"
+             placeholder="e.g. Acme Co." />
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Entity type</label>
+      {# Fixed-set enum, not ledger-derived → proper <select>. #}
+      <select class="field-input" name="entity_type">
+        <option value="" {% if not entity.entity_type %}selected{% endif %}>— choose —</option>
+        {% for value, label in entity_types %}
+          <option value="{{ value }}" {% if entity.entity_type == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label class="field-label">Tax schedule</label>
+      <select class="field-input" name="tax_schedule">
+        {% for value, label in tax_schedules %}
+          <option value="{{ value }}" {% if (entity.tax_schedule or '') == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Start date</label>
+      <input class="field-input" type="date" name="start_date"
+             value="{{ entity.start_date or '' }}" />
+    </div>
+    <div class="field">
+      <label class="field-label">Ceased date <span class="subtle">(optional)</span></label>
+      <input class="field-input" type="date" name="ceased_date"
+             value="{{ entity.ceased_date or '' }}" />
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="field-label">
+      <input type="checkbox" name="is_active" value="1"
+             {% if entity.is_active %}checked{% endif %} />
+      Active
+    </label>
+  </div>
+
+  <div class="field">
+    <label class="field-label">Notes</label>
+    <textarea class="field-input" name="notes" rows="2"
+              placeholder="Free-form internal notes…">{{ entity.notes or '' }}</textarea>
+  </div>
+
+  <div class="field">
+    <label class="field-label">Classify context <span class="subtle">(AI hints)</span></label>
+    <textarea class="field-input" name="classify_context" rows="4"
+              placeholder="e.g. Acme is a software consultancy; expenses include cloud hosting, training, contractors…">{{ entity.classify_context or '' }}</textarea>
+    <p class="subtle" style="font-size:0.78rem; margin:0.25rem 0 0">
+      Free-form text the AI uses when deciding which entity a transaction belongs to.
+    </p>
+  </div>
+
+  <div style="display:flex; gap:8px; margin-top:1rem">
+    {{ B.btn('Save', type='submit', variant='primary') }}
+    {{ B.btn('Cancel', href='/entities', variant='ghost') }}
+  </div>
+</form>
+
+{% call L.section(title='More actions') %}
+<ul class="bare" style="margin:0; padding:0">
+  <li style="padding:0.4rem 0; border-bottom:1px solid var(--border)">
+    <a href="/settings/entities/{{ entity.slug }}/scaffold">Scaffold accounts →</a>
+    <span class="subtle"> — bootstrap a chart of accounts for this entity.</span>
+  </li>
+  <li style="padding:0.4rem 0; border-bottom:1px solid var(--border)">
+    <a href="/settings/entities/{{ entity.slug }}/merge">Merge into another entity →</a>
+    <span class="subtle"> — combine this entity's accounts and history with another.</span>
+  </li>
+  <li style="padding:0.4rem 0">
+    <span class="subtle">{{ account_count }} account{% if account_count != 1 %}s{% endif %} open under this entity.</span>
+  </li>
+</ul>
+{% endcall %}
+{% endblock %}

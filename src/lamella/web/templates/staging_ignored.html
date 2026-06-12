@@ -1,0 +1,97 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Ignored — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Ignored rows{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Ignored rows',
+     subtitle=(
+       (items|length|string) ~ ' row' ~ ('s' if items|length != 1 else '') ~
+       ' currently hidden from the pending queue. Restoring puts a row back into /review for normal classification.'
+     ),
+     kicker='Triage'
+) %}
+  {{ B.btn('Back to pending', href='/review', icon=icon.arrowleft()) }}
+{% endcall %}
+
+{% if message %}
+  {% if message.startswith('restored_') %}
+    {% call F.banner(tone='ok', title='Restored') %}Row brought back to the pending queue.{% endcall %}
+  {% endif %}
+{% endif %}
+
+{% if not items %}
+{{ F.empty_state(
+     'Nothing ignored — every staged row is either pending, classified, or already in the ledger.',
+     cta_text='Open /review', cta_href='/review'
+) }}
+{% else %}
+
+{% call C.card() %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th style="width:7rem">Date</th>
+      <th style="width:9rem" class="num">Amount</th>
+      <th>Payee / description</th>
+      <th>Reason</th>
+      <th style="width:7rem">Source</th>
+      <th style="width:11rem">Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for it in items %}
+    <tr>
+      <td><time datetime="{{ it.posting_date }}">{{ it.posting_date }}</time></td>
+      <td class="num">{{ '%.2f'|format(it.amount|float) }}<span class="subtle">&nbsp;{{ it.currency }}</span></td>
+      <td>
+        <strong>{{ it.payee or it.description or '(no label)' }}</strong>
+        {% if it.description and it.payee and it.description != it.payee %}
+        <div class="subtle" style="font-size:0.85rem">{{ it.description }}</div>
+        {% endif %}
+        {% if it.memo %}
+        <div class="subtle" style="font-size:0.82rem">{{ it.memo }}</div>
+        {% endif %}
+      </td>
+      <td>
+        {% if it.reason %}
+        <span class="subtle" style="font-size:0.85rem">{{ it.reason }}</span>
+        {% else %}
+        <span class="subtle">—</span>
+        {% endif %}
+      </td>
+      <td>{{ D.badge(it.source, tone='muted') }}</td>
+      <td>
+        <form method="post" action="/review/staged/restore"
+              hx-post="/review/staged/restore"
+              hx-target="closest tr"
+              hx-swap="outerHTML">
+          <input type="hidden" name="staged_id" value="{{ it.staged_id }}">
+          <input type="hidden" name="next_path" value="/review/ignored">
+          {{ B.btn('Restore', type='submit', variant='primary', size='sm', icon=icon.arrowleft(size=12)) }}
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+
+{% endif %}
+{% endblock %}

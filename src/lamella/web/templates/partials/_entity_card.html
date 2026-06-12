@@ -1,0 +1,34 @@
+{# One entity card. Click anywhere on the card opens the edit modal
+   via HTMX. The card has a stable id so the modal POST can target
+   it for in-place swap on save. #}
+{% import "_components/data.html" as D %}
+<a class="record-card{% if not c.is_active %} record-card--quiet{% endif %}"
+   id="entity-card-{{ c.slug }}"
+   href="#"
+   hx-get="/entities/{{ c.slug }}/edit-modal"
+   hx-target="body"
+   hx-swap="beforeend"
+   onclick="event.preventDefault()">
+  <div class="record-card-head">
+    <span class="record-card-title">{{ c.display_name }}</span>
+    {% if c.entity_type %}
+    <span class="bdg">{{ c.entity_type | humanize }}</span>
+    {% endif %}
+  </div>
+  <div class="record-card-body">
+    <div class="subtle" style="font-size:0.85rem">
+      Slug: <code>{{ c.slug }}</code>
+    </div>
+    {% if c.tax_schedule %}
+    <div class="subtle" style="font-size:0.85rem; margin-top:0.25rem">
+      Tax schedule: <strong>Schedule {{ c.tax_schedule }}</strong>
+    </div>
+    {% endif %}
+    <div class="subtle" style="font-size:0.85rem; margin-top:0.25rem">
+      {{ c.account_count }} account{% if c.account_count != 1 %}s{% endif %}
+    </div>
+    {% if not c.is_active %}
+    <div style="margin-top:0.5rem">{{ D.badge('Inactive', tone='quiet') }}</div>
+    {% endif %}
+  </div>
+</a>

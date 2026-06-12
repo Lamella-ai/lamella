@@ -1,0 +1,130 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+-->
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}AI settings — Lamella{% endblock %}
+{% block page_class %}page page--narrow{% endblock %}
+{% block page_title %}AI settings{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='AI (OpenRouter)',
+     subtitle='Models, fallback cascade, monthly spend cap, vector context, Paperless writeback. ADR-0047 focused page.',
+     kicker='Settings'
+) %}
+  {{ B.btn('← Back to settings', href='/settings', variant='ghost') }}
+{% endcall %}
+
+{% if saved %}{% call F.banner(tone='ok', title='Saved') %}{% endcall %}{% endif %}
+
+{% if not ai_enabled %}
+{% call F.banner(tone='info', title='AI is disabled') %}
+  Set <code>OPENROUTER_API_KEY</code> to enable.
+{% endcall %}
+{% endif %}
+
+{% call C.card() %}
+<form method="post" action="/settings/ai" class="form-grid" style="max-width:none">
+  <div class="field">
+    <label class="field-label">Global model</label>
+    <input class="field-input" type="text" name="openrouter_model" value="{{ models.openrouter_model }}" placeholder="{{ settings.openrouter_model }}" />
+  </div>
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Model — classify_txn (override)</label>
+      <input class="field-input" type="text" name="openrouter_model_classify_txn" value="{{ models.openrouter_model_classify_txn }}" placeholder="inherit" />
+    </div>
+    <div class="field">
+      <label class="field-label">Model — match_receipt (override)</label>
+      <input class="field-input" type="text" name="openrouter_model_match_receipt" value="{{ models.openrouter_model_match_receipt }}" placeholder="inherit" />
+    </div>
+  </div>
+  <div class="field">
+    <label class="field-label">Model — parse_note (override)</label>
+    <input class="field-input" type="text" name="openrouter_model_parse_note" value="{{ models.openrouter_model_parse_note }}" placeholder="inherit" />
+  </div>
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Monthly spend cap (USD, 0 = off)</label>
+      <input class="field-input" type="text" name="ai_max_monthly_spend_usd" value="{{ spend_cap_raw }}" placeholder="{{ settings.ai_max_monthly_spend_usd }}" />
+    </div>
+    <div class="field">
+      <label class="field-label">Price per 1k prompt tokens</label>
+      <input class="field-input" type="text" name="ai_price_usd_per_1k_prompt" value="{{ prompt_price_raw }}" placeholder="{{ '%.4f'|format(prompt_price) }}" />
+    </div>
+  </div>
+  <div class="field">
+    <label class="field-label">Price per 1k completion tokens</label>
+    <input class="field-input" type="text" name="ai_price_usd_per_1k_completion" value="{{ completion_price_raw }}" placeholder="{{ '%.4f'|format(completion_price) }}" />
+  </div>
+  <div class="field">
+    <label style="display:flex; gap:8px; align-items:flex-start; font-size:0.92rem">
+      <input type="checkbox" name="ai_vector_search_enabled" value="1" {% if ai_vector_search_enabled %}checked{% endif %} style="margin-top:4px" />
+      <span>
+        <strong>Use vector search for classification context</strong>
+        <span class="field-hint" style="display:block; margin-top:2px">
+          Replaces the 180-day substring window with semantic similarity over
+          every resolved transaction, weighted so your corrections count more
+          than the original AI guesses.
+        </span>
+      </span>
+    </label>
+  </div>
+
+  <fieldset style="border:1px solid var(--border-soft); border-radius:8px; padding:12px 16px; margin:8px 0">
+    <legend style="padding:0 6px; font-weight:600">Paperless verify + writeback</legend>
+    <p class="field-hint">
+      When a linked receipt's OCR looks wrong, run a vision model against the
+      attached image, verify the extracted fields, and PATCH corrections back
+      to Paperless with a "Lamella Fixed" tag. Off by default.
+    </p>
+    <label style="display:flex; gap:8px; align-items:center; font-size:0.92rem; margin:8px 0">
+      <input type="checkbox" name="paperless_writeback_enabled" value="1" {% if paperless_writeback_enabled %}checked{% endif %} />
+      <span><strong>Enable Paperless writeback</strong> (vision corrections + enrichments)</span>
+    </label>
+    <div class="field">
+      <label class="field-label">Vision model for receipt verify</label>
+      <input class="field-input" type="text" name="openrouter_model_receipt_verify" value="{{ models.openrouter_model_receipt_verify }}" placeholder="{{ settings.openrouter_model_receipt_verify }}" />
+    </div>
+  </fieldset>
+
+  <fieldset style="border:1px solid var(--border-soft); border-radius:8px; padding:12px 16px; margin:8px 0">
+    <legend style="padding:0 6px; font-weight:600">Two-agent cascade</legend>
+    <p class="field-hint">
+      Haiku (the primary) handles most classifies cheaply. When confidence
+      falls below the threshold, the same prompt retries against the fallback.
+    </p>
+    <label style="display:flex; gap:8px; align-items:center; font-size:0.92rem; margin:8px 0">
+      <input type="checkbox" name="ai_fallback_enabled" value="1" {% if ai_fallback_enabled %}checked{% endif %} />
+      <span><strong>Enable fallback model on low confidence</strong></span>
+    </label>
+    <div class="form-row-2">
+      <div class="field">
+        <label class="field-label">Fallback model (global)</label>
+        <input class="field-input" type="text" name="openrouter_model_fallback" value="{{ models.openrouter_model_fallback }}" placeholder="{{ settings.openrouter_model_fallback or '' }}" />
+      </div>
+      <div class="field">
+        <label class="field-label">Fallback — classify_txn (override)</label>
+        <input class="field-input" type="text" name="openrouter_model_classify_txn_fallback" value="{{ models.openrouter_model_classify_txn_fallback }}" placeholder="inherit" />
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">Escalate when primary confidence is below</label>
+      <input class="field-input" type="text" name="ai_fallback_confidence_threshold" value="{{ fallback_threshold_raw }}" placeholder="{{ '%.2f'|format(settings.ai_fallback_confidence_threshold) }}" />
+      <span class="field-hint">0.0 disables; 1.0 always escalates.</span>
+    </div>
+  </fieldset>
+
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Save AI settings', type='submit', variant='primary') }}</div>
+</form>
+{% endcall %}
+
+{% include "partials/ai_cost_card.html" %}
+{% endblock %}

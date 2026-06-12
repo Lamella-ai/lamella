@@ -1,0 +1,155 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/_txn.html" as Txn %}
+{% import "_components/_txn_actions.html" as T %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Transactions — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Transactions{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Transactions',
+     subtitle=(total|string) ~ ' transaction' ~ ('s' if total != 1 else '') ~ ' in the last ' ~ (days|string) ~ ' days · ' ~ (fixme_total|string) ~ ' uncategorized · ' ~ (receipt_total|string) ~ ' with a linked receipt'
+) %}
+{% endcall %}
+
+{% if staged_pending %}
+{% call F.banner(tone='warn', title=(staged_pending|string) ~ ' staged row' ~ ('s' if staged_pending != 1 else '') ~ ' not yet in the ledger') %}
+Imports land here only after they're classified out of the staging queue.
+<a class="btn btn-sm" href="/inbox" style="margin-left:0.5rem">Open Inbox</a>
+{% endcall %}
+{% endif %}
+
+{% call C.card() %}
+<form method="get" action="/transactions" class="form-grid" style="max-width:none">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Find</label>
+      <input class="field-input" type="search" name="q" value="{{ q }}"
+             placeholder="merchant, narration, or account fragment" />
+    </div>
+    <div class="field">
+      <label class="field-label">Account</label>
+      <input class="field-input" type="text" name="account" value="{{ account }}" list="accounts-datalist"
+             placeholder="Expenses:Acme:Supplies (prefix ok)" />
+    </div>
+  </div>
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Lookback (days)</label>
+      <input class="field-input" type="text" name="days" value="{{ days }}" />
+    </div>
+    <div class="field">
+      <label class="field-label">
+        <input type="checkbox" name="fixme_only" value="1" {% if fixme_only %}checked{% endif %} />
+        Only uncategorized
+      </label>
+    </div>
+    <div class="field">
+      <label class="field-label">
+        <input type="checkbox" name="has_receipt" value="1" {% if has_receipt %}checked{% endif %} />
+        Only with receipt
+      </label>
+    </div>
+  </div>
+  <div class="form-actions">
+    <a class="btn btn-ghost" href="/transactions">Reset</a>
+    <span class="spacer"></span>
+    {{ B.btn('Apply', type='submit', variant='primary', icon=icon.search()) }}
+  </div>
+</form>
+{% endcall %}
+
+<datalist id="accounts-datalist"></datalist>
+
+{% if not rows %}
+{{ F.empty_state('No transactions match these filters.') }}
+{% else %}
+{%- set _back = '/transactions?' ~ ('q=' ~ q ~ '&account=' ~ account ~ '&days=' ~ days ~ '&fixme_only=' ~ fixme_only ~ '&has_receipt=' ~ has_receipt ~ ('&page=' ~ page if page > 1 else '')) -%}
+{% call C.card() %}
+<table class="data-table txns-table">
+  <thead>
+    <tr>
+      <th>Transaction</th>
+      <th>From → To</th>
+      <th style="text-align:right; width:9rem">Amount</th>
+      <th style="width:11rem">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    {%- set _txn_url = '/txn/' ~ r.lamella_txn_id if r.lamella_txn_id else '/txn/' ~ r.txn_hash -%}
+    {%- set _flow_class = 'txns-row--' ~ r.flow -%}
+    <tr class="txns-row {{ _flow_class }}{% if r.is_fixme %} txns-row--fixme{% endif %}">
+      <td class="txns-cell-summary">
+        {# Click-through prefers the immutable lamella_txn_id (UUIDv7);
+           falls back to the content-hash for ledger txns that don't
+           have one stamped yet — both are valid /txn/{id} routes. #}
+        <a href="{{ _txn_url }}" class="txn-row-link">
+          {{ Txn.summary(r, compact=true) }}
+        </a>
+        {% if r.is_fixme %}<div class="txns-cell-badges">{{ D.badge('Uncategorized', tone='warn') }}</div>{% endif %}
+      </td>
+      <td class="txns-cell-accts">
+        {% if r.source_account %}
+          <span class="txns-acct txns-acct--from" title="{{ r.source_account }}">{{ r.source_account | alias }}</span>
+        {% else %}
+          <span class="muted">—</span>
+        {% endif %}
+        {% if r.expense_account %}
+          <div class="txns-acct-arrow">→ <span class="txns-acct txns-acct--to" title="{{ r.expense_account }}">{{ r.expense_account | alias }}</span></div>
+        {% endif %}
+      </td>
+      <td class="txns-cell-amount">
+        <span class="txns-amount txns-amount--{{ r.flow }}">
+          {%- if r.flow == 'out' -%}−{%- elif r.flow == 'in' -%}+{%- endif -%}
+          {{ D.money(r.amount, currency=r.currency, signed=false) }}
+        </span>
+      </td>
+      <td class="txns-cell-actions">
+        {% if r.receipt_paperless_ids %}
+          <div class="txns-receipt-pills" title="Linked receipt{% if r.receipt_paperless_ids|length != 1 %}s{% endif %} — click to verify the match">
+            {% for pid in r.receipt_paperless_ids %}
+              <a class="txns-receipt-pill" href="/paperless/preview/{{ pid }}" target="_blank" rel="noopener">📄 #{{ pid }}</a>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {%- set _undo_id = r.lamella_txn_id if (r.lamella_txn_id and not r.is_fixme) else None -%}
+        {{ T.actions(ref="ledger:" ~ r.txn_hash, compact=true, return_url=_back, undoable_txn_id=_undo_id) }}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+
+{% if total_pages > 1 %}
+{%- set qs_base = 'q=' ~ q ~ '&account=' ~ account ~ '&days=' ~ days ~ '&fixme_only=' ~ fixme_only ~ '&has_receipt=' ~ has_receipt -%}
+<nav class="pager" style="display:flex; gap:0.5rem; align-items:center; justify-content:center; margin-top:1rem">
+  {% if page > 1 %}
+    <a class="btn btn-ghost btn-sm" href="/transactions?{{ qs_base }}&page={{ page - 1 }}">← Prev</a>
+  {% endif %}
+  <span class="subtle">Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}
+    <a class="btn btn-ghost btn-sm" href="/transactions?{{ qs_base }}&page={{ page + 1 }}">Next →</a>
+  {% endif %}
+</nav>
+{% endif %}
+
+{% endif %}
+
+{% endblock %}

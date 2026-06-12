@@ -1,0 +1,57 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "wizard/_layout.html" %}
+
+{% block step_heading %}
+  Ready to set things up{% if wizard_state.name %}, {{ wizard_state.name.split(' ')[0] }}{% endif %}?
+{% endblock %}
+{% block step_subheading %}
+This is your last chance to review. When you click below we&rsquo;ll create your
+ledger, scaffold your accounts, and (if you connected SimpleFIN) pull in your
+first batch of transactions.
+{% endblock %}
+
+{% block step_body %}
+<div class="wiz-card">
+  <div class="wiz-card-head">
+    <h2 class="wiz-card-title">Here&rsquo;s what we&rsquo;ll create</h2>
+  </div>
+  <div class="wiz-chip-list">
+    <span class="wiz-chip">{{ counts.entities }} {{ 'entity' if counts.entities == 1 else 'entities' }}</span>
+    <span class="wiz-chip">{{ counts.accounts }} {{ 'account' if counts.accounts == 1 else 'accounts' }}</span>
+    {% if counts.properties %}<span class="wiz-chip">{{ counts.properties }} {{ 'property' if counts.properties == 1 else 'properties' }}</span>{% endif %}
+    {% if counts.vehicles %}<span class="wiz-chip">{{ counts.vehicles }} {{ 'vehicle' if counts.vehicles == 1 else 'vehicles' }}</span>{% endif %}
+  </div>
+  <p class="wiz-help" style="margin:0">
+    Everything you typed in the wizard is still a draft &mdash; nothing has been written to your books yet.
+    Click <strong>Set everything up</strong> below to commit it.
+  </p>
+</div>
+
+<div class="wiz-card">
+  <h2 class="wiz-card-title" style="margin:0">What&rsquo;s next, after</h2>
+  <ul style="margin:0; padding-left:1.1rem; color:var(--muted); line-height:1.6; font-size:0.95rem">
+    {% if wizard_state.simplefin_connected %}
+    <li>Your transactions will start syncing &mdash; the dashboard fills in as they arrive.</li>
+    {% else %}
+    <li>Add your first transaction from the dashboard&rsquo;s &ldquo;New&rdquo; button or import a CSV.</li>
+    {% endif %}
+    <li>Tweak default categories anytime from each entity&rsquo;s edit page.</li>
+    <li>Hook up Paperless or OpenRouter from <a href="/settings">Settings</a> when you&rsquo;re ready.</li>
+  </ul>
+</div>
+{% endblock %}
+
+{% block step_actions %}
+<a class="wiz-btn wiz-btn-link" href="/setup/wizard/property-vehicle">Back</a>
+<span class="spacer"></span>
+<form method="post" action="/setup/wizard/done" style="display:inline; margin:0">
+  <button type="submit" class="wiz-btn wiz-btn-primary">Set everything up &rarr;</button>
+</form>
+{% endblock %}

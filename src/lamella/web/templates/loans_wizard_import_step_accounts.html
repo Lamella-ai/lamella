@@ -1,0 +1,61 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% block title %}{{ flow.title }} — Account paths{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block content %}
+{% include "partials/loans/_wizard_progress.html" %}
+
+<h1>{{ flow.title }}</h1>
+<h2>Step 3: Account paths</h2>
+<p class="muted">
+  These accounts will be auto-opened in the ledger if they don't
+  already exist. Suggested defaults derive from your loan slug +
+  entity. Edit as needed.
+</p>
+
+{% include "partials/_wizard_errors.html" %}
+
+{% set entity = params.loan_entity_slug or 'Personal' %}
+{% set inst = params.loan_institution or 'Bank' %}
+{% set slug = params.loan_slug or 'Loan' %}
+{% set default_liability = "Liabilities:" ~ entity ~ ":" ~ inst ~ ":" ~ slug %}
+{% set default_interest = "Expenses:" ~ entity ~ ":" ~ slug ~ ":Interest" %}
+{% set default_escrow = "Assets:" ~ entity ~ ":" ~ inst ~ ":" ~ slug ~ ":Escrow" %}
+
+<form method="post" action="/settings/loans/wizard/{{ flow_name }}/step"
+      class="stacked-form">
+  {% set account_fields = ['liability_account_path',
+      'interest_account_path', 'escrow_account_path'] %}
+  {% for k, v in params.items() %}
+    {% if v is not none and k != 'step' and k not in account_fields %}
+      <input type="hidden" name="{{ k }}" value="{{ v }}" />
+    {% endif %}
+  {% endfor %}
+  <input type="hidden" name="step" value="accounts" />
+
+  <label>Liability account path
+    <input type="text" name="liability_account_path" required
+           value="{{ params.liability_account_path or default_liability }}" />
+  </label>
+  <label>Interest expense account
+    <input type="text" name="interest_account_path"
+           value="{{ params.interest_account_path or default_interest }}" />
+  </label>
+  <label>Escrow asset account (optional)
+    <input type="text" name="escrow_account_path"
+           value="{{ params.escrow_account_path
+                    if params.escrow_account_path is defined and params.escrow_account_path
+                    else (default_escrow if params.escrow_monthly else '') }}"
+           placeholder="leave blank if no escrow" />
+  </label>
+
+  <button type="submit" class="primary-action">Next →</button>
+</form>
+{% endblock %}

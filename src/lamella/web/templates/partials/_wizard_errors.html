@@ -1,0 +1,24 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Generic error block. Uses the existing .error utility (red bg,
+   error-text colour) so wizards inherit the same styling as the
+   rest of the app. #}
+{% if errors %}
+  <div class="error" role="alert">
+    <strong>Fix these to continue:</strong>
+    <ul>
+      {% for e in errors %}
+        <li>
+          {% if e.field %}<code>{{ e.field }}</code>: {% endif %}
+          {{ e.message }}
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}

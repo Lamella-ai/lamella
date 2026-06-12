@@ -1,0 +1,153 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Change ownership — {{ property.display_name or property.slug }}{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Change ownership{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Change ownership',
+     subtitle=property.display_name or property.slug,
+     kicker='Settings · Properties'
+) %}
+  {{ B.btn('Back to property', href='/settings/properties/' ~ property.slug, variant='ghost') }}
+{% endcall %}
+
+{% call C.card() %}
+<p style="margin:0 0 0.5rem">
+  You’re about to change who owns <strong>{{ property.display_name or property.slug }}</strong>
+  (currently <code>{{ property.entity_slug | entity }}</code>).
+  Current book value on <code>{{ asset_path }}</code>:
+  <strong>{{ D.money(current_book_value, signed=false) }}</strong>.
+</p>
+<p class="subtle" style="margin:0">
+  Real-estate ownership changes have tax-basis consequences. The system records what you tell it; your CPA decides whether
+  this is a §1031 like-kind exchange, a sale at FMV, an owner contribution under §721, or some other treatment.
+</p>
+{% endcall %}
+
+{% if request.query_params.get('error') %}
+{% call F.banner(tone='err', title=request.query_params.get('error')) %}
+  {% if request.query_params.get('detail') %}<code>{{ request.query_params.get('detail') }}</code>{% endif %}
+{% endcall %}
+{% endif %}
+
+<datalist id="change-own-entities">
+  {% for e in entities %}{% if e.slug != property.entity_slug %}<option value="{{ e.slug }}" label="{{ e.display_name or e.slug }}">{% endif %}{% endfor %}
+</datalist>
+
+{% call L.section(title='Option A — Misattribution fix (rename)', subtitle='Pick this if you originally labeled the property under the wrong entity and just want to correct the labels.') %}
+{% call C.card(tone='warn') %}
+<p style="margin:0 0 0.5rem">
+  Every posting, Open directive, and account path moves from
+  <code>Expenses:{{ property.entity_slug }}:Property:{{ property.slug }}:*</code> /
+  <code>Assets:{{ property.entity_slug }}:Property:{{ property.slug }}</code>
+  {% if property.is_rental %}/ <code>Income:{{ property.entity_slug }}:Property:{{ property.slug }}:*</code>{% endif %}
+  to <code>...:&lt;NewEntity&gt;:Property:{{ property.slug }}:*</code>.
+  <strong>No disposal is recorded</strong> — as far as Schedule E / A is concerned, this property was always owned by the new entity.
+</p>
+<p class="subtle" style="margin:0 0 0.75rem">
+  Safe only when: you didn’t file a prior tax return using the old entity’s numbers. If you did, this option would quietly retract
+  the deductions / income you already claimed on the old entity’s schedule. Don’t use this in that case.
+</p>
+<form method="post" action="/settings/properties/{{ property.slug }}/change-ownership/rename"
+      class="form-grid" style="max-width:none"
+      data-confirm="Rewrite every posting and Open directive for this property from {{ property.entity_slug | entity }} to the new entity? No disposal is recorded. Only safe if you haven't filed taxes using the old entity's numbers for this property."
+      data-confirm-strong="RENAME"
+      data-confirm-button="Apply rename">
+  <div class="field">
+    <label class="field-label">New owning entity</label>
+    <input class="field-input" type="text" name="new_entity_slug" list="change-own-entities" required placeholder="pick the correct entity" />
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Apply rename (A)', type='submit', variant='primary') }}</div>
+</form>
+{% endcall %}
+{% endcall %}
+
+{% call L.section(title='Option B — Intercompany transfer', subtitle='Pick this if the property’s ownership actually changed hands between two entities you own. Real-world event on a specific date.') %}
+{% call C.card(tone='err') %}
+<ol style="margin:0 0 0.75rem; padding-left:1.2rem; line-height:1.7">
+  <li>Historical postings on <code>{{ property.entity_slug | entity }}</code> <strong>stay where they are</strong> — that entity’s books are frozen as of the transfer date.</li>
+  <li>A disposal entry posts on <code>{{ property.entity_slug }}</code>: asset out at book value, cash leg into <code>Assets:{{ property.entity_slug }}:Property:{{ property.slug }}:SaleClearing</code> (the bank deposit reconciles here when SimpleFIN brings it), equity leg into <code>Equity:{{ property.entity_slug }}:Property:{{ property.slug }}:SaleEquity</code>. Any gap between book value and (cash + equity) plugs to <code>...:SaleRecapture</code>.</li>
+  <li>An acquisition entry posts on the target entity at the basis you choose below.</li>
+  <li>The old property record is marked inactive; a fresh property row gets created under the target entity (slug suffix-disambiguated).</li>
+  <li>The canonical property chart (PropertyTax, HOA, Insurance, Maintenance, Repairs, Utilities, MortgageInterest, plus rental categories if rental) is scaffolded under the target entity.</li>
+</ol>
+<p class="subtle" style="margin:0 0 0.75rem"><strong>This is bookkeeping, not tax.</strong> Your CPA looks at the SaleRecapture / SaleEquity entries the system writes and decides how to characterize them.</p>
+
+<form method="post" action="/settings/properties/{{ property.slug }}/change-ownership/transfer"
+      class="form-grid" style="max-width:none"
+      data-confirm="Record an intercompany transfer of this property from {{ property.entity_slug | entity }} to the chosen target entity? The system writes a disposal on {{ property.entity_slug | entity }} and an acquisition on the target. Historical postings stay where they are."
+      data-confirm-strong="TRANSFER"
+      data-confirm-button="Apply transfer">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Target entity</label>
+      <input class="field-input" type="text" name="new_entity_slug" list="change-own-entities" required placeholder="pick the receiving entity" />
+    </div>
+    <div class="field">
+      <label class="field-label">Transfer date</label>
+      <input class="field-input" type="date" name="transfer_date" required />
+    </div>
+  </div>
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Cash portion (USD)</label>
+      <input class="field-input" type="number" step="0.01" min="0" name="cash_amount" value="0" />
+      <p class="subtle" style="margin:6px 0 0">Real money exchanged. Leave at 0 for pure paper transfer. The bank deposit will post separately via SimpleFIN and reconcile against SaleClearing.</p>
+    </div>
+    <div class="field">
+      <label class="field-label">Equity portion (USD)</label>
+      <input class="field-input" type="number" step="0.01" min="0" name="equity_amount" value="0" />
+      <p class="subtle" style="margin:6px 0 0">Owner contribution / distribution. Non-cash value moving with the property. Posts to SaleEquity / PurchaseEquity as a balance-sheet-only entry.</p>
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="field-label">Asset basis on target entity</label>
+    <div style="display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--border); border-radius:6px">
+      <label style="display:flex; gap:8px; align-items:center">
+        <input type="radio" name="basis_choice" value="carryover" required />
+        Carry over the previous NBV (currently <strong>{{ D.money(current_book_value, signed=false) }}</strong>)
+      </label>
+      <label style="display:flex; gap:8px; align-items:center">
+        <input type="radio" name="basis_choice" value="sale_price" />
+        Use cash + equity total as new basis
+      </label>
+      <label style="display:flex; gap:8px; align-items:center">
+        <input type="radio" name="basis_choice" value="explicit" />
+        Let me enter explicitly:
+        <input class="field-input" type="number" step="0.01" min="0" name="basis_explicit" placeholder="e.g. 240000.00" style="width:11rem" />
+      </label>
+    </div>
+    <p class="subtle" style="margin:6px 0 0">
+      <strong>Consult your CPA.</strong> §1031 like-kind exchange between rentals = carryover. Sale at FMV between your own entities = sale price. §721 contribution to a partnership / LLC = carryover.
+    </p>
+  </div>
+
+  <div class="field">
+    <label class="field-label">Notes (optional)</label>
+    <input class="field-input" type="text" name="notes" placeholder="anything the CPA should know" />
+  </div>
+
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Apply transfer', type='submit', variant='danger') }}</div>
+</form>
+{% endcall %}
+{% endcall %}
+
+<p class="subtle" style="margin-top:1.5rem"><a href="/settings/properties/{{ property.slug }}">← back to property detail</a></p>
+{% endblock %}

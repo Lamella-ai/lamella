@@ -1,0 +1,23 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<tr>
+  <td>{{ p.budget.label }}</td>
+  <td>{{ p.budget.entity | entity }}</td>
+  <td><code>{{ p.budget.account_pattern }}</code></td>
+  <td>{{ p.budget.period.value }}</td>
+  <td>${% if fmt_amount is defined %}{{ fmt_amount(p.spent, 2) }}{% else %}{{ "%.2f"|format(p.spent) }}{% endif %} / ${% if fmt_amount is defined %}{{ fmt_amount(p.budget.amount, 2) }}{% else %}{{ "%.2f"|format(p.budget.amount) }}{% endif %}</td>
+  <td>{% include "partials/budget_progress_bar.html" %}</td>
+  <td>
+    <form method="post" action="/budgets/{{ p.budget.id }}/delete" class="inline-form"
+          data-confirm="Delete budget '{{ p.budget.label }}' for entity {{ p.budget.entity }}? Spent {{ '$%.2f' % p.spent }} of {{ '$%.2f' % p.budget.amount }} so far this period."
+          data-confirm-button="Delete budget">
+      <button type="submit">Delete</button>
+    </form>
+  </td>
+</tr>

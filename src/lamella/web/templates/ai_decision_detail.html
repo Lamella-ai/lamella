@@ -1,0 +1,94 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}AI decision #{{ d.id }} — {{ d.decision_type }}{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}AI decision #{{ d.id }}{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='AI decision #' ~ d.id,
+     subtitle=d.decision_type ~ ' · ' ~ (d.model or '(unknown)') ~ ' · ' ~ d.decided_at|string,
+     kicker='AI'
+) %}
+  {{ B.btn('All decisions', href='/ai/logs', variant='ghost') }}
+{% endcall %}
+
+{% if d.user_corrected %}<div style="margin:-8px 0 1rem">{{ D.badge('user-corrected', tone='accent') }}</div>{% endif %}
+
+{% call C.card(title='Input reference') %}
+<p style="margin:0 0 0.5rem"><code>{{ d.input_ref }}</code>
+  {% if d.source_href %}· <a href="{{ d.source_href }}" style="font-size:0.85rem">
+    {% if d.decision_type == "classify_txn" %}open transaction →{% else %}open source →{% endif %}
+  </a>{% endif %}
+</p>
+{% if d.txn_summary %}
+<dl style="display:grid; grid-template-columns:max-content 1fr; gap:6px 16px; margin:0.5rem 0 0; padding:0.75rem; background:var(--bg-elev); border-left:3px solid var(--accent); border-radius:6px">
+  <dt class="subtle">Date</dt><dd>{{ d.txn_summary.date }}</dd>
+  <dt class="subtle">Amount</dt><dd>{{ d.txn_summary.amount }} {{ d.txn_summary.currency }}</dd>
+  <dt class="subtle">Payee</dt><dd>{{ d.txn_summary.payee or "(none)" }}</dd>
+  <dt class="subtle">Narration</dt><dd>{{ d.txn_summary.narration or "(none)" }}</dd>
+  <dt class="subtle">Accounts</dt>
+  <dd>
+    {% for a in d.txn_summary.accounts %}<code style="font-size:0.85rem">{{ a }}</code>{% if not loop.last %} · {% endif %}{% endfor %}
+  </dd>
+</dl>
+{% elif d.decision_type == "classify_txn" and d.input_ref %}
+<p class="subtle" style="margin:0.5rem 0 0; font-size:0.85rem">
+  No matching ledger transaction found for this input reference. Possible reasons: the row is still staged (never written to the ledger),
+  the row was dismissed, or the SimpleFIN id was stripped during a ledger rebuild. The link above falls back to <code>/review/staged</code>.
+</p>
+{% endif %}
+{% endcall %}
+
+{% call C.card(title='Tokens + caching') %}
+<dl style="display:grid; grid-template-columns:max-content 1fr; gap:6px 16px; margin:0">
+  <dt class="subtle">Prompt tokens</dt><dd class="num">{{ d.prompt_tokens or 0 }}</dd>
+  <dt class="subtle">Completion tokens</dt><dd class="num">{{ d.completion_tokens or 0 }}</dd>
+  <dt class="subtle">Prompt hash</dt><dd><code style="font-size:0.85rem">{{ d.prompt_hash or "(none)" }}</code></dd>
+  <dt class="subtle">Cached?</dt>
+  <dd>
+    {% if d.model == "__cached__" %}{{ D.badge('cache hit', tone='ok') }} served from cache, no network call.
+    {% else %}{{ D.badge('live', tone='accent') }} live model call.{% endif %}
+  </dd>
+</dl>
+{% endcall %}
+
+{% call C.card(title='System prompt') %}
+{% if d.prompt_system %}
+<pre style="white-space:pre-wrap; background:var(--bg-elev); padding:0.75rem; border-left:3px solid var(--muted); border-radius:6px; font-family:var(--font-mono); font-size:0.85rem; margin:0; overflow-x:auto">{{ d.prompt_system }}</pre>
+{% else %}
+<p class="subtle" style="margin:0">(pre-capture era — prompts started being stored at migration 046, so older decisions only have the response).</p>
+{% endif %}
+{% endcall %}
+
+{% call C.card(title='User prompt', subtitle='What the AI actually saw — similar-txn context, notes, card-binding signals, etc.') %}
+{% if d.prompt_user %}
+<pre style="white-space:pre-wrap; background:var(--bg-elev); padding:0.75rem; border-left:3px solid var(--accent); border-radius:6px; font-family:var(--font-mono); font-size:0.85rem; margin:0; max-height:50em; overflow:auto">{{ d.prompt_user }}</pre>
+{% else %}
+<p class="subtle" style="margin:0">(pre-capture era — not stored).</p>
+{% endif %}
+{% endcall %}
+
+{% call C.card(title='Response', tone='ok') %}
+<pre style="white-space:pre-wrap; background:var(--bg-elev); padding:0.75rem; border-radius:6px; font-family:var(--font-mono); font-size:0.85rem; margin:0; overflow-x:auto">{{ d.result }}</pre>
+{% endcall %}
+
+{% if d.user_correction %}
+{% call C.card(title='User correction', tone='warn') %}
+<pre style="white-space:pre-wrap; background:var(--bg-elev); padding:0.75rem; border-radius:6px; font-family:var(--font-mono); font-size:0.85rem; margin:0; overflow-x:auto">{{ d.user_correction }}</pre>
+{% endcall %}
+{% endif %}
+{% endblock %}

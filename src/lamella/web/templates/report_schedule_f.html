@@ -1,0 +1,63 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+-->
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Schedule F {{ year }} — {{ entity }} — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Schedule F report{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Schedule F — ' ~ entity ~ ' · ' ~ year,
+     subtitle='Profit or Loss From Farming',
+     kicker='Reports'
+) %}
+  {{ B.btn('Back to reports', href='/reports') }}
+  {{ B.btn('PDF ↓', href='/reports/schedule-f.pdf?entity=' ~ entity ~ '&year=' ~ year) }}
+  {{ B.btn('Tax-form preview', href='/reports/schedule-f.preview.html?entity=' ~ entity ~ '&year=' ~ year) }}
+  {{ B.btn('Summary CSV ↓', href='/reports/schedule-f.csv?entity=' ~ entity ~ '&year=' ~ year, size='sm') }}
+  {{ B.btn('Detail CSV ↓', href='/reports/schedule-f-detail.csv?entity=' ~ entity ~ '&year=' ~ year, size='sm') }}
+{% endcall %}
+
+{% call C.kpi_grid() %}
+  {{ C.kpi_tile(label='Total expenses', value='{:,.2f}'.format(total_expenses)) }}
+{% endcall %}
+
+{% call L.section(title='Expense lines') %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Line</th>
+      <th>Category</th>
+      <th class="num">Amount</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in summary %}
+    <tr>
+      <td><strong>{{ row.line }}</strong></td>
+      <td>{{ row.description }}</td>
+      <td class="num">{{ '{:,.2f}'.format(row.amount) }}</td>
+    </tr>
+    {% endfor %}
+    <tr style="border-top:2px solid var(--border)">
+      <td colspan="2"><strong>Total</strong></td>
+      <td class="num"><strong>{{ '{:,.2f}'.format(total_expenses) }}</strong></td>
+    </tr>
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+
+<p class="subtle" style="margin-top:1.5rem; font-size:0.85rem">
+  This view is for in-app review. The PDF download is the form-shaped
+  document you'd actually file.
+</p>
+{% endblock %}

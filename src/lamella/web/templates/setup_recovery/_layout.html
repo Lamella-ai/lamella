@@ -1,0 +1,150 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# ===========================================================
+   Recovery layout — post-install drift heal surface.
+
+   Standalone document, modeled on wizard/_layout.html. Same
+   reasoning: the main app shell ships globals (job-dock polling,
+   search palette, sidebar, topbar) that have no place during
+   recovery work and would actively misbehave behind any
+   setup-completeness gate.
+
+   Spec: SETUP_IMPLEMENTATION.md "Locked specs (Phase 3 onward)"
+   "Setup-surface UI is isolated by rule".
+
+   Each page fills:
+     {% block step_heading %}     — page heading
+     {% block step_subheading %}  — supportive line under heading
+     {% block step_body %}        — main content (findings list)
+     {% block step_actions %}     — primary/secondary buttons
+   =========================================================== #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{% block title %}Recovery — Lamella{% endblock %}</title>
+
+  {% include "setup_shared/_theme_init.html" %}
+
+  {# Recovery shares the wizard's stylesheet so they look like the
+     same product. The structural elements (theme-init, brand
+     header, step pill rail, theme-toggle script) live as atomic
+     partials under setup_shared/ as of Phase 7 step 3. #}
+  <link rel="stylesheet" href="{{ request.url_for('static', path='app.css') }}?v={{ static_version }}" />
+  <link rel="stylesheet" href="{{ request.url_for('static', path='wizard.css') }}?v={{ static_version }}" />
+  <link rel="icon" type="image/svg+xml" href="{{ request.url_for('static', path='img/favicon.svg') }}" />
+  {# HTMX shim — recovery surfaces use it for per-row draft writes
+     in /setup/recovery (Phase 6.1.4b). Loading it here is safe
+     because this layout doesn't extend base.html and so doesn't
+     ship the #job-dock element whose 5s polling triggered the
+     wizard's infinite-DOM-duplication bug; the recovery shell has
+     no equivalent global polling target. #}
+  <script src="{{ request.url_for('static', path='htmx.min.js') }}?v={{ static_version }}" defer></script>
+</head>
+<body data-layout="recovery">
+
+{# Per-shell vars consumed by the shared header / step-rail / theme-
+   toggle partials. Set once at the top of the layout so partials
+   can read them via Jinja's default-context inheritance. #}
+{% set brand_href = "/setup/recovery" %}
+{% set brand_aria = "Recovery home" %}
+{% set theme_btn_id = "recvThemeBtn" %}
+{% set aria_label = "Recovery progress" %}
+
+<div class="wiz">
+  {% include "setup_shared/_brand_header.html" %}
+
+  {# ------- Recovery progress: one pill per category. Phase 3
+     ships with one (Cleanup); Phases 4–5 add more pills as they
+     introduce new finding categories. Identical pill / rail
+     markup as the wizard so styles travel without changes. ------- #}
+  {% include "setup_shared/_step_pill_rail.html" %}
+
+  <main class="wiz-main" id="recovery-content">
+    <header class="wiz-header">
+      <h1 class="wiz-h1">{% block step_heading %}{% endblock %}</h1>
+      {% set sub %}{% block step_subheading %}{% endblock %}{% endset %}
+      {% if sub | trim %}<p class="wiz-sub">{{ sub | safe }}</p>{% endif %}
+    </header>
+
+    <div class="wiz-body-content">
+      {% block step_body %}{% endblock %}
+    </div>
+
+    {% set actions %}{% block step_actions %}{% endblock %}{% endset %}
+    {% if actions | trim %}
+    <footer class="wiz-actions">{{ actions | safe }}</footer>
+    {% endif %}
+  </main>
+
+  <footer class="wiz-foot">
+    <span>v{{ app_version }}</span>
+  </footer>
+</div>
+
+{# Modal slot — rendered as a sibling of .wiz, not a descendant.
+   Same reasoning as wizard/_layout.html: .wiz-main has a slide-in
+   transform that creates a containing block for position:fixed
+   children, so an in-page modal would reposition during the
+   animation. Hoisting the modal here keeps it anchored to the
+   viewport. #}
+{% block modal %}{% endblock %}
+
+{% include "setup_shared/_theme_toggle_script.html" %}
+
+<script>
+  /* CSRF — auto-attach the lamella_csrf cookie value to non-GET
+     submits. The recovery layout is standalone (doesn't extend
+     base.html) so the global injector defined there isn't here.
+     Without this, every "Done — return to checklist" form on the
+     setup pages is rejected by the auth middleware with
+     {"detail":"CSRF token invalid or missing"}. Mirror of base.html. */
+  (function () {
+    var SECURE = "__Host-lamella_csrf";
+    var INSECURE = "lamella_csrf";
+    function csrfFromCookie() {
+      var prefer = location.protocol === "https:" ? SECURE : INSECURE;
+      var parts = (document.cookie || "").split(";");
+      var fallback = "";
+      for (var i = 0; i < parts.length; i++) {
+        var c = parts[i].trim();
+        if (c.indexOf(prefer + "=") === 0) {
+          return decodeURIComponent(c.substring(prefer.length + 1));
+        }
+        if (c.indexOf(INSECURE + "=") === 0) {
+          fallback = decodeURIComponent(c.substring(INSECURE.length + 1));
+        }
+      }
+      return fallback;
+    }
+    document.body.addEventListener("htmx:configRequest", function (ev) {
+      var token = csrfFromCookie();
+      if (!token) return;
+      var hdrs = ev.detail.headers || (ev.detail.headers = {});
+      if (!hdrs["X-CSRF-Token"]) hdrs["X-CSRF-Token"] = token;
+    });
+    document.addEventListener("submit", function (ev) {
+      var form = ev.target;
+      if (!form || form.tagName !== "FORM") return;
+      var method = (form.method || "get").toLowerCase();
+      if (method === "get") return;
+      if (form.querySelector('input[name="_csrf"]')) return;
+      var token = csrfFromCookie();
+      if (!token) return;
+      var inp = document.createElement("input");
+      inp.type = "hidden";
+      inp.name = "_csrf";
+      inp.value = token;
+      form.appendChild(inp);
+    }, true);
+  })();
+</script>
+</body>
+</html>

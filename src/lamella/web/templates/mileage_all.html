@@ -1,0 +1,126 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}All trips — Mileage{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}All trips{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='All trips',
+     subtitle=('{:,}'.format(total)) ~ ' rows total' ~ (' · matching fix=' ~ fix if fix else ''),
+     kicker='Mileage'
+) %}
+  {{ B.btn('Log new trip', href='/mileage', variant='primary', icon=icon.plus()) }}
+{% endcall %}
+
+<datalist id="mileage-vehicle-datalist">
+  {% for v in vehicles %}<option value="{{ v.name }}">{% endfor %}
+</datalist>
+<datalist id="mileage-year-datalist">
+  {% for y in years %}<option value="{{ y }}">{% endfor %}
+</datalist>
+<datalist id="mileage-fix-datalist">
+  <option value="splits" label="Missing splits">
+  <option value="purpose" label="Missing substantiation">
+  <option value="orphan" label="Orphaned (no matching vehicle)">
+</datalist>
+
+{% call C.card() %}
+<form method="get" action="/mileage/all" class="form-grid" style="max-width:none">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Vehicle</label>
+      <input class="field-input" type="text" name="vehicle" list="mileage-vehicle-datalist" value="{{ vehicle or '' }}" onchange="this.form.submit()" placeholder="(any)" />
+    </div>
+    <div class="field">
+      <label class="field-label">Year</label>
+      <input class="field-input" type="text" name="year" list="mileage-year-datalist" value="{{ year or '' }}" onchange="this.form.submit()" placeholder="(any)" />
+    </div>
+  </div>
+  <div class="field">
+    <label class="field-label">Data-health filter</label>
+    <input class="field-input" type="text" name="fix" list="mileage-fix-datalist" value="{{ fix or '' }}" onchange="this.form.submit()" placeholder="(all)" />
+  </div>
+  <noscript><div class="form-actions"><span class="spacer"></span>{{ B.btn('Filter', type='submit', variant='primary') }}</div></noscript>
+</form>
+{% endcall %}
+
+{% if rows %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr><th>Date</th><th>Vehicle</th><th>Entity</th><th class="num">Miles</th><th>Odometer</th><th>Substantiation</th><th class="shrink"></th></tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td><time>{{ r.entry_date.isoformat() }}</time></td>
+      <td>{{ r.vehicle }}</td>
+      <td class="subtle" style="font-size:0.85rem">{{ r.entity | entity }}</td>
+      <td class="num">
+        {{ '%.1f'|format(r.miles) }}
+        {% if r.miles == 0 %}{{ D.badge('0-mi', tone='muted') }}{% endif %}
+      </td>
+      <td class="subtle" style="font-size:0.85rem">
+        {% if r.odometer_start and r.odometer_end %}
+          {{ '{:,}'.format(r.odometer_start) }} → {{ '{:,}'.format(r.odometer_end) }}
+        {% elif r.odometer_end %}
+          → {{ '{:,}'.format(r.odometer_end) }}
+        {% else %}—{% endif %}
+      </td>
+      <td>
+        {% if r.purpose %}{{ r.purpose }}{% endif %}
+        {% if r.from_loc or r.to_loc %}
+          <div class="subtle" style="font-size:0.82rem">
+            {{ r.from_loc or "" }}{% if r.from_loc and r.to_loc %} → {% endif %}{{ r.to_loc or "" }}
+          </div>
+        {% endif %}
+        {% if r.notes %}<div class="subtle" style="font-size:0.82rem">{{ r.notes }}</div>{% endif %}
+        {% if not r.purpose and not r.from_loc and not r.to_loc and not r.notes %}
+          <span class="subtle">(none)</span>
+        {% endif %}
+      </td>
+      <td class="shrink" style="white-space:nowrap">
+        {{ B.btn('edit', href='/mileage/' ~ r.id ~ '/edit', variant='ghost', size='sm') }}
+        <form method="post" action="/mileage/{{ r.id }}/delete" style="display:inline"
+              data-confirm="Delete the {{ r.driven_on }} trip ({{ r.miles }} mi{% if r.purpose %} · {{ r.purpose }}{% endif %})? Removes the row + its mileage_summary.bean entry on next year-end rebuild."
+              data-confirm-button="Delete trip">
+          {{ B.btn('delete', type='submit', variant='ghost', size='sm') }}
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+
+{% if total_pages > 1 %}
+<nav style="margin-top:1rem; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+  {% if page > 1 %}
+    {{ B.btn('← previous', href='/mileage/all?' ~ ('vehicle=' ~ vehicle ~ '&' if vehicle else '') ~ ('year=' ~ year ~ '&' if year else '') ~ ('fix=' ~ fix ~ '&' if fix else '') ~ 'page=' ~ (page - 1), variant='ghost', size='sm') }}
+  {% endif %}
+  <span class="subtle" style="font-size:0.85rem">Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}
+    {{ B.btn('next →', href='/mileage/all?' ~ ('vehicle=' ~ vehicle ~ '&' if vehicle else '') ~ ('year=' ~ year ~ '&' if year else '') ~ ('fix=' ~ fix ~ '&' if fix else '') ~ 'page=' ~ (page + 1), variant='ghost', size='sm') }}
+  {% endif %}
+</nav>
+{% endif %}
+
+{% else %}
+{{ F.empty_state('No trips match the current filters.') }}
+{% endif %}
+{% endblock %}

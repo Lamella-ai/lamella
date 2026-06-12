@@ -1,0 +1,116 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "wizard/_layout.html" %}
+
+{% block step_heading %}Connect your bank? <span style="color:var(--muted); font-weight:500; font-size:0.7em">(optional)</span>{% endblock %}
+{% block step_subheading %}
+SimpleFIN securely connects your bank to Lamella so we can pull accounts and transactions automatically.
+{% endblock %}
+
+{% block step_body %}
+{% if connect_error %}
+<div class="wiz-banner is-warn" role="alert">
+  <div class="wiz-banner-title">Connection problem</div>
+  <div class="wiz-banner-body">{{ connect_error }}</div>
+</div>
+{% endif %}
+
+{% if access_configured and not connect_error %}
+<div class="wiz-banner is-info">
+  <div class="wiz-banner-title">SimpleFIN is already connected.</div>
+  <div class="wiz-banner-body">
+    Your access URL is set. We&rsquo;ll fetch your accounts and pre-populate them on the next step.
+    You can still add additional accounts manually from there.
+  </div>
+</div>
+<form method="post" action="/setup/wizard/bank/connected" style="display:inline">
+  <button type="submit" class="wiz-btn wiz-btn-primary">Continue</button>
+</form>
+
+{% else %}
+<div class="wiz-banner is-info">
+  <div class="wiz-banner-title">What is SimpleFIN?</div>
+  <div class="wiz-banner-body">
+    SimpleFIN bridges your bank to Lamella. You paste a one-time setup token from
+    <a href="https://beta-bridge.simplefin.org" target="_blank" rel="noopener">SimpleFIN Bridge</a>.
+    We exchange it for a long-lived access URL and pull your accounts and transactions automatically.
+    If you skip, you can still add accounts manually now &mdash; and connect SimpleFIN later from settings.
+  </div>
+</div>
+
+<form method="post"
+      action="/setup/wizard/bank/connect"
+      id="connect-form"
+      class="wiz-card"
+      data-loading-form>
+  <div class="wiz-field">
+    <label class="wiz-label" for="sf-token">SimpleFIN setup token</label>
+    <input
+      class="wiz-input {% if connect_error %}is-invalid{% endif %}"
+      id="sf-token"
+      type="text"
+      name="simplefin_token"
+      value="{{ form_token or '' }}"
+      placeholder="https://bridge.simplefin.org/simplefin/claim/..."
+      autocomplete="off"
+      required
+    />
+    <span class="wiz-help">
+      Paste the &ldquo;Setup Token&rdquo; from SimpleFIN Bridge. We&rsquo;ll claim it,
+      verify the connection, and fetch your accounts before continuing.
+    </span>
+  </div>
+</form>
+
+<div style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:center">
+  <button type="submit" form="connect-form" class="wiz-btn wiz-btn-primary" data-loading-target>
+    <span class="wiz-btn-label">Connect SimpleFIN</span>
+    <span class="wiz-btn-loading" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+      </svg>
+      <span>Connecting&hellip;</span>
+    </span>
+  </button>
+  <span style="color:var(--muted)">or</span>
+  <form method="post" action="/setup/wizard/bank/skip" style="display:inline">
+    <button type="submit" class="wiz-btn wiz-btn-ghost">Skip &mdash; I&rsquo;ll add accounts manually</button>
+  </form>
+</div>
+
+<p class="wiz-help" style="margin-top:0.5rem">
+  Either path leads to a working setup. You can switch later.
+</p>
+{% endif %}
+
+<script>
+  /* Loading-state for the Connect button. The bridge claim + accounts
+     fetch can take a few seconds; without feedback the user thinks
+     nothing happened and clicks twice. While submitting:
+       - swap the label for a spinning sun + "Connecting…"
+       - disable the button so duplicate submits aren't possible
+     If the server responds with an error re-render, the new page
+     load resets everything. */
+  (function () {
+    var form = document.getElementById("connect-form");
+    var btn = document.querySelector("[data-loading-target]");
+    if (!form || !btn) return;
+    form.addEventListener("submit", function () {
+      btn.classList.add("is-loading");
+      btn.setAttribute("aria-disabled", "true");
+      btn.disabled = true;
+    });
+  })();
+</script>
+{% endblock %}
+
+{% block step_actions %}
+<a class="wiz-btn wiz-btn-link" href="/setup/wizard/entities">Back</a>
+<span class="spacer"></span>
+{% endblock %}

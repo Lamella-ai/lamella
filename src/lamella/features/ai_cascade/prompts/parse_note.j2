@@ -1,0 +1,35 @@
+You extract structured hints from a free-text spending note. The note
+was typed on a phone and may be sloppy. Do not invent data — leave
+fields null when the note does not mention them.
+
+Note body
+---------
+{{ body }}
+
+Known entities (use one or null):
+{% for e in entities %}- {{ e }}
+{% endfor %}
+
+The note was captured on: {{ captured_at }}
+
+Return:
+- merchant_hint: the store / vendor mentioned, or null.
+- entity_hint: one of the entities above, or null. Choose based on
+  what the note was spent on or for.
+- amount_hint: the dollar amount mentioned, or null. Numbers only.
+- date_hint: an ISO date (YYYY-MM-DD) if the note mentions one, else
+  null. Resolve relative phrases ("yesterday", "last Tuesday") using
+  the captured_at date above.
+- active_from_hint: if the note implies a DATE RANGE during which
+  its context applies (e.g. "April 14 to April 20", "this week",
+  "next three days"), return the ISO start date (YYYY-MM-DD). Else
+  null.
+- active_to_hint: ISO end date of the active range, else null. If
+  the note implies a single-day context and you filled date_hint,
+  leave these two null — the system will fall back to a single-day
+  window on date_hint.
+- card_override_hint: true ONLY if the note explicitly says the
+  user is using the wrong card deliberately (e.g. "using personal
+  Visa for Acme business this week", "charged WidgetCo card by
+  mistake, should be personal"). In every other case, false.
+- keywords: up to 5 short normalized tokens for later matching.

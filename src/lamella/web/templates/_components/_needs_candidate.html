@@ -1,0 +1,53 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+-->
+{# One Paperless candidate row, used by the auto-match list AND the
+   manual-search results list. Implemented as a macro (not an include)
+   because Jinja's `loop` variable doesn't propagate into includes —
+   the caller passes is_first explicitly so we can pre-check the top
+   high-confidence candidate. #}
+
+{% macro candidate_li(cand, row, search_mode=false, is_first=false) %}
+<li class="candidate{% if search_mode %} candidate--search{% endif %}" data-score="{{ cand.score }}">
+  <label class="candidate-body">
+    <input type="checkbox" name="paperless_id"
+           value="{{ cand.paperless_id }}"
+           {% if search_mode %}form="link-form-{{ row.item.txn_hash }}"{% endif %}
+           {% if is_first and cand.score >= 0.80 and not search_mode %}checked{% endif %} />
+    <a class="candidate-thumb"
+       href="{% if row.paperless_url %}{{ row.paperless_url }}/documents/{{ cand.paperless_id }}/{% else %}/paperless/preview/{{ cand.paperless_id }}{% endif %}"
+       target="_blank" rel="noopener"
+       title="Open in Paperless (#{{ cand.paperless_id }})">
+      <img src="/paperless/thumb/{{ cand.paperless_id }}"
+           loading="lazy" alt="#{{ cand.paperless_id }}" />
+    </a>
+    <div class="candidate-detail">
+      <div class="candidate-meta">
+        {% if row.paperless_url %}
+          <a href="{{ row.paperless_url }}/documents/{{ cand.paperless_id }}/"
+             target="_blank" rel="noopener">#{{ cand.paperless_id }}</a>
+        {% else %}
+          #{{ cand.paperless_id }}
+        {% endif %}
+        <span class="title">{{ cand.title or "(untitled)" }}</span>
+      </div>
+      <div class="candidate-meta small">
+        {% if cand.correspondent_name %}<span class="corr">{{ cand.correspondent_name }}</span>{% endif %}
+        {% if cand.vendor and cand.vendor != cand.correspondent_name %}<span class="corr">{{ cand.vendor }}</span>{% endif %}
+        {% if cand.document_type_name %}<span class="muted">{{ cand.document_type_name }}</span>{% endif %}
+        {% if cand.effective_date %}<time>{{ cand.effective_date }}</time>{% endif %}
+        {% if cand.total_amount is not none %}
+          <span class="amt"><strong>${% if fmt_amount is defined %}{{ fmt_amount(cand.total_amount, 2) }}{% else %}{{ "%.2f"|format(cand.total_amount) }}{% endif %}</strong></span>
+        {% endif %}
+      </div>
+      {% if cand.reasons %}
+        <div class="candidate-reasons muted small"
+             title="{% for r in cand.reasons %}{{ r }}{% if not loop.last %} · {% endif %}{% endfor %}{% if cand.score %} · score {{ '%.2f'|format(cand.score) }}{% endif %}">
+          {% for r in cand.reasons[:3] %}<span class="reason">{{ r }}</span>{% if not loop.last %} &middot; {% endif %}{% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </label>
+</li>
+{% endmacro %}

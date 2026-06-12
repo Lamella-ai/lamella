@@ -1,0 +1,331 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Calendar · {{ day.isoformat() }}{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Calendar · {{ day_label }}{% endblock %}
+
+{% block head_extra %}
+<style>
+  /* Page-local helpers — colored chip variants for txn rows.
+     All colors come from theme tokens so dark mode works. */
+  .day-chip {
+    display:inline-block; font-size:0.72rem; padding:2px 8px;
+    border-radius:10px; border:1px solid var(--border);
+    background:var(--bg-elev); color:var(--fg-soft); font-weight:500;
+  }
+  .day-chip.is-fixme    { background:var(--warn-soft);   border-color:var(--warn); color:var(--warn); }
+  .day-chip.is-income   { background:var(--ok-soft);     border-color:var(--ok); color:var(--ok); }
+  .day-chip.is-expense  { background:var(--err-soft);    border-color:var(--err); color:var(--err); }
+  .day-chip.is-transfer { background:var(--info-soft);   border-color:var(--accent); color:var(--accent); }
+  .day-chip.is-entity   { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
+  .day-chip.is-receipt  { background:var(--ok-soft);     border-color:var(--ok); color:var(--ok); }
+  .day-chip.is-noreceipt{ background:var(--err-soft);    border-color:var(--err); color:var(--err); }
+  .day-chip.is-rule     { background:var(--warn-soft);   border-color:var(--warn); color:var(--warn); }
+  .day-chip.is-ai       { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
+  .day-chip.is-override { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
+  /* Row layout inside the transactions card. */
+  .day-txn { display:grid; grid-template-columns:auto 1fr auto; gap:12px;
+             padding:0.75rem 0; border-top:1px solid var(--border); }
+  .day-txn:first-child { border-top:0; }
+  .day-txn.is-fixme { border-left:3px solid var(--warn); padding-left:0.5rem; margin-left:-0.5rem; }
+  .day-txn-chips { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
+  .day-txn-amount { text-align:right; font-variant-numeric:tabular-nums; }
+  /* Account-movement table (compact). */
+  .delta-table { width:100%; border-collapse:collapse; }
+  .delta-table td { padding:4px 6px; font-variant-numeric:tabular-nums;
+                    font-size:0.9rem; border-bottom:1px solid var(--border-soft); }
+  .delta-table tr:last-child td { border-bottom:0; }
+  .delta-table td.up   { color:var(--ok);  text-align:right; }
+  .delta-table td.down { color:var(--err); text-align:right; }
+  /* Day-note + Paperless + mileage row layout. */
+  .day-row { display:flex; justify-content:space-between; gap:14px;
+             padding:0.6rem 0; border-top:1px solid var(--border); align-items:baseline; }
+  .day-row:first-child { border-top:0; }
+  .day-row .body { white-space:pre-wrap; flex:1; }
+  .day-row.existing-note { border-left:3px solid var(--accent); padding-left:0.5rem; margin-left:-0.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% call L.page_head(title=day_label, kicker='Calendar · ' ~ day.isoformat()) %}
+  {{ B.btn('← ' ~ month_link, href='/calendar/' ~ month_link, variant='ghost', size='sm') }}
+  {{ B.btn('Prev day', href='/calendar/' ~ prev_day, variant='ghost', size='sm') }}
+  {{ B.btn('Next day', href='/calendar/' ~ next_day, variant='ghost', size='sm') }}
+{% endcall %}
+
+{% set _status_tone = {'reviewed':'ok','dirty':'err','unreviewed':'muted','empty':'muted'}.get(status, 'muted') %}
+<div style="display:flex; align-items:center; gap:8px; margin:-8px 0 1rem; flex-wrap:wrap">
+  {{ D.badge(status, tone=_status_tone) }}
+  <span style="margin-left:auto; display:flex; gap:6px; flex-wrap:wrap">
+    <form method="post" action="/calendar/{{ day_iso }}/review" style="margin:0; display:flex; gap:6px; align-items:center">
+      {% if view.last_reviewed_at %}
+        <input type="hidden" name="unmark" value="1">
+        {{ B.btn('Unmark reviewed', type='submit', variant='ghost', size='sm') }}
+        <span class="subtle" style="font-size:0.82rem">reviewed {{ view.last_reviewed_at|local_ts }}</span>
+      {% else %}
+        {{ B.btn('Mark reviewed', type='submit', variant='ghost', size='sm') }}
+      {% endif %}
+    </form>
+    <form method="post" action="/calendar/{{ day_iso }}/ai-summary"
+          hx-post="/calendar/{{ day_iso }}/ai-summary"
+          hx-target="#day-modal-area" hx-swap="innerHTML"
+          hx-on::response-error="document.getElementById('day-modal-area').innerHTML = '&lt;div class=&quot;job-modal-overlay&quot; onclick=&quot;this.remove()&quot;&gt;&lt;div class=&quot;job-modal&quot; onclick=&quot;event.stopPropagation()&quot; style=&quot;padding:1.5rem&quot;&gt;&lt;h2 style=&quot;margin:0 0 .5rem 0&quot;&gt;Couldn&#39;t start AI summary&lt;/h2&gt;&lt;p&gt;The server returned &#39;+event.detail.xhr.status+&#39; &#39;+event.detail.xhr.statusText+&#39;.&lt;/p&gt;&lt;p class=&quot;subtle&quot; style=&quot;font-size:0.82rem&quot;&gt;Click outside to dismiss.&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;'"
+          style="margin:0">
+      {{ B.btn(
+           ('Regenerate AI summary' if view.day_review_row and view.day_review_row.get('ai_summary') else 'AI summary'),
+           type='submit', variant='ghost', size='sm'
+      ) }}
+    </form>
+    <form method="post" action="/calendar/{{ day_iso }}/ai-audit"
+          hx-post="/calendar/{{ day_iso }}/ai-audit"
+          hx-target="#day-modal-area" hx-swap="innerHTML"
+          hx-on::response-error="document.getElementById('day-modal-area').innerHTML = '&lt;div class=&quot;job-modal-overlay&quot; onclick=&quot;this.remove()&quot;&gt;&lt;div class=&quot;job-modal&quot; onclick=&quot;event.stopPropagation()&quot; style=&quot;padding:1.5rem&quot;&gt;&lt;h2 style=&quot;margin:0 0 .5rem 0&quot;&gt;Couldn&#39;t start AI audit&lt;/h2&gt;&lt;p&gt;The server returned &#39;+event.detail.xhr.status+&#39; &#39;+event.detail.xhr.statusText+&#39;.&lt;/p&gt;&lt;p class=&quot;subtle&quot; style=&quot;font-size:0.82rem&quot;&gt;Click outside to dismiss.&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;'"
+          style="margin:0">
+      {{ B.btn(
+           ('Re-run AI audit' if view.day_review_row and view.day_review_row.get('ai_audit_result') else 'AI audit'),
+           type='submit', variant='ghost', size='sm'
+      ) }}
+    </form>
+  </span>
+</div>
+
+<div id="day-modal-area"></div>
+
+{% if view.transactions %}
+{% call C.kpi_grid() %}
+  {{ C.kpi_tile(label='Expenses today', value=D.money(view.total_expenses, signed=false), tone='err') }}
+  {{ C.kpi_tile(label='Income today', value=D.money(view.total_income, signed=false), tone='ok') }}
+  {{ C.kpi_tile(label='Net', value=D.money(view.net_signed, signed=true)) }}
+  {{ C.kpi_tile(label='Transactions', value=view.transactions|length) }}
+{% endcall %}
+{% endif %}
+
+{% if view.day_review_row and view.day_review_row.get('ai_summary') %}
+{% call C.card(title='AI summary', subtitle='generated ' ~ view.day_review_row.get('ai_summary_at', '')[:19]) %}
+<div style="white-space:pre-wrap">{{ view.day_review_row.get('ai_summary') }}</div>
+{% endcall %}
+{% endif %}
+
+{% if audit %}
+{% call L.section(title='AI audit', subtitle='generated ' ~ view.day_review_row.get('ai_audit_result_at', '')[:19] ~ ' · agreed ' ~ audit.agreed|string ~ ' · disagreed ' ~ audit.disagreed|string ~ ' · skipped ' ~ audit.skipped|string) %}
+{% if audit.entries %}
+  {% for e in audit.entries %}
+  {% call C.card(tone=('warn' if not e.agreed and not e.skipped_reason else '')) %}
+  <div class="day-row" style="border:0; padding:0">
+    <div style="flex:1">
+      <strong>{{ e.narration or '(no narration)' }}</strong><br>
+      <span class="subtle" style="font-size:0.85rem">
+        current: {{ e.current_account|alias }}
+        {% if e.proposed_account and e.proposed_account != e.current_account %}
+          · AI proposes: <strong>{{ e.proposed_account|alias }}</strong>
+          {% if e.confidence %} (conf {{ '%.0f' % (e.confidence * 100) }}%){% endif %}
+        {% elif e.agreed %}
+          · AI agrees
+        {% elif e.skipped_reason %}
+          · {{ e.skipped_reason }}
+        {% endif %}
+      </span>
+      {% if e.reasoning and not e.agreed %}
+        <br><span class="subtle" style="font-size:0.85rem"><em>{{ e.reasoning }}</em></span>
+      {% endif %}
+    </div>
+    <div style="text-align:right">
+      <span class="day-txn-amount">{{ e.amount|money }}</span><br>
+      <a href="/txn/{{ e.lamella_txn_id or e.txn_hash }}" class="subtle" style="font-size:0.82rem">review</a>
+    </div>
+  </div>
+  {% endcall %}
+  {% endfor %}
+{% else %}
+{{ F.empty_state('No transactions to audit.') }}
+{% endif %}
+{% endcall %}
+{% endif %}
+
+{% if view.account_deltas %}
+{% call C.card(title='Account movement', subtitle=(view.account_deltas|length|string ~ ' account' ~ ('' if view.account_deltas|length == 1 else 's')), flush=true) %}
+<table class="delta-table" style="margin:0.5rem 0.9rem">
+  {% for ad in view.account_deltas %}
+  <tr>
+    <td>{{ ad.account|alias }}</td>
+    {% if ad.delta > 0 %}
+      <td class="up">+{{ ad.delta|money(ad.currency) }}</td>
+    {% else %}
+      <td class="down">{{ ad.delta|money(ad.currency) }}</td>
+    {% endif %}
+  </tr>
+  {% endfor %}
+</table>
+{% endcall %}
+{% endif %}
+
+{% if view.flags %}
+{% call L.section(title='Cross-source flags') %}
+{% for flag in view.flags %}
+{% call F.banner(tone=('err' if flag.severity == 'warn' else 'warn'), title=flag.title) %}
+{{ flag.detail }}
+{% endcall %}
+{% endfor %}
+{% endcall %}
+{% endif %}
+
+{% call L.section(title='Transactions', subtitle=(view.transactions|length|string)) %}
+{% if view.transactions %}
+{% call C.card() %}
+{% for t in view.transactions %}
+<div class="day-txn {% if t.is_fixme %}is-fixme{% endif %}">
+  <div>
+    {% if t.kind == 'income' %}<span class="day-chip is-income">Income</span>
+    {% elif t.kind == 'expense' %}<span class="day-chip is-expense">Expense</span>
+    {% elif t.kind == 'transfer' %}<span class="day-chip is-transfer">Transfer</span>
+    {% endif %}
+  </div>
+  <div>
+    <strong>{{ t.payee or t.narration or '(no narration)' }}</strong>
+    {% if t.payee and t.narration and t.narration != t.payee %}
+      <span class="subtle" style="font-size:0.82rem">· {{ t.narration }}</span>
+    {% endif %}
+    <br>
+    <span class="subtle" style="font-size:0.82rem">
+      {% if t.card_account %}{{ t.card_account|alias }}{% endif %}
+      {% if t.card_account and (t.expense_account or t.to_account) %} → {% endif %}
+      {% if t.is_fixme %}<em>uncategorized</em>
+      {% elif t.expense_account %}{{ t.expense_account|alias }}
+      {% elif t.to_account and t.to_account != t.card_account %}{{ t.to_account|alias }}
+      {% endif %}
+    </span>
+    <div class="day-txn-chips">
+      {% if t.is_fixme %}
+        <span class="day-chip is-fixme">Uncategorized · needs category</span>
+      {% else %}
+        {% if t.entity %}<span class="day-chip is-entity">{{ t.entity | entity }}</span>{% endif %}
+        {% if t.category_leaf %}<span class="day-chip">{{ t.category_leaf }}</span>{% endif %}
+      {% endif %}
+      {% if t.has_receipt %}<span class="day-chip is-receipt">✓ receipt</span>
+      {% elif t.kind == 'expense' and not t.is_fixme %}<span class="day-chip is-noreceipt">no receipt</span>{% endif %}
+      {% if t.is_rule_matched %}<span class="day-chip is-rule">rule</span>{% endif %}
+      {% if t.is_ai_classified %}<span class="day-chip is-ai">AI</span>{% endif %}
+      {% if t.is_override %}<span class="day-chip is-override">override</span>{% endif %}
+    </div>
+  </div>
+  <div class="day-txn-amount">
+    {{ t.amount|money(t.currency) }}<br>
+    <a href="/txn/{{ t.lamella_txn_id }}" class="subtle" style="font-size:0.82rem">
+      {% if t.is_fixme %}categorize{% else %}open{% endif %}
+    </a>
+  </div>
+</div>
+{% endfor %}
+<p class="subtle" style="margin:0.75rem 0 0; font-size:0.85rem">Net (Expenses + Income): <strong>{{ view.net_signed|money }}</strong></p>
+{% endcall %}
+{% else %}
+{{ F.empty_state('No transactions.') }}
+{% endif %}
+{% endcall %}
+
+{% call L.section(title='Mileage', subtitle=(view.mileage|length|string)) %}
+{% if view.mileage %}
+{% call C.card() %}
+{% for m in view.mileage %}
+<div class="day-row">
+  <div>
+    {% if m.entry_time %}<strong>{{ m.entry_time }}</strong> {% endif %}
+    {{ m.vehicle or '(no vehicle)' }}
+    {% if m.entity %} · <span class="subtle" style="font-size:0.82rem">{{ m.entity | entity }}</span>{% endif %}
+    {% if m.purpose %}<br><span class="subtle" style="font-size:0.85rem">{{ m.purpose }}</span>{% endif %}
+  </div>
+  <div style="text-align:right">
+    <strong>{{ '%.1f'|format(m.miles) }} mi</strong><br>
+    <a href="/mileage/{{ m.id }}/edit" class="subtle" style="font-size:0.82rem">edit</a>
+  </div>
+</div>
+{% endfor %}
+{% endcall %}
+{% else %}
+{{ F.empty_state('No mileage.') }}
+{% endif %}
+{% endcall %}
+
+{% call L.section(title='Paperless documents', subtitle=(view.paperless|length|string)) %}
+{% if view.paperless %}
+{% call C.card() %}
+{% for p in view.paperless %}
+<div class="day-row">
+  <div>
+    <strong>{{ p.title or 'Document ' ~ p.paperless_id }}</strong>
+    {% if p.correspondent %}<br><span class="subtle" style="font-size:0.82rem">{{ p.correspondent }}</span>{% endif %}
+  </div>
+  <div>
+    <a href="/paperless/preview/{{ p.paperless_id }}" target="_blank" class="subtle" style="font-size:0.82rem">preview</a>
+  </div>
+</div>
+{% endfor %}
+{% endcall %}
+{% else %}
+{{ F.empty_state('No Paperless docs.') }}
+{% endif %}
+{% endcall %}
+
+{% call L.section(title='Day notes') %}
+{% call C.card() %}
+{% for n in view.notes %}
+  {% if n.is_day_note %}
+    <div class="day-row existing-note">
+      <div class="body">{{ n.body }}</div>
+      <form method="post" action="/calendar/{{ day_iso }}/note/{{ n.id }}/delete" style="margin:0"
+            data-confirm="Delete this day note? It also stops feeding into the classifier context for {{ day_iso }} transactions."
+            data-confirm-button="Delete note">
+        {{ B.btn('delete', type='submit', variant='ghost', size='sm') }}
+      </form>
+    </div>
+  {% endif %}
+{% endfor %}
+<form method="post" action="/calendar/{{ day_iso }}/note" class="form-grid" style="max-width:none; margin-top:0.75rem">
+  <div class="field">
+    <label class="field-label">Add a note for this day</label>
+    <textarea class="field-textarea" name="body" rows="3" placeholder="Feeds into the classifier context for transactions dated today"></textarea>
+  </div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Add day note', type='submit', variant='primary', size='sm') }}</div>
+</form>
+{% endcall %}
+
+{% set context_notes = view.notes|rejectattr('is_day_note')|list %}
+{% if context_notes %}
+{% call C.card(title='Other active notes on this date') %}
+{% for n in context_notes %}
+<div class="day-row">
+  <div>
+    <span class="subtle" style="font-size:0.82rem">{% if n.captured_at %}{{ n.captured_at.strftime('%Y-%m-%d') }}{% endif %}</span><br>
+    {{ n.body }}
+  </div>
+</div>
+{% endfor %}
+{% endcall %}
+{% endif %}
+{% endcall %}
+
+<script>
+(function(){
+  document.addEventListener('keydown', function(e){
+    if (e.target && ['INPUT','TEXTAREA','SELECT'].indexOf(e.target.tagName) !== -1) return;
+    if (e.key === 'j' || e.key === 'J') window.location = "/calendar/{{ prev_day }}";
+    if (e.key === 'k' || e.key === 'K') window.location = "/calendar/{{ next_day }}";
+    if (e.key === 'n' || e.key === 'N') window.location = "/calendar/{{ day_iso }}/next";
+  });
+})();
+</script>
+{% endblock %}

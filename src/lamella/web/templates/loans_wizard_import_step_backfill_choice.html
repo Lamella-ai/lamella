@@ -1,0 +1,56 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% block title %}{{ flow.title }} — Backfill choice{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block content %}
+{% include "partials/loans/_wizard_progress.html" %}
+
+<h1>{{ flow.title }}</h1>
+<h2>Step 5: Backfill historical payments?</h2>
+<p class="muted">
+  After this wizard commits the loan + anchor, you can optionally
+  run the historical-payment backfill flow to enter the months
+  between funded date and anchor date. This is useful for tax
+  reporting (interest paid YTD), debt-paydown reporting (principal
+  paid since funding), and amortization-drift detection.
+</p>
+<p class="muted">
+  Skipping is fine — the loan's coverage panel will show "no
+  payments before anchor" and start tracking from there. You can
+  run backfill later from the loan detail page if you change
+  your mind.
+</p>
+
+{% include "partials/_wizard_errors.html" %}
+
+<form method="post" action="/settings/loans/wizard/{{ flow_name }}/step"
+      class="stacked-form">
+  {% set my_fields = ['backfill_choice'] %}
+  {% for k, v in params.items() %}
+    {% if v is not none and k != 'step' and k not in my_fields %}
+      <input type="hidden" name="{{ k }}" value="{{ v }}" />
+    {% endif %}
+  {% endfor %}
+  <input type="hidden" name="step" value="backfill_choice" />
+
+  <label>
+    <input type="radio" name="backfill_choice" value="opt-in"
+           {% if params.backfill_choice == 'opt-in' %}checked{% endif %} />
+    Yes — after committing, take me to the backfill flow
+  </label>
+  <label>
+    <input type="radio" name="backfill_choice" value="skip"
+           {% if params.backfill_choice == 'skip' or not params.backfill_choice %}checked{% endif %} />
+    No — start clean from the anchor
+  </label>
+
+  <button type="submit" class="primary-action">Review →</button>
+</form>
+{% endblock %}

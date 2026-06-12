@@ -1,0 +1,295 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "wizard/_layout.html" %}
+
+{% block step_heading %}
+  {% if existing_accounts and not draft_accounts %}
+    Your accounts.
+  {% elif simplefin_connected and draft_accounts %}
+    Review the accounts we found.
+  {% else %}
+    Add your accounts.
+  {% endif %}
+{% endblock %}
+
+{% block step_subheading %}
+{% if existing_accounts and not draft_accounts %}
+The wizard runs alongside your existing accounts &mdash; we won&rsquo;t modify what&rsquo;s already there.
+You can add new accounts below.
+{% elif simplefin_connected and draft_accounts %}
+We pre-populated drafts from SimpleFIN. Click <strong>Edit</strong> on each to set
+the account type and which entity owns it &mdash; SimpleFIN doesn&rsquo;t tell us those.
+{% else %}
+Use the &ldquo;+ Add Account&rdquo; button to add your bank, credit, and loan accounts.
+{% endif %}
+{% endblock %}
+
+{% block step_body %}
+{% if error %}
+<div class="wiz-banner is-warn" role="alert">
+  <div class="wiz-banner-title">{{ error }}</div>
+</div>
+{% endif %}
+
+{% if incomplete_count and not error %}
+<div class="wiz-banner is-warn">
+  <div class="wiz-banner-title">
+    {{ incomplete_count }} draft{{ 's' if incomplete_count != 1 else '' }} need
+    {{ '' if incomplete_count != 1 else 's' }} attention.
+  </div>
+  <div class="wiz-banner-body">
+    SimpleFIN gives us the bank name and account name, but not the account type
+    or which entity it belongs to. Click <strong>Edit</strong> on each highlighted
+    row to fill those in.
+  </div>
+</div>
+{% endif %}
+
+{# ---- Existing accounts ---- #}
+{% if existing_accounts %}
+<section class="wiz-card">
+  <div class="wiz-card-head">
+    <h2 class="wiz-card-title">Already in your books</h2>
+    <span class="wiz-pill-info">{{ existing_accounts | length }} read-only</span>
+  </div>
+  <ul class="wiz-existing-list">
+    {% for a in existing_accounts %}
+    <li>
+      <span class="wiz-existing-mark wiz-existing-mark--biz" aria-hidden="true">$</span>
+      <span class="wiz-existing-name">{{ a.label }}</span>
+      <span class="wiz-existing-tag">
+        {{ a.kind | replace('_', ' ') if a.kind else 'untyped' }}{% if a.entity_slug %} &middot; {{ a.entity_slug | entity }}{% endif %}{% if a.simplefin_account_id %} &middot; bank-linked{% endif %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="wiz-help" style="margin:0">
+    Existing accounts are read-only here. Edit them anytime from
+    <a href="/accounts">Accounts</a> after setup.
+  </p>
+</section>
+{% endif %}
+
+{# ---- Drafts (SimpleFIN-seeded + manual) ---- #}
+{% if draft_accounts %}
+<section class="wiz-card">
+  <div class="wiz-card-head">
+    <h2 class="wiz-card-title">New accounts</h2>
+    <span class="wiz-pill-info">{{ draft_accounts | length }} draft</span>
+  </div>
+  <ul class="wiz-existing-list">
+    {% for d in draft_accounts %}
+    {% set incomplete = not d.is_complete %}
+    <li class="is-draft {% if incomplete %}is-incomplete{% endif %}">
+      <span class="wiz-existing-mark wiz-existing-mark--biz" aria-hidden="true">$</span>
+      <span class="wiz-existing-name">{{ d.label or d.display_name or '(unnamed)' }}</span>
+      <span class="wiz-existing-tag">
+        {% if d.from_simplefin %}bank-linked &middot; {% endif %}
+        {%- if incomplete -%}
+          missing {{ d.missing_fields | join(', ') }}
+        {%- else -%}
+          {{ d.kind | replace('_', ' ') }} &middot; {{ d.entity_slug | entity }}
+          {%- if d.kind == 'loan' and d.loan_kind %} ({{ d.loan_kind }}){% endif %}
+        {%- endif -%}
+      </span>
+      <span class="wiz-row-actions">
+        <a class="wiz-row-action {% if incomplete %}wiz-row-action--prompt{% endif %}"
+           href="/setup/wizard/accounts?edit={{ loop.index0 }}">
+          {% if incomplete %}Set up{% else %}Edit{% endif %}
+        </a>
+        <form method="post" action="/setup/wizard/accounts/remove" style="display:inline">
+          <input type="hidden" name="index" value="{{ loop.index0 }}" />
+          <button class="wiz-row-action wiz-row-action--danger" type="submit">Remove</button>
+        </form>
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<div>
+  <a class="wiz-add" href="/setup/wizard/accounts?add=1">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Account
+  </a>
+</div>
+
+{% if not existing_accounts and not draft_accounts %}
+<p class="wiz-help" style="text-align:center; padding:1rem 0">
+  No accounts yet. Click &ldquo;+ Add Account&rdquo; to add one manually
+  {% if simplefin_connected %}, or go back and let SimpleFIN populate them{% endif %}.
+</p>
+{% endif %}
+{% endblock %}
+
+{% block modal %}
+{% if open_modal %}
+{% set is_edit = edit_target is not none %}
+{% set fv = form_values or {} %}
+{% set sel = (fv if fv else (edit_target if is_edit else {})) %}
+{% import "wizard/_modal.html" as M %}
+{% set _title %}
+  {%- if is_edit -%}
+    Edit account
+  {%- else -%}
+    Add an account
+  {%- endif -%}
+{% endset %}
+{% call M.modal(
+    title=_title | trim,
+    submit_form_id="account-modal-form",
+    action_label="Save",
+    cancel_href="/setup/wizard/accounts"
+) %}
+<form method="post"
+      action="/setup/wizard/accounts/save"
+      id="account-modal-form"
+      class="wiz-modal-form">
+  {% if is_edit %}
+  <input type="hidden" name="edit_index" value="{{ edit_index }}" />
+  {% endif %}
+  <input type="hidden" name="simplefin_account_id" value="{{ sel.get('simplefin_account_id', '') }}" />
+
+  {% if is_edit and edit_target.from_simplefin %}
+  <div class="wiz-banner is-info" style="margin:0">
+    <div class="wiz-banner-body">
+      This account was discovered by SimpleFIN. We need you to pick the account type
+      and the entity that owns it.
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="wiz-field">
+    <label class="wiz-label">Display name</label>
+    <input
+      class="wiz-input {% if field_errors.get('display_name') %}is-invalid{% endif %}"
+      type="text"
+      name="display_name"
+      value="{{ sel.get('display_name', '') }}"
+      maxlength="80"
+      required
+      autofocus
+      placeholder="Bank One Checking"
+    />
+    {% if field_errors.get('display_name') %}
+      <span class="wiz-error">{{ field_errors['display_name'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Type</label>
+    <select class="wiz-select {% if field_errors.get('kind') %}is-invalid{% endif %}" name="kind" required data-kind-select>
+      <option value="">— pick a type —</option>
+      {% for value, label in kind_options %}
+      <option value="{{ value }}" {% if sel.get('kind') == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    {% if field_errors.get('kind') %}
+      <span class="wiz-error">{{ field_errors['kind'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field" data-loan-kind-field {% if sel.get('kind') != 'loan' %}hidden{% endif %}>
+    <label class="wiz-label">Loan kind</label>
+    <select class="wiz-select {% if field_errors.get('loan_kind') %}is-invalid{% endif %}" name="loan_kind">
+      <option value="">— pick one —</option>
+      {% for value, label in loan_kind_options %}
+      <option value="{{ value }}" {% if sel.get('loan_kind') == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <span class="wiz-help">
+      Used to suggest a property or vehicle on the next step.
+    </span>
+    {% if field_errors.get('loan_kind') %}
+      <span class="wiz-error">{{ field_errors['loan_kind'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field" data-loan-kind-field {% if sel.get('kind') != 'loan' %}hidden{% endif %}>
+    <label class="wiz-label">
+      Loan opening date <span style="color:var(--muted); font-weight:400">(optional)</span>
+    </label>
+    <input
+      class="wiz-input {% if field_errors.get('opening_date') %}is-invalid{% endif %}"
+      type="date"
+      name="opening_date"
+      value="{{ sel.get('opening_date', '') }}"
+    />
+    <span class="wiz-help">
+      Mortgage origination date, auto-loan funding date, etc.
+      Leave blank if you don&rsquo;t know &mdash; we&rsquo;ll use a far-back default
+      so any historical transactions you import will land cleanly.
+    </span>
+    {% if field_errors.get('opening_date') %}
+      <span class="wiz-error">{{ field_errors['opening_date'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Owning entity</label>
+    <select class="wiz-select {% if field_errors.get('entity_slug') %}is-invalid{% endif %}" name="entity_slug" required>
+      <option value="">— pick an entity —</option>
+      {% for opt in entity_options %}
+      <option value="{{ opt.slug }}" {% if sel.get('entity_slug') == opt.slug %}selected{% endif %}>{{ opt.display_name }}</option>
+      {% endfor %}
+    </select>
+    {% if field_errors.get('entity_slug') %}
+      <span class="wiz-error">{{ field_errors['entity_slug'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-row is-double">
+    <div class="wiz-field">
+      <label class="wiz-label">Bank <span style="color:var(--muted); font-weight:400">(optional)</span></label>
+      <input class="wiz-input" type="text" name="institution" value="{{ sel.get('institution', '') }}" maxlength="60" placeholder="Bank One" />
+    </div>
+    <div class="wiz-field">
+      <label class="wiz-label">Last 4 <span style="color:var(--muted); font-weight:400">(optional)</span></label>
+      <input class="wiz-input" type="text" name="last_four" value="{{ sel.get('last_four', '') }}" maxlength="4" pattern="\d{0,4}" placeholder="1234" />
+    </div>
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Opening balance <span style="color:var(--muted); font-weight:400">(optional)</span></label>
+    <input class="wiz-input" type="text" name="opening_balance" inputmode="decimal" value="{{ sel.get('opening_balance', '') }}" placeholder="0.00" />
+    <span class="wiz-help">
+      Leave blank to start at zero, or enter today&rsquo;s balance to seed the ledger.
+    </span>
+  </div>
+</form>
+{% endcall %}
+
+<script>
+  /* Show/hide loan_kind based on type. Re-fires on every modal
+     render. */
+  (function () {
+    var modal = document.getElementById("wiz-modal");
+    if (!modal) return;
+    var kind = modal.querySelector("[data-kind-select]");
+    var field = modal.querySelector("[data-loan-kind-field]");
+    if (!kind || !field) return;
+    function update() {
+      if (kind.value === "loan") field.removeAttribute("hidden");
+      else field.setAttribute("hidden", "");
+    }
+    kind.addEventListener("change", update);
+    update();
+  })();
+</script>
+{% endif %}
+{% endblock %}
+
+{% block step_actions %}
+<a class="wiz-btn wiz-btn-link" href="/setup/wizard/bank">Back</a>
+<span class="spacer"></span>
+<form method="post" action="/setup/wizard/accounts" style="display:inline">
+  <button type="submit" class="wiz-btn wiz-btn-primary">Continue</button>
+</form>
+{% endblock %}

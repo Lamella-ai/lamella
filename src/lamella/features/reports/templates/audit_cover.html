@@ -1,0 +1,39 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Audit portfolio — {{ entity }} {{ year }}</title>
+  <style>{% include "_print_base.css" %}</style>
+</head>
+<body>
+  <div class="cover">
+    <h1>Audit portfolio</h1>
+    <h2>{{ entity }} — tax year {{ year }}</h2>
+    <p class="meta">Generated {{ generated_at }}<br/>{{ txn_count }} transactions across {{ line_count }} Schedule C lines.</p>
+  </div>
+
+  <h2>Line totals</h2>
+  <table class="lines">
+    <thead><tr><th>Line</th><th>Description</th><th class="amt">Amount</th><th class="cnt">Txns</th></tr></thead>
+    <tbody>
+      {% for row in summary %}
+        <tr>
+          <td class="line">{{ row.line }}</td>
+          <td>{{ row.description }}</td>
+          <td class="amt">{{ row.amount | money }}</td>
+          <td class="cnt">{{ row.txn_count }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="totals">Total: {{ total | money }}</p>
+</body>
+</html>

@@ -1,0 +1,151 @@
+{# Per-property quick-edit modal — HTMX fragment swapped into <body>.
+
+   Form posts to /settings/properties (canonical save handler), targets
+   the card by id for in-place swap, and uses HX-Trigger=property-saved
+   to close the modal. Detailed surfaces (valuations, dispose,
+   change-ownership) stay on /settings/properties/{slug}. #}
+{% import "_components/_modal.html" as M %}
+
+{% call M.modal(
+     id='property-edit-modal',
+     title='Edit ' ~ (property.display_name or property.slug),
+     subtitle='Slug: ' ~ property.slug ~ ' · For valuations, disposal, refi history — open the detail page.',
+     open=true,
+     size='md'
+) %}
+<form method="post" action="/settings/properties"
+      hx-post="/settings/properties"
+      hx-target="#property-card-{{ property.slug }}"
+      hx-swap="outerHTML"
+      autocomplete="off"
+      class="form-grid"
+      style="max-width:none">
+
+  <input type="hidden" name="slug" value="{{ property.slug }}" />
+  {# entity_slug locked on edit (real-estate ownership transfer is a
+     basis-affecting event with its own flow). #}
+  <input type="hidden" name="entity_slug" value="{{ property.entity_slug or '' }}" />
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Display name</label>
+      <input class="field-input" type="text" name="display_name"
+             value="{{ property.display_name or '' }}" />
+    </div>
+    <div class="field">
+      <label class="field-label">Type</label>
+      <input class="field-input" type="text" name="property_type"
+             list="prop-types-edit"
+             value="{{ property.property_type or '' }}" />
+      <datalist id="prop-types-edit">
+        {% for t in property_types %}<option value="{{ t }}">{% endfor %}
+      </datalist>
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Address</label>
+      <input class="field-input" type="text" name="address"
+             value="{{ property.address or '' }}" />
+    </div>
+    <div class="field">
+      <label class="field-label">City</label>
+      <input class="field-input" type="text" name="city"
+             value="{{ property.city or '' }}" />
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">State</label>
+      <input class="field-input" type="text" name="state"
+             value="{{ property.state or '' }}" />
+    </div>
+    <div class="field">
+      <label class="field-label">Postal code</label>
+      <input class="field-input" type="text" name="postal_code"
+             value="{{ property.postal_code or '' }}" />
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label style="display:flex; gap:8px; align-items:center; font-size:0.92rem">
+        <input type="checkbox" name="is_primary_residence" value="1"
+               {% if property.is_primary_residence %}checked{% endif %} />
+        Primary residence
+      </label>
+    </div>
+    <div class="field">
+      <label style="display:flex; gap:8px; align-items:center; font-size:0.92rem">
+        <input type="checkbox" name="is_rental" value="1"
+               {% if property.is_rental %}checked{% endif %} />
+        Rental
+      </label>
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Purchase date</label>
+      <input class="field-input" type="date" name="purchase_date"
+             value="{{ property.purchase_date or '' }}" />
+    </div>
+    <div class="field">
+      <label class="field-label">Purchase price</label>
+      <input class="field-input" type="text" name="purchase_price"
+             value="{{ property.purchase_price or '' }}" />
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Sale date</label>
+      <input class="field-input" type="date" name="sale_date"
+             value="{{ property.sale_date or '' }}" />
+    </div>
+    <div class="field">
+      <label class="field-label">Sale price</label>
+      <input class="field-input" type="text" name="sale_price"
+             value="{{ property.sale_price or '' }}" />
+    </div>
+  </div>
+
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Owner</label>
+      <div style="padding:6px 0;">
+        {% if property.entity_slug %}
+        <code>{{ property.entity_slug }}</code>
+        <span class="subtle" style="font-size:0.8rem">(locked)</span>
+        {% else %}
+        <span class="subtle">— none —</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">Active?</label>
+      <label style="display:flex; align-items:center; gap:6px; padding-top:6px">
+        <input type="checkbox" name="is_active" value="1"
+               {% if property.is_active %}checked{% endif %} />
+        <span class="subtle">Include in pickers + reports</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="field-label">Notes</label>
+    <textarea class="field-input" name="notes" rows="2">{{ property.notes or '' }}</textarea>
+  </div>
+
+  {% call M.actions() %}
+    <button type="button" class="btn btn-ghost"
+            onclick="this.closest('.modal-backdrop').classList.remove('is-open')">
+      Cancel
+    </button>
+    <a class="btn btn-ghost" href="/settings/properties/{{ property.slug }}">Open detail page</a>
+    <button type="submit" class="btn btn-primary">Save changes</button>
+  {% endcall %}
+</form>
+{% endcall %}

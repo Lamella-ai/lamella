@@ -1,0 +1,137 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{#
+  One row of the streamlined setup entities editor. Used both on the
+  initial page render and as the HTMX-swap response when a single row
+  is saved via /setup/entities/{slug}/save.
+
+  e.account_count is set by the page route — number of opened
+  accounts that reference this entity. Drives the safe-to-delete
+  badge: when zero, the row offers a Delete button; otherwise it
+  links to /setup/entities/{slug}/manage.
+#}
+{% set is_complete = (e.entity_type or '').strip() != '' %}
+{% set is_skipped = (e.entity_type or '').strip() == 'skip' %}
+{% set is_inactive = not e.is_active %}
+{% set linked = e.account_count or 0 %}
+{% set safe_to_delete = linked == 0 %}
+<tr id="setup-entity-{{ e.slug }}"
+    class="setup-entity-row{% if is_complete %} setup-entity-complete{% endif %}{% if is_skipped %} setup-entity-skipped{% endif %}{% if is_inactive %} setup-entity-inactive{% endif %}">
+  <td style="font-family:monospace; white-space:nowrap;">
+    <span class="row-status-icon">{%
+      if is_inactive
+    %}<span title="inactive">⊘</span>{%
+      elif is_skipped
+    %}<span title="skipped — ignored by classifier/reports">⤳</span>{%
+      elif is_complete %}✓{% else %}○{% endif %}</span>
+    <strong>{{ e.slug }}</strong>
+    <div class="small muted" style="margin-top:0.2em;">
+      {% if linked == 0 %}
+        <span style="color:var(--ok);">no accounts</span> — safe to delete
+      {% else %}
+        <span style="color:var(--accent);">{{ linked }} account{{ '' if linked == 1 else 's' }} reference this</span>
+      {% endif %}
+    </div>
+  </td>
+  <td>
+    <form method="post" action="/setup/entities/{{ e.slug }}/save"
+          hx-post="/setup/entities/{{ e.slug }}/save"
+          hx-swap="none"
+          class="save-row-form"
+          data-complete-fields="entity_type"
+          style="display:flex; gap:0.4em; flex-wrap:wrap; align-items:end;">
+      <label style="flex:1; min-width:10em;">
+        <span class="small muted">Entity type</span>
+        {# §7 #8 shape: the ENTITY_TYPES tuple has ('', '(not set)') as
+           its first entry to render the placeholder. Marking the
+           empty-value option ``disabled`` makes it visible-but-
+           unsubmittable for unset rows. The save handler's COALESCE
+           protects existing values from accidental wipes either way;
+           ``disabled`` is the UI-side belt-and-suspenders. #}
+        <select name="entity_type" style="width:100%;">
+          {% for val, label in entity_types %}
+            <option value="{{ val }}"
+              {% if val == '' %}disabled{% endif %}
+              {% if (e.entity_type or '') == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label style="flex:1; min-width:10em;">
+        <span class="small muted">Tax schedule</span>
+        <select name="tax_schedule" style="width:100%;">
+          {% for val, label in tax_schedules %}
+            <option value="{{ val }}"
+              {% if val == '' %}disabled{% endif %}
+              {% if (e.tax_schedule or '') == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label style="flex:2; min-width:12em;">
+        <span class="small muted">Display name</span>
+        <input type="text" name="display_name"
+               value="{{ e.display_name or '' }}"
+               placeholder="{{ e.slug }}" style="width:100%;" />
+      </label>
+      <button type="submit" class="primary small save-btn">Save</button>
+    </form>
+    {% if e.notes %}
+      <div class="small muted" style="margin-top:0.25em;">note: {{ e.notes }}</div>
+    {% endif %}
+    {# Quick-actions row — Skip / Manage / Delete / Reactivate. #}
+    <div style="margin-top:0.45em; display:flex; gap:0.4em; flex-wrap:wrap; font-size:0.85em;">
+      {% if is_inactive %}
+        <form method="post" action="/setup/entities/{{ e.slug }}/reactivate"
+              hx-post="/setup/entities/{{ e.slug }}/reactivate"
+              hx-target="#setup-entity-{{ e.slug }}"
+              hx-swap="outerHTML"
+              style="display:inline;">
+          <button type="submit" class="secondary small">↺ Reactivate</button>
+        </form>
+      {% else %}
+        {% if not is_skipped %}
+          <form method="post" action="/setup/entities/{{ e.slug }}/skip"
+                hx-post="/setup/entities/{{ e.slug }}/skip"
+                hx-target="#setup-entity-{{ e.slug }}"
+                hx-swap="outerHTML"
+                style="display:inline;">
+            <button type="submit" class="secondary small"
+                    title="Mark as skipped — clears the setup gate without inventing a real type">
+              ⤳ Skip
+            </button>
+          </form>
+        {% endif %}
+        <a href="/setup/entities/{{ e.slug }}/manage">
+          <button type="button" class="secondary small">⚙ Manage / Migrate ({{ linked }})</button>
+        </a>
+        {% if not safe_to_delete %}
+          <form method="post" action="/setup/entities/{{ e.slug }}/deactivate"
+                hx-post="/setup/entities/{{ e.slug }}/deactivate"
+                hx-target="#setup-entity-{{ e.slug }}"
+                hx-swap="outerHTML"
+                style="display:inline;"
+                data-confirm="Deactivate '{{ e.slug }}'? Postings stay, but the entity disappears from setup, classifier, and pickers. Reversible."
+                data-confirm-button="Deactivate">
+            <button type="submit" class="secondary small">⊘ Deactivate</button>
+          </form>
+        {% endif %}
+      {% endif %}
+      {% if safe_to_delete %}
+        <form method="post" action="/setup/entities/{{ e.slug }}/delete"
+              hx-post="/setup/entities/{{ e.slug }}/delete"
+              hx-target="#setup-entity-{{ e.slug }}"
+              hx-swap="outerHTML"
+              style="display:inline;"
+              data-confirm="Permanently delete entity '{{ e.slug }}'? No accounts reference it, so this is safe. Strips the ledger directive too."
+              data-confirm-button="Delete entity">
+          <button type="submit" class="danger small">✗ Delete</button>
+        </form>
+      {% endif %}
+    </div>
+  </td>
+</tr>

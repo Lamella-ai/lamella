@@ -1,0 +1,121 @@
+# Copyright 2026 Lamella LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+# https://lamella.ai
+
+# Schedule C (Form 1040) — Part II Expenses line map.
+# Each entry: `line` is the Schedule C line number, `description` is the
+# IRS label, `account_patterns` is a list of regex patterns matched against
+# the full account string. Patterns use Python's `re.match` (anchored at
+# start). Tune these to your entity-first account hierarchy.
+
+- line: 8
+  description: "Advertising"
+  account_patterns:
+    - "Expenses:[^:]+:Advertising($|:)"
+    - "Expenses:[^:]+:Marketing($|:)"
+
+- line: 9
+  description: "Car and truck expenses"
+  account_patterns:
+    - "Expenses:[^:]+:Auto($|:)"
+    - "Expenses:[^:]+:Vehicle($|:)"
+    - "Expenses:[^:]+:Mileage($|:)"
+
+- line: 10
+  description: "Commissions and fees"
+  account_patterns:
+    - "Expenses:[^:]+:Fees:Commissions($|:)"
+
+- line: 11
+  description: "Contract labor"
+  account_patterns:
+    - "Expenses:[^:]+:ContractLabor($|:)"
+    - "Expenses:[^:]+:Contractors($|:)"
+
+- line: 13
+  description: "Depreciation and section 179 expense deduction"
+  account_patterns:
+    - "Expenses:[^:]+:Depreciation($|:)"
+
+- line: 14
+  description: "Employee benefit programs"
+  account_patterns:
+    - "Expenses:[^:]+:Benefits($|:)"
+
+- line: 15
+  description: "Insurance (other than health)"
+  account_patterns:
+    - "Expenses:[^:]+:Insurance($|:)"
+
+- line: 16
+  description: "Interest"
+  account_patterns:
+    - "Expenses:[^:]+:Interest($|:)"
+
+- line: 17
+  description: "Legal and professional services"
+  account_patterns:
+    - "Expenses:[^:]+:Legal($|:)"
+    - "Expenses:[^:]+:Professional($|:)"
+    - "Expenses:[^:]+:Accounting($|:)"
+
+- line: 18
+  description: "Office expense"
+  account_patterns:
+    - "Expenses:[^:]+:OfficeExpense($|:)"
+    - "Expenses:[^:]+:Office($|:)"
+
+- line: 20
+  description: "Rent or lease"
+  account_patterns:
+    - "Expenses:[^:]+:Rent($|:)"
+    - "Expenses:[^:]+:Lease($|:)"
+
+- line: 21
+  description: "Repairs and maintenance"
+  account_patterns:
+    - "Expenses:[^:]+:Repairs($|:)"
+    - "Expenses:[^:]+:Maintenance($|:)"
+
+- line: 22
+  description: "Supplies"
+  account_patterns:
+    - "Expenses:[^:]+:Supplies($|:)"
+
+- line: 23
+  description: "Taxes and licenses"
+  account_patterns:
+    - "Expenses:[^:]+:Taxes($|:)"
+    - "Expenses:[^:]+:Licenses($|:)"
+
+- line: 24a
+  description: "Travel"
+  account_patterns:
+    - "Expenses:[^:]+:Travel($|:)"
+
+- line: 24b
+  description: "Deductible meals"
+  account_patterns:
+    - "Expenses:[^:]+:Meals($|:)"
+
+- line: 25
+  description: "Utilities"
+  account_patterns:
+    - "Expenses:[^:]+:Utilities($|:)"
+
+- line: 26
+  description: "Wages"
+  account_patterns:
+    - "Expenses:[^:]+:Wages($|:)"
+    - "Expenses:[^:]+:Payroll($|:)"
+
+- line: 27a
+  description: "Other expenses"
+  account_patterns:
+    - "Expenses:[^:]+:Shipping($|:)"
+    - "Expenses:[^:]+:Software($|:)"
+    - "Expenses:[^:]+:Subscriptions($|:)"
+    - "Expenses:[^:]+:Bank($|:)"
+    - "Expenses:[^:]+:Fees($|:)"

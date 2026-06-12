@@ -1,0 +1,85 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Document anomalies — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Document anomalies{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Document anomalies',
+     subtitle='Documents flagged by the tag-driven workflow engine — date out of bounds, low extraction confidence, or other reasons that warrant a human glance. Resolve a row to drop it from the queue.',
+     kicker='Library · Documents'
+) %}
+{% endcall %}
+
+<p class="subtle" style="margin:-8px 0 1rem">
+  Total: <strong>{{ total }}</strong> unresolved anomal{{ 'y' if total == 1 else 'ies' }}.
+</p>
+
+{% if not rows %}
+{{ F.empty_state('No anomalies right now. Documents flagged by the date-sanity or extract-fields rules will appear here.', cta_text='Configure workflows', cta_href='/settings/paperless-workflows') }}
+{% else %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Doc</th>
+      <th>Vendor</th>
+      <th>Date</th>
+      <th>Rule</th>
+      <th>Why flagged</th>
+      <th>When</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody id="anomalies-tbody">
+    {% for row in rows %}
+    <tr id="anomaly-row-{{ row.paperless_id }}">
+      <td>
+        <a href="/paperless/preview/{{ row.paperless_id }}" target="_blank" rel="noopener">#{{ row.paperless_id }}</a>
+        {% if paperless_base_url %}
+          <br><a href="{{ paperless_base_url }}/documents/{{ row.paperless_id }}/" target="_blank" rel="noopener" class="subtle" style="font-size:0.82rem">open in Paperless ↗</a>
+        {% endif %}
+      </td>
+      <td>{{ row.vendor }}</td>
+      <td>{{ row.document_date or '∅' }}</td>
+      <td><code>{{ row.rule }}</code></td>
+      <td>{{ row.reason }}</td>
+      <td class="subtle"><time>{{ row.applied_at }}</time></td>
+      <td>
+        <form
+            hx-post="/documents/anomalies/{{ row.paperless_id }}/confirm-date"
+            hx-target="#anomaly-row-{{ row.paperless_id }}"
+            hx-swap="outerHTML"
+            style="display:inline">
+          <button type="submit" class="btn btn-secondary btn-small">Confirm date</button>
+        </form>
+        <form
+            hx-post="/documents/anomalies/{{ row.paperless_id }}/re-extract"
+            hx-target="#anomaly-row-{{ row.paperless_id }}"
+            hx-swap="outerHTML"
+            style="display:inline">
+          <button type="submit" class="btn btn-primary btn-small">Re-extract</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endif %}
+{% endblock %}

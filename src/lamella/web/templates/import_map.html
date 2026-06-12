@@ -1,0 +1,68 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Map columns #{{ record.id }} — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Import · Map{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Map columns #' + record.id|string,
+     subtitle='AI proposed a mapping for each generic sheet. Review, edit, then continue.',
+     kicker='Intake · Import'
+) %}
+  {{ B.btn('← Back', href='/import/' + record.id|string) }}
+{% endcall %}
+
+<form method="post" action="/import/{{ record.id }}/map">
+  {% for item in sources %}
+  {% set src = item.source %}
+  {% set preview = item.preview %}
+  {% set mapping = item.mapping %}
+  {% call C.card(
+       title=src.sheet_name,
+       subtitle='Source: ' + mapping.source + ' · Confidence: ' + ('%.2f' % mapping.confidence) + (' (below threshold — please review)' if mapping.confidence < edit_threshold else '')
+  ) %}
+    {% if preview.notes %}<p class="subtle" style="margin-top:0">{{ preview.notes }}</p>{% endif %}
+    <table class="tbl">
+      <thead>
+        <tr><th>Source column</th><th>Maps to</th><th>Sample values</th></tr>
+      </thead>
+      <tbody>
+        {% for col in preview.columns %}
+        <tr>
+          <td><code>{{ col }}</code></td>
+          <td>
+            {% include "partials/column_map_field.html" %}
+          </td>
+          <td class="subtle">
+            {% for row in preview.rows[:3] %}
+              {% if loop.index <= 3 %}
+              {{ row[loop.index0] if row[loop.index0] is defined else "" }}
+              {% if not loop.last %} · {% endif %}
+              {% endif %}
+            {% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endcall %}
+  {% endfor %}
+  <div class="form-actions">
+    <span class="spacer"></span>
+    {{ B.btn('Save mapping & continue', type='submit', variant='primary') }}
+  </div>
+</form>
+{% endblock %}

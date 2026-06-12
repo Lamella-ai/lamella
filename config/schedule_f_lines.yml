@@ -1,0 +1,143 @@
+# Copyright 2026 Lamella LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+# https://lamella.ai
+
+# Schedule F (Form 1040) — Part II Farm Expenses line map.
+# Entries mirror the IRS line numbering. Tune to your farm/FarmCo
+# account hierarchy.
+
+- line: 10
+  description: "Car and truck expenses"
+  account_patterns:
+    - "Expenses:[^:]+:Auto($|:)"
+    - "Expenses:[^:]+:Vehicle($|:)"
+
+- line: 11
+  description: "Chemicals"
+  account_patterns:
+    - "Expenses:[^:]+:Chemicals($|:)"
+
+- line: 12
+  description: "Conservation expenses"
+  account_patterns:
+    - "Expenses:[^:]+:Conservation($|:)"
+
+- line: 13
+  description: "Custom hire (machine work)"
+  account_patterns:
+    - "Expenses:[^:]+:CustomHire($|:)"
+
+- line: 14
+  description: "Depreciation"
+  account_patterns:
+    - "Expenses:[^:]+:Depreciation($|:)"
+
+- line: 15
+  description: "Employee benefit programs"
+  account_patterns:
+    - "Expenses:[^:]+:Benefits($|:)"
+
+- line: 16
+  description: "Feed"
+  account_patterns:
+    - "Expenses:[^:]+:Feed($|:)"
+
+- line: 17
+  description: "Fertilizers and lime"
+  account_patterns:
+    - "Expenses:[^:]+:Fertilizer($|:)"
+    - "Expenses:[^:]+:Lime($|:)"
+
+- line: 18
+  description: "Freight and trucking"
+  account_patterns:
+    - "Expenses:[^:]+:Freight($|:)"
+    - "Expenses:[^:]+:Shipping($|:)"
+
+- line: 19
+  description: "Gasoline, fuel, and oil"
+  account_patterns:
+    - "Expenses:[^:]+:Fuel($|:)"
+
+- line: 20
+  description: "Insurance (other than health)"
+  account_patterns:
+    - "Expenses:[^:]+:Insurance($|:)"
+
+- line: 21a
+  description: "Interest — mortgage"
+  account_patterns:
+    - "Expenses:[^:]+:Interest:Mortgage($|:)"
+
+- line: 21b
+  description: "Interest — other"
+  account_patterns:
+    - "Expenses:[^:]+:Interest($|:)"
+
+- line: 22
+  description: "Labor hired"
+  account_patterns:
+    - "Expenses:[^:]+:Labor($|:)"
+    - "Expenses:[^:]+:Wages($|:)"
+
+- line: 23
+  description: "Pension and profit-sharing plans"
+  account_patterns:
+    - "Expenses:[^:]+:Pension($|:)"
+
+- line: 24a
+  description: "Rent or lease — vehicles, machinery, equipment"
+  account_patterns:
+    - "Expenses:[^:]+:Rent:Equipment($|:)"
+
+- line: 24b
+  description: "Rent or lease — other (land, animals)"
+  account_patterns:
+    - "Expenses:[^:]+:Rent($|:)"
+
+- line: 25
+  description: "Repairs and maintenance"
+  account_patterns:
+    - "Expenses:[^:]+:Repairs($|:)"
+    - "Expenses:[^:]+:Maintenance($|:)"
+
+- line: 26
+  description: "Seeds and plants"
+  account_patterns:
+    - "Expenses:[^:]+:Seeds($|:)"
+    - "Expenses:[^:]+:Plants($|:)"
+
+- line: 27
+  description: "Storage and warehousing"
+  account_patterns:
+    - "Expenses:[^:]+:Storage($|:)"
+
+- line: 28
+  description: "Supplies"
+  account_patterns:
+    - "Expenses:[^:]+:Supplies($|:)"
+
+- line: 29
+  description: "Taxes"
+  account_patterns:
+    - "Expenses:[^:]+:Taxes($|:)"
+
+- line: 30
+  description: "Utilities"
+  account_patterns:
+    - "Expenses:[^:]+:Utilities($|:)"
+
+- line: 31
+  description: "Veterinary, breeding, and medicine"
+  account_patterns:
+    - "Expenses:[^:]+:Veterinary($|:)"
+    - "Expenses:[^:]+:Breeding($|:)"
+
+- line: 32
+  description: "Other expenses"
+  account_patterns:
+    - "Expenses:[^:]+:Office($|:)"
+    - "Expenses:[^:]+:Software($|:)"
+    - "Expenses:[^:]+:Subscriptions($|:)"

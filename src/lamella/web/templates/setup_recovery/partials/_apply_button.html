@@ -1,0 +1,36 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Apply Repairs button. Extracted so HTMX draft writers can re-
+   render it via hx-swap-oob — every dismiss/edit POST returns the
+   updated row PLUS this button so its enabled/disabled state stays
+   in sync with the per-row state.
+
+   When ``oob=true`` is passed, the button is rendered with
+   hx-swap-oob="true" so HTMX swaps it into the page-level slot.
+   When ``oob`` is omitted (page render), the plain version
+   renders. #}
+{% if has_actionable %}
+  <button type="submit"
+          form="recovery-bulk-form"
+          id="recovery-apply-btn"
+          class="wiz-btn wiz-btn-primary"
+          {% if oob %}hx-swap-oob="true"{% endif %}>
+    Apply Repairs
+  </button>
+{% else %}
+  <button type="submit"
+          form="recovery-bulk-form"
+          id="recovery-apply-btn"
+          class="wiz-btn wiz-btn-primary"
+          disabled
+          title="No actionable findings — every row is dismissed or requires individual confirmation."
+          {% if oob %}hx-swap-oob="true"{% endif %}>
+    Apply Repairs
+  </button>
+{% endif %}

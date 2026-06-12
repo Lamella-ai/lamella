@@ -1,0 +1,30 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# Theme-toggle click handler. Mirrors base.html's behavior so the
+   same localStorage key ("lamella-theme") flips both setup shells
+   and the main app. Pair with _theme_init.html in <head> for the
+   no-flash boot.
+
+   Required arg (passed via include's `with` clause):
+     theme_btn_id  — DOM id for the theme-toggle button. Must match
+                     the id used in _brand_header.html for this
+                     layout (otherwise the click handler binds to
+                     nothing). #}
+<script>
+  (function () {
+    var btn = document.getElementById("{{ theme_btn_id }}");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      var cur = document.documentElement.getAttribute("data-theme");
+      var next = cur === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      try { localStorage.setItem("lamella-theme", next); } catch (e) {}
+    });
+  })();
+</script>

@@ -1,0 +1,43 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# One schema-drift finding card. The Apply button routes to the
+   confirmation screen (GET) rather than directly applying — that
+   route runs the Migration's dry_run and shows the preview before
+   we touch state. #}
+{% set fix = f.proposed_fix_dict %}
+{% set axis_label = 'SQLite' if fix.get('axis') == 'sqlite' else 'Ledger' %}
+<section class="recovery-finding"
+         style="border:1px solid var(--border); border-radius:6px; padding:1em 1.2em; margin-bottom:1em; background:var(--bg-elev);">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1em; flex-wrap:wrap;">
+    <div style="flex:1; min-width:0;">
+      <div style="display:flex; gap:0.6em; align-items:center; margin-bottom:0.3em;">
+        <span class="badge required"
+              style="font-size:0.78em; padding:0.15em 0.55em; border-radius:3px; font-weight:600; letter-spacing:0.04em;">
+          BLOCKER
+        </span>
+        <span class="small muted" style="font-family:var(--font-mono);">
+          {{ axis_label }} axis &middot; v{{ fix.get('from_version') }} → v{{ fix.get('to_version') }}
+        </span>
+      </div>
+      <strong style="font-size:1em;">{{ f.summary }}</strong>
+      {% if f.detail %}
+        <p class="small" style="margin:0.5em 0 0; line-height:1.5; color:var(--muted-strong);">
+          {{ f.detail }}
+        </p>
+      {% endif %}
+    </div>
+    <div style="display:flex; flex-direction:column; gap:0.4em; align-items:stretch; min-width:14em;">
+      <a href="/setup/recovery/schema/confirm?finding_id={{ f.id }}"
+         class="wiz-btn wiz-btn-primary"
+         style="width:100%; text-align:center;">
+        Review &amp; apply →
+      </a>
+    </div>
+  </div>
+</section>

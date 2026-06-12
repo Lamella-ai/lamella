@@ -1,0 +1,139 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Duplicate transactions — Data integrity{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Duplicate transactions{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='Duplicate SimpleFIN transactions',
+     subtitle='Groups of transactions that look like the same real-world bank event were ingested multiple times with distinct SimpleFIN ids. Pick which row to keep in each group; the rest will be physically removed from simplefin_transactions.bean.',
+     kicker='Settings · Data integrity'
+) %}
+  {{ B.btn('Back to data integrity', href='/settings/data-integrity', variant='ghost') }}
+{% endcall %}
+
+{% call C.card(title='What happens when you collapse a group', tone='info') %}
+<ul style="margin:0; padding-left:1.2rem; line-height:1.7">
+  <li><strong>Merge, not just delete.</strong> The kept block gets a <code>lamella-simplefin-aliases</code> metadata line listing every removed SimpleFIN id. SimpleFIN commonly re-delivers the same bank event with a fresh id for weeks until it slides out of the 30/60/90-day feed window — the alias list means our dedup index sees those too and skips them on re-import.</li>
+  <li><strong>Server-side keep-one check.</strong> The server re-detects groups after your click. If your selection would remove every member of any group, the server refuses — you can’t accidentally wipe all 3 copies.</li>
+  <li><strong>Pre-change backup.</strong> File copied to <code>&lt;ledger&gt;/.backups/&lt;timestamp&gt;-dedupe-sfids/</code>. Recovery is a plain <code>cp</code>.</li>
+  <li><strong>bean-check gate.</strong> Post-change we run <code>bean-check</code>; any new error reverts the whole change atomically.</li>
+  <li><strong>Not auto-committed to git.</strong> If you want recovery to also be one <code>git checkout</code> away, commit the ledger before running.</li>
+</ul>
+{% endcall %}
+
+{% if request.query_params.get('removed') %}
+{% call F.banner(tone='ok', title='Removed ' ~ request.query_params.get('removed') ~ ' duplicate transaction(s)') %}
+  {% if request.query_params.get('skipped') and request.query_params.get('skipped') != '0' %}
+    {{ request.query_params.get('skipped') }} id(s) weren’t found and were skipped.
+  {% endif %}
+  {% if request.query_params.get('archive') %}
+    <br><span class="subtle" style="font-size:0.82rem">Backup saved at <code>&lt;ledger&gt;/.backups/{{ request.query_params.get('archive') }}-dedupe-sfids/</code> — recover with <code>cp &lt;backup&gt;/simplefin_transactions.bean &lt;ledger&gt;/</code> if anything looks wrong.</span>
+  {% endif %}
+{% endcall %}
+{% endif %}
+
+{% if request.query_params.get('error') %}
+{% call F.banner(tone='err', title=request.query_params.get('error')) %}
+  {% if request.query_params.get('detail') %}<pre style="white-space:pre-wrap; margin:0; font-family:var(--font-mono); font-size:0.82rem">{{ request.query_params.get('detail') }}</pre>{% endif %}
+{% endcall %}
+{% endif %}
+
+{% if not groups %}
+{{ F.empty_state('No duplicates detected. Every SimpleFIN-written transaction has a unique content fingerprint.', cta_text='Back to data integrity', cta_href='/settings/data-integrity') }}
+{% else %}
+<p style="margin:-8px 0 1rem">
+  <strong>{{ groups | length }}</strong> duplicate group{{ '' if groups|length == 1 else 's' }}, totalling
+  <strong>{{ total_duplicates }}</strong> extra transaction{{ '' if total_duplicates == 1 else 's' }} that could be removed.
+</p>
+
+<form method="post" action="/settings/data-integrity/duplicates/remove"
+      data-confirm="Remove every unchecked row across {{ groups | length }} duplicate group{{ '' if groups|length == 1 else 's' }} ({{ total_duplicates }} txn{{ '' if total_duplicates == 1 else 's' }})? Deletes them from simplefin_transactions.bean. Cannot be undone — back up first if you're not sure."
+      data-confirm-strong="REMOVE"
+      data-confirm-button="Remove {{ total_duplicates }} duplicate{{ '' if total_duplicates == 1 else 's' }}">
+  <div style="display:flex; gap:8px; align-items:center; margin-bottom:0.75rem; flex-wrap:wrap">
+    {{ B.btn('Remove every unchecked row', type='submit', variant='primary') }}
+    <span class="subtle" style="font-size:0.85rem">Keeps checked rows, deletes all others.</span>
+  </div>
+
+  {% for g in groups %}
+  {% call C.card(title=g.date ~ ' · ' ~ ('{:,.2f}'.format(g.amount)) ~ ' · ' ~ g.count|string ~ ' copies') %}
+  <p class="subtle" style="margin:0 0 0.5rem">
+    <code title="{{ g.primary_account }}">{{ g.primary_account | alias }}</code> · <em>{{ g.narration[:100] }}</em>
+  </p>
+  <table class="tbl">
+    <thead>
+      <tr><th class="shrink">Keep?</th><th>SimpleFIN id</th><th>Txn hash</th><th>Source</th></tr>
+    </thead>
+    <tbody>
+      {% for e in g.entries %}
+      <tr>
+        <td class="shrink">
+          <label style="display:inline-flex; gap:4px; align-items:center; font-size:0.85rem">
+            <input type="radio" name="keep_in_group__{{ loop.index0 }}__{{ g.key | urlencode }}"
+                   value="{{ e.simplefin_id }}" {% if loop.first %}checked{% endif %}
+                   onchange="updateRemoveSelection(this)" />
+            keep
+          </label>
+        </td>
+        <td><code style="font-size:0.85rem">{{ e.simplefin_id or "(no id)" }}</code></td>
+        <td><a href="/txn/{{ e.lamella_txn_id }}" target="_blank" class="subtle" style="font-size:0.85rem" rel="noopener">{{ e.txn_hash[:12] }}…</a></td>
+        <td class="subtle" style="font-size:0.82rem">
+          {% if e.filename %}{{ e.filename.split('/')[-1].split('\\')[-1] }}{% if e.lineno %}:{{ e.lineno }}{% endif %}{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% for e in g.entries %}
+    {% if not loop.first %}
+      <input type="hidden" name="remove_sfid" value="{{ e.simplefin_id }}" data-group="{{ g.key | urlencode }}" class="remove-sfid" />
+    {% endif %}
+  {% endfor %}
+  {% endcall %}
+  {% endfor %}
+
+  <div class="form-actions" style="margin-top:1rem">
+    {{ B.btn('Cancel', href='/settings/data-integrity', variant='ghost') }}
+    <span class="spacer"></span>
+    {{ B.btn('Remove every unchecked row', type='submit', variant='primary') }}
+  </div>
+</form>
+
+<script>
+  function updateRemoveSelection(radio) {
+    const group = radio.name.split('__').pop();
+    const keepId = radio.value;
+    const form = radio.form;
+    const radios = form.querySelectorAll(`input[type=radio][name$="${group}"]`);
+    const allIds = Array.from(radios).map((r) => r.value);
+    const removeIds = allIds.filter((id) => id !== keepId);
+    form.querySelectorAll(`.remove-sfid[data-group="${group}"]`).forEach((el) => el.remove());
+    for (const id of removeIds) {
+      const h = document.createElement('input');
+      h.type = 'hidden';
+      h.name = 'remove_sfid';
+      h.value = id;
+      h.className = 'remove-sfid';
+      h.dataset.group = group;
+      form.appendChild(h);
+    }
+  }
+</script>
+{% endif %}
+{% endblock %}

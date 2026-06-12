@@ -1,0 +1,46 @@
+-- Copyright 2026 Lamella
+-- SPDX-License-Identifier: Apache-2.0
+--
+-- Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+-- https://lamella.ai
+
+-- 061 — staged_transactions.synthetic_match_meta (ADR-0046 Phase 3b).
+--
+-- Phase 3a (commit 3671323) detects when an incoming bank-feed row
+-- loosely matches an existing synthetic counterpart leg on a DIFFERENT
+-- account: same date+amount within window, but the row's source
+-- account doesn't match the synthetic posting's account. The most
+-- common cause is the user picking the wrong destination account when
+-- the original transfer-suspect was classified — e.g. classified a
+-- transfer "from PayPal" to "Bank A Checking" but the real other half
+-- lands on "Bank B Checking" weeks later.
+--
+-- Phase 3a is detection-only: structured log entry, no UI, no rewrite.
+-- This migration extends Phase 3a so the conflict can be surfaced to
+-- the user on /review and resolved with one click. The new column
+-- holds the loose-match payload set at ingest time:
+--
+--   {
+--     "lamella_txn_id":  "<the existing transaction's id>",
+--     "wrong_account":   "<the synthetic leg's current account>"
+--   }
+--
+-- /review/staged renders a banner on rows carrying the marker. Two
+-- buttons:
+--   * "Yes, rewrite to this account" — POST that calls the new
+--     ``rewrite_synthetic_account_in_place`` helper to flip the
+--     synthetic posting's account from wrong→right AND swap synthetic-
+--     * meta for real source meta in one transaction. Marks the
+--     staged row promoted (the row's been absorbed into the existing
+--     transaction).
+--   * "No, classify normally" — clears the marker; the row classifies
+--     through the standard expense / transfer flow.
+--
+-- TEXT (JSON-encoded) rather than separate columns because the marker
+-- shape is likely to grow (Phase 3c may add a confidence score, the
+-- /audit drill-in may want to remember which detector fired). One
+-- forward-compatible column beats four narrow ones for a low-write
+-- table.
+
+ALTER TABLE staged_transactions
+    ADD COLUMN synthetic_match_meta TEXT;

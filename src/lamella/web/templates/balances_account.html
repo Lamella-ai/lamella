@@ -1,0 +1,135 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}Balance anchors — {{ account.account_path }}{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Balance anchors{% endblock %}
+
+{% block content %}
+{% set pretty = [] %}
+{% set _disp = account.display_name if (account.display_name and account.display_name != account.account_path) else None %}
+{% set _has_entity_in_disp = _disp and account.entity_slug and account.entity_slug in _disp %}
+{% if account.entity_slug and not _has_entity_in_disp %}{% set _ = pretty.append(account.entity_slug) %}{% endif %}
+{% if account.institution %}{% set _ = pretty.append(account.institution) %}{% endif %}
+{% if _disp %}{% set _ = pretty.append(_disp) %}{% endif %}
+{% if account.last_four %}{% set _ = pretty.append("…" ~ account.last_four) %}{% endif %}
+
+{% call L.page_head(
+     title=(pretty | join(' · ') if pretty else account.account_path),
+     subtitle=account.account_path ~ (' · ' ~ account.kind if account.kind else ''),
+     kicker='Accounts'
+) %}
+  {{ B.btn('Transactions', href='/search?q=' ~ account.account_path, variant='ghost') }}
+  {% if account.entity_slug %}{{ B.btn((account.entity_display_name or account.entity_slug) ~ ' overview', href='/businesses/' ~ account.entity_slug, variant='ghost') }}{% endif %}
+  {{ B.btn('Account settings', href='/settings/accounts#' ~ account.account_path, variant='ghost') }}
+{% endcall %}
+
+<p class="subtle" style="margin:-8px 0 1rem">
+  Record known balances for this account from statements or SimpleFIN pulls. We compute the drift between each consecutive pair —
+  asserted delta vs. what ledger postings added up to — so you can see exactly where the books diverge from reality.
+</p>
+
+<datalist id="anchor-source-datalist">
+  <option value="statement">
+  <option value="simplefin">
+  <option value="manual">
+  <option value="payoff" label="payoff letter">
+  <option value="other">
+</datalist>
+
+{% call C.card(title='Add an anchor') %}
+<form method="post" action="/settings/accounts/{{ account.account_path }}/balances" class="form-grid" style="max-width:none">
+  <div class="form-row-2">
+    <div class="field"><label class="field-label">Date</label><input class="field-input" type="date" name="as_of_date" required /></div>
+    <div class="field"><label class="field-label">Balance</label><input class="field-input" type="text" name="balance" required placeholder="12345.67" /></div>
+  </div>
+  <div class="form-row-2">
+    <div class="field"><label class="field-label">Currency</label><input class="field-input" type="text" name="currency" value="USD" /></div>
+    <div class="field"><label class="field-label">Source</label><input class="field-input" type="text" name="source" list="anchor-source-datalist" value="manual" /></div>
+  </div>
+  <div class="field"><label class="field-label">Notes (optional)</label><input class="field-input" type="text" name="notes" /></div>
+  <div class="form-actions"><span class="spacer"></span>{{ B.btn('Save anchor', type='submit', variant='primary', icon=icon.plus()) }}</div>
+</form>
+{% endcall %}
+
+{% if audit.anchors %}
+{% call L.section(title='Anchors', subtitle='%d recorded' % audit.anchors|length) %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead><tr><th>Date</th><th class="num">Balance</th><th>Currency</th><th>Source</th><th>Notes</th><th class="shrink"></th></tr></thead>
+  <tbody>
+    {% for a in audit.anchors %}
+    <tr>
+      <td>{{ a.as_of_date }}</td>
+      <td class="num">{{ "{:,.2f}".format(a.balance) }}</td>
+      <td>{{ a.currency }}</td>
+      <td class="subtle">{{ a.source or "—" }}</td>
+      <td class="subtle" style="font-size:0.85rem">{{ a.notes or "" }}</td>
+      <td class="shrink">
+        <form method="post" action="/settings/accounts/{{ account.account_path }}/balances/{{ a.id }}/delete"
+              data-confirm="Delete the {{ a.balance_date }} balance anchor for {{ account.account_path }}? Future drift checks will lose this reference point."
+              data-confirm-button="Delete anchor">
+          {{ B.btn('Delete', type='submit', variant='ghost', size='sm') }}
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+
+{% if audit.pre_first_postings_count %}
+<p class="subtle" style="margin:1rem 0">
+  <strong>Before the first anchor:</strong> {{ audit.pre_first_postings_count }} postings totaling
+  <strong class="num">{{ "{:,.2f}".format(audit.pre_first_postings_sum) }}</strong> {{ audit.currency }}.
+  Your earliest anchor implicitly accounts for this history.
+</p>
+{% endif %}
+
+{% if audit.segments %}
+{% call L.section(title='Segments', subtitle='Drift per segment. Drift = asserted Δ − ledger Δ. Non-zero means ledger postings in that range don’t reconcile to the two anchors.') %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead><tr><th>From → To</th><th class="num">Asserted Δ</th><th class="num">Ledger Δ</th><th class="num">Drift</th><th class="num">Postings</th></tr></thead>
+  <tbody>
+    {% for s in audit.segments %}
+    <tr>
+      <td>{{ s.start_anchor.as_of_date }} → {{ s.end_anchor.as_of_date }}</td>
+      <td class="num">{{ "{:,.2f}".format(s.asserted_delta) }}</td>
+      <td class="num">{{ "{:,.2f}".format(s.ledger_delta) }}</td>
+      <td class="num" style="color:{% if s.drift != 0 %}var(--err){% else %}var(--ok){% endif %}; font-weight:{% if s.drift != 0 %}600{% else %}normal{% endif %}">
+        {{ "{:,.2f}".format(s.drift) }}
+      </td>
+      <td class="num subtle">{{ s.posting_count }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+{% endcall %}
+{% else %}
+{{ F.empty_state('Add a second anchor to see drift between segments.') }}
+{% endif %}
+
+{% else %}
+{{ F.empty_state('No anchors recorded for this account yet. Add one above.') }}
+{% endif %}
+
+<p class="subtle" style="margin-top:1.5rem">
+  <a href="/reports/balance-audit">→ Portfolio-wide balance audit</a> · <a href="/settings/accounts">Back to accounts</a>
+</p>
+{% endblock %}

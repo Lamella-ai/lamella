@@ -1,0 +1,353 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "wizard/_layout.html" %}
+
+{% block step_heading %}
+  Properties &amp; vehicles <span style="color:var(--muted); font-weight:500; font-size:0.7em">(optional)</span>
+{% endblock %}
+{% block step_subheading %}
+Track expenses against a home or vehicle. We&rsquo;ll auto-scaffold the right expense tree for each
+&mdash; and add mortgage-interest or auto-loan-interest accounts when you link a loan.
+{% endblock %}
+
+{% block step_body %}
+{% if error %}
+<div class="wiz-banner is-warn" role="alert">
+  <div class="wiz-banner-title">{{ error }}</div>
+</div>
+{% endif %}
+
+{# ---- Properties ---- #}
+<section class="wiz-card">
+  <div class="wiz-card-head">
+    <h2 class="wiz-card-title">Properties</h2>
+    <span class="wiz-pill-info">{{ (existing_properties | length) + (draft_properties | length) }} total</span>
+  </div>
+
+  {% if existing_properties or draft_properties %}
+  <ul class="wiz-existing-list">
+    {% for p in existing_properties %}
+    <li>
+      <span class="wiz-existing-mark wiz-existing-mark--biz" aria-hidden="true">🏠</span>
+      <span class="wiz-existing-name">{{ p.display_name }}</span>
+      <span class="wiz-existing-tag">
+        {{ p.property_type or 'property' }}{% if p.entity_slug %} &middot; {{ p.entity_slug | entity }}{% endif %}{% if p.address_summary %} &middot; {{ p.address_summary }}{% endif %}
+      </span>
+    </li>
+    {% endfor %}
+    {% for p in draft_properties %}
+    <li class="is-draft">
+      <span class="wiz-existing-mark wiz-existing-mark--biz" aria-hidden="true">🏠</span>
+      <span class="wiz-existing-name">{{ p.display_name }}</span>
+      <span class="wiz-existing-tag">
+        {{ p.property_type or 'property' }}{% if p.entity_slug %} &middot; {{ p.entity_slug | entity }}{% endif %}
+        {%- if p.city or p.state %} &middot; {{ p.city }}{% if p.city and p.state %}, {% endif %}{{ p.state }}{% endif %}
+        {%- if p.linked_loan %} &middot; mortgage{% endif %}
+      </span>
+      <span class="wiz-row-actions">
+        <a class="wiz-row-action" href="/setup/wizard/property-vehicle?edit=property:{{ loop.index0 }}">Edit</a>
+        <form method="post" action="/setup/wizard/property-vehicle/remove" style="display:inline">
+          <input type="hidden" name="kind" value="property" />
+          <input type="hidden" name="index" value="{{ loop.index0 }}" />
+          <button class="wiz-row-action wiz-row-action--danger" type="submit">Remove</button>
+        </form>
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <div>
+    <a class="wiz-add" href="/setup/wizard/property-vehicle?add=property">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Property
+    </a>
+  </div>
+
+  {% if existing_properties %}
+  <p class="wiz-help" style="margin:0">
+    Existing properties are read-only here. Edit them anytime from
+    <a href="/settings/properties">Settings &rarr; Properties</a>.
+  </p>
+  {% endif %}
+</section>
+
+{# ---- Vehicles ---- #}
+<section class="wiz-card">
+  <div class="wiz-card-head">
+    <h2 class="wiz-card-title">Vehicles</h2>
+    <span class="wiz-pill-info">{{ (existing_vehicles | length) + (draft_vehicles | length) }} total</span>
+  </div>
+
+  {% if existing_vehicles or draft_vehicles %}
+  <ul class="wiz-existing-list">
+    {% for v in existing_vehicles %}
+    <li>
+      <span class="wiz-existing-mark wiz-existing-mark--biz" aria-hidden="true">🚗</span>
+      <span class="wiz-existing-name">{{ v.display_name }}</span>
+      <span class="wiz-existing-tag">
+        {%- if v.year_make_model %}{{ v.year_make_model }}{% endif -%}
+        {%- if v.year_make_model and v.entity_slug %} &middot; {% endif -%}
+        {%- if v.entity_slug %}{{ v.entity_slug | entity }}{% endif -%}
+      </span>
+    </li>
+    {% endfor %}
+    {% for v in draft_vehicles %}
+    {% set ymm = (v.year ~ ' ' ~ v.make ~ ' ' ~ v.model) | trim %}
+    <li class="is-draft">
+      <span class="wiz-existing-mark wiz-existing-mark--biz" aria-hidden="true">🚗</span>
+      <span class="wiz-existing-name">{{ v.display_name }}</span>
+      <span class="wiz-existing-tag">
+        {%- if ymm %}{{ ymm }}{% endif -%}
+        {%- if ymm and v.entity_slug %} &middot; {% endif -%}
+        {%- if v.entity_slug %}{{ v.entity_slug | entity }}{% endif -%}
+        {%- if v.linked_loan %} &middot; auto loan{% endif %}
+      </span>
+      <span class="wiz-row-actions">
+        <a class="wiz-row-action" href="/setup/wizard/property-vehicle?edit=vehicle:{{ loop.index0 }}">Edit</a>
+        <form method="post" action="/setup/wizard/property-vehicle/remove" style="display:inline">
+          <input type="hidden" name="kind" value="vehicle" />
+          <input type="hidden" name="index" value="{{ loop.index0 }}" />
+          <button class="wiz-row-action wiz-row-action--danger" type="submit">Remove</button>
+        </form>
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <div>
+    <a class="wiz-add" href="/setup/wizard/property-vehicle?add=vehicle">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Vehicle
+    </a>
+  </div>
+
+  {% if existing_vehicles %}
+  <p class="wiz-help" style="margin:0">
+    Existing vehicles are read-only here. Edit them anytime from
+    <a href="/settings/vehicles">Settings &rarr; Vehicles</a>.
+  </p>
+  {% endif %}
+</section>
+
+<p class="wiz-help" style="text-align:center; padding-top:0.5rem">
+  This step is optional &mdash; click Continue if you have nothing to add.
+</p>
+{% endblock %}
+
+{% block modal %}
+{% if open_modal in ['property', 'vehicle'] %}
+{% set is_edit = edit_target is not none %}
+{% set fv = form_values or {} %}
+{% set sel = (fv if fv else (edit_target if is_edit else {})) %}
+{% import "wizard/_modal.html" as M %}
+
+{% if open_modal == 'property' %}
+{% set _title %}{% if is_edit %}Edit property{% else %}Add a property{% endif %}{% endset %}
+{% call M.modal(
+    title=_title | trim,
+    submit_form_id="property-modal-form",
+    action_label=("Save changes" if is_edit else "Add property"),
+    cancel_href="/setup/wizard/property-vehicle"
+) %}
+<form method="post" action="/setup/wizard/property-vehicle/save-property"
+      id="property-modal-form" class="wiz-modal-form">
+  {% if is_edit %}<input type="hidden" name="edit_index" value="{{ edit_index }}" />{% endif %}
+
+  <div class="wiz-field">
+    <label class="wiz-label">Display name</label>
+    <input
+      class="wiz-input {% if field_errors.get('display_name') %}is-invalid{% endif %}"
+      type="text" name="display_name" required autofocus maxlength="80"
+      value="{{ sel.get('display_name', '') }}"
+      placeholder="Main house"
+    />
+    {% if field_errors.get('display_name') %}
+      <span class="wiz-error">{{ field_errors['display_name'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Type</label>
+    <select class="wiz-select {% if field_errors.get('property_type') %}is-invalid{% endif %}"
+            name="property_type" required>
+      <option value="">— pick a type —</option>
+      {% for value, label in property_types %}
+      <option value="{{ value }}" {% if sel.get('property_type') == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    {% if field_errors.get('property_type') %}
+      <span class="wiz-error">{{ field_errors['property_type'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Owning entity</label>
+    <select class="wiz-select {% if field_errors.get('entity_slug') %}is-invalid{% endif %}"
+            name="entity_slug" required>
+      <option value="">— pick an entity —</option>
+      {% for opt in entity_options %}
+      <option value="{{ opt.slug }}" {% if sel.get('entity_slug') == opt.slug %}selected{% endif %}>{{ opt.display_name }}</option>
+      {% endfor %}
+    </select>
+    {% if field_errors.get('entity_slug') %}
+      <span class="wiz-error">{{ field_errors['entity_slug'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Linked mortgage <span style="color:var(--muted); font-weight:400">(optional)</span></label>
+    <select class="wiz-select" name="linked_loan">
+      <option value="">— none —</option>
+      {% for loan in mortgage_loans %}
+      <option value="{{ loan.path }}" {% if sel.get('linked_loan') == loan.path %}selected{% endif %}>{{ loan.label }}</option>
+      {% endfor %}
+    </select>
+    <span class="wiz-help">
+      Linking a mortgage automatically adds expense buckets for mortgage interest
+      and escrow.
+    </span>
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Street address <span style="color:var(--muted); font-weight:400">(optional)</span></label>
+    <input class="wiz-input" type="text" name="address" maxlength="120"
+           value="{{ sel.get('address', '') }}" placeholder="123 Main St" />
+  </div>
+
+  <div class="wiz-row is-triple">
+    <div class="wiz-field">
+      <label class="wiz-label">City</label>
+      <input class="wiz-input" type="text" name="city" maxlength="60"
+             value="{{ sel.get('city', '') }}" placeholder="Anytown" />
+    </div>
+    <div class="wiz-field">
+      <label class="wiz-label">State</label>
+      <select class="wiz-select" name="state">
+        <option value="">—</option>
+        {% for s in us_states %}
+        <option value="{{ s }}" {% if sel.get('state') == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="wiz-field">
+      <label class="wiz-label">ZIP</label>
+      <input class="wiz-input" type="text" name="postal_code" maxlength="10"
+             value="{{ sel.get('postal_code', '') }}" placeholder="00000" />
+    </div>
+  </div>
+
+  <div class="wiz-banner is-info" style="margin:0">
+    <div class="wiz-banner-body" style="font-size:0.85rem">
+      We&rsquo;ll automatically set up the typical expense buckets &mdash;
+      maintenance, insurance, property taxes, utilities, and repairs &mdash;
+      plus a value tracker for the property itself. Rentals also get rental
+      income, management, and HOA buckets. If you link a mortgage, mortgage
+      interest and escrow are added too.
+    </div>
+  </div>
+</form>
+{% endcall %}
+{% endif %}
+
+{% if open_modal == 'vehicle' %}
+{% set _title %}{% if is_edit %}Edit vehicle{% else %}Add a vehicle{% endif %}{% endset %}
+{% call M.modal(
+    title=_title | trim,
+    submit_form_id="vehicle-modal-form",
+    action_label=("Save changes" if is_edit else "Add vehicle"),
+    cancel_href="/setup/wizard/property-vehicle"
+) %}
+<form method="post" action="/setup/wizard/property-vehicle/save-vehicle"
+      id="vehicle-modal-form" class="wiz-modal-form">
+  {% if is_edit %}<input type="hidden" name="edit_index" value="{{ edit_index }}" />{% endif %}
+
+  <div class="wiz-field">
+    <label class="wiz-label">Display name</label>
+    <input
+      class="wiz-input {% if field_errors.get('display_name') %}is-invalid{% endif %}"
+      type="text" name="display_name" required autofocus maxlength="80"
+      value="{{ sel.get('display_name', '') }}"
+      placeholder="Daily driver"
+    />
+    {% if field_errors.get('display_name') %}
+      <span class="wiz-error">{{ field_errors['display_name'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-row is-triple">
+    <div class="wiz-field">
+      <label class="wiz-label">Year</label>
+      <input class="wiz-input {% if field_errors.get('year') %}is-invalid{% endif %}"
+             type="text" inputmode="numeric" name="year" maxlength="4"
+             value="{{ sel.get('year', '') }}" placeholder="2020" />
+      {% if field_errors.get('year') %}
+        <span class="wiz-error">{{ field_errors['year'] }}</span>
+      {% endif %}
+    </div>
+    <div class="wiz-field">
+      <label class="wiz-label">Make</label>
+      <input class="wiz-input" type="text" name="make" maxlength="40"
+             value="{{ sel.get('make', '') }}" placeholder="Fabrikam" />
+    </div>
+    <div class="wiz-field">
+      <label class="wiz-label">Model</label>
+      <input class="wiz-input" type="text" name="model" maxlength="60"
+             value="{{ sel.get('model', '') }}" placeholder="Civic" />
+    </div>
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Owning entity</label>
+    <select class="wiz-select {% if field_errors.get('entity_slug') %}is-invalid{% endif %}"
+            name="entity_slug" required>
+      <option value="">— pick an entity —</option>
+      {% for opt in entity_options %}
+      <option value="{{ opt.slug }}" {% if sel.get('entity_slug') == opt.slug %}selected{% endif %}>{{ opt.display_name }}</option>
+      {% endfor %}
+    </select>
+    {% if field_errors.get('entity_slug') %}
+      <span class="wiz-error">{{ field_errors['entity_slug'] }}</span>
+    {% endif %}
+  </div>
+
+  <div class="wiz-field">
+    <label class="wiz-label">Linked auto loan <span style="color:var(--muted); font-weight:400">(optional)</span></label>
+    <select class="wiz-select" name="linked_loan">
+      <option value="">— none —</option>
+      {% for loan in auto_loans %}
+      <option value="{{ loan.path }}" {% if sel.get('linked_loan') == loan.path %}selected{% endif %}>{{ loan.label }}</option>
+      {% endfor %}
+    </select>
+    <span class="wiz-help">
+      Linking an auto loan automatically adds an expense bucket for loan interest.
+    </span>
+  </div>
+
+  <div class="wiz-banner is-info" style="margin:0">
+    <div class="wiz-banner-body" style="font-size:0.85rem">
+      We&rsquo;ll automatically set up the typical expense buckets &mdash;
+      fuel, maintenance, insurance, registration, repairs, and parking. If
+      you link an auto loan, a loan-interest bucket is added too.
+    </div>
+  </div>
+</form>
+{% endcall %}
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block step_actions %}
+<a class="wiz-btn wiz-btn-link" href="/setup/wizard/accounts">Back</a>
+<span class="spacer"></span>
+<form method="post" action="/setup/wizard/property-vehicle/continue" style="display:inline">
+  <button type="submit" class="wiz-btn wiz-btn-primary">Continue</button>
+</form>
+{% endblock %}

@@ -1,0 +1,644 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+{% import "_components/_txn_actions.html" as T %}
+{% import "_components/_txn.html" as Txn %}
+
+{% block title %}Search — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Search{% endblock %}
+
+{% block content %}
+{% set total_count = hit_count + staged_count %}
+{% call L.page_head(
+     title='Search',
+     subtitle=(
+       (total_count|string) ~ ' match' ~ ('es' if total_count != 1 else '') ~
+       ' for "' ~ q ~ '" · last ' ~ (lookback_days|string) ~ ' days · ' ~
+       (staged_count|string) ~ ' pending · ' ~
+       (hit_count|string) ~ ' in ledger · ' ~
+       (fixme_count|string) ~ ' uncategorized'
+     ) if q else 'Find transactions in the ledger and staged inbox by merchant, narration, or account fragment.'
+) %}
+{% endcall %}
+
+<datalist id="lookback-datalist">
+  {% for n in [30, 90, 180, 365, 730, 1825] %}<option value="{{ n }}" label="{{ n }} days">{% endfor %}
+</datalist>
+<datalist id="accounts-datalist"></datalist>
+
+{% call C.card() %}
+<form method="get" action="/search" class="form-grid" style="max-width:none">
+  <div class="form-row-2">
+    <div class="field">
+      <label class="field-label">Find</label>
+      <input class="field-input" type="search" name="q" value="{{ q }}" autofocus
+             placeholder="merchant, narration, or account fragment" />
+    </div>
+    <div class="field">
+      <label class="field-label">Lookback (days)</label>
+      <input class="field-input" type="text" name="lookback_days" list="lookback-datalist" value="{{ lookback_days }}" />
+    </div>
+  </div>
+  <div class="form-actions">
+    <span class="spacer"></span>
+    {{ B.btn('Search', type='submit', variant='primary', icon=icon.search()) }}
+  </div>
+</form>
+{% if q %}
+<div class="search-paperless-cta">
+  {% if paperless_base %}
+    {# Paperless-ngx web UI accepts ?title_content=<q> for free-text search
+       across title + OCR content. Opens a new tab so the user keeps the
+       Lamella search visible. This is the "I just want to find the
+       receipt" entry point — works without selecting any transactions. #}
+    <a class="btn btn-ghost btn-sm"
+       href="{{ paperless_base }}/documents?title_content={{ q | urlencode }}"
+       target="_blank" rel="noopener">
+      {{ icon.search() | safe }}<span>Find "{{ q }}" receipts in Paperless</span>
+    </a>
+    <span class="subtle" style="font-size:0.82rem; margin-left:0.5rem">
+      Searches Paperless title + OCR content for <code>{{ q }}</code>.
+    </span>
+  {% else %}
+    <span class="subtle" style="font-size:0.82rem">
+      Configure Paperless in <a href="/settings/paperless">settings</a> to enable a one-click receipt search for <code>{{ q }}</code>.
+    </span>
+  {% endif %}
+</div>
+{% endif %}
+{% endcall %}
+
+{% if applied %}
+{% call F.banner(tone='ok', title='Applied target to %s transaction%s' % (applied, '' if applied == '1' else 's')) %}
+{% if applied_failed %}{{ applied_failed }} skipped (bean-check blocked).{% endif %}
+{% endcall %}
+{% endif %}
+
+{% if request.query_params.get('paired') %}
+{% call F.banner(tone='ok', title='Marked as transfer pair') %}
+{% if request.query_params.get('paired') == 'cross' %}
+Each side routed to <em>its own</em> entity’s <code>Assets:&lt;Entity&gt;:Transfers:InFlight</code>.
+Both clearing accounts now carry an open balance that nets to zero across entities — reconcile with an
+intercompany entry (or an owner’s draw/contribution) when convenient.
+{% else %}
+Both sides route through that entity’s <code>Assets:&lt;Entity&gt;:Transfers:InFlight</code>, which nets
+to zero across the pair — nothing further to do.
+{% endif %}
+{% endcall %}
+{% endif %}
+
+{% if not q %}
+{{ F.empty_state('Type something in the search box. Matching is case-insensitive substring against payee, narration, account paths, and the staged inbox.') }}
+{% else %}
+
+{% if staged_count %}
+{% call F.banner(tone='warn', title=(staged_count|string) ~ ' pending row' ~ ('s' if staged_count != 1 else '') ~ ' in staging match this query') %}
+Listed below — these haven't been promoted to the ledger yet.
+<a class="btn btn-sm" href="#staged-results" style="margin-left:0.5rem">Jump to staging</a>
+{% endcall %}
+{% endif %}
+
+<div class="detail-split">
+  <div class="detail-split-main">
+
+    {% if staged_hits %}
+    <section id="staged-results" style="margin-bottom:1.25rem">
+    {%- set _back = request.url.path ~ ('?' ~ request.url.query if request.url.query else '') -%}
+    {# ADR-0056: every transaction-list surface (staged or ledger) must
+       offer the same receipt-link affordance. Receipts feed
+       pre-classification context (ADR-0018), so withholding receipt-find
+       until promotion would violate the "context determines
+       classification" design point. Wrap the staged table in its own
+       form so the staged checkboxes post independently of the ledger
+       form below. The checkbox value is the UUIDv7 lamella-txn-id —
+       backend run_hunt resolves either Beancount-hash OR token
+       against staged_transactions. #}
+    <form id="search-staged-form" autocomplete="off">
+      <input type="hidden" name="q" value="{{ q }}" />
+      <input type="hidden" name="lookback_days" value="{{ lookback_days }}" />
+      {% call C.card(title='Pending in staging', subtitle='Not yet in the ledger — classify, ask AI, dismiss, or hunt receipts inline.', flush=true) %}
+      <div class="search-toolbar">
+        <div class="search-toolbar__title">
+          <span style="font-weight:600">Staged</span>
+          <span class="subtle" style="font-size:0.85rem">· {{ staged_hits|length }} pending</span>
+        </div>
+        <div class="search-toolbar__filters">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="searchStagedSelectAll()"><span>All</span></button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="searchStagedSelectNone()"><span>Clear</span></button>
+        </div>
+      </div>
+
+      <div id="search-staged-bulk-bar" class="search-bulk-bar" hidden>
+        <div class="search-bulk-bar__count">
+          <strong><span id="search-staged-selected-count">0</span></strong>
+          <span class="subtle" style="font-size:0.85rem">selected</span>
+        </div>
+        <div class="search-bulk-bar__actions">
+          <details class="search-bulk-bar__act">
+            <summary class="btn btn-sm">Find receipts ▾</summary>
+            <div class="search-bulk-bar__panel">
+              <p class="subtle" style="font-size:0.82rem; margin:0 0 0.5rem">
+                Pre-classification receipt linkage. Pass 1 auto-links
+                unambiguous matches; Pass 2 surfaces ambiguous ones for review.
+                Linked receipts feed AI classification context.
+              </p>
+              <div class="field">
+                <label class="field-label">Date tolerance (± days)</label>
+                <input class="field-input" type="number" name="tolerance_days" value="3" min="0" max="30" style="max-width:8rem" />
+              </div>
+              <div class="form-actions">
+                <span class="spacer"></span>
+                <button type="button" class="btn btn-primary btn-sm"
+                        hx-post="/search/receipt-hunt" hx-include="closest form" hx-target="body" hx-swap="beforeend"><span>Hunt</span></button>
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:1.5rem"><input type="checkbox" id="search-staged-select-all" onclick="searchStagedToggleAll(this.checked)" aria-label="Select all" /></th>
+            <th>Transaction</th>
+            <th style="width:18rem">Proposed</th>
+            <th style="width:14rem">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in staged_hits %}
+          <tr>
+            <td>
+              {# Token-keyed checkbox. Empty staged rows (no
+                 lamella_txn_id yet) are rare but possible during
+                 in-flight migrations — render the box disabled. #}
+              {% if s.lamella_txn_id %}
+                <input type="checkbox" name="txn_hash" value="{{ s.lamella_txn_id }}" class="search-staged-row-cb"
+                       onchange="searchStagedUpdateBulkBar()" />
+              {% else %}
+                <input type="checkbox" disabled title="No lamella-txn-id yet" />
+              {% endif %}
+            </td>
+            {# T.summary renders date · amount · payee · narration · memo
+               as one composed line — same shape that /review, /card,
+               /transactions etc. will use after the migration. #}
+            <td>
+              <a href="{{ s.detail_link }}" class="txn-row-link">
+                {{ Txn.summary(s) }}
+              </a>
+              <div style="margin-top:0.3rem">{{ Txn.status(s) }}</div>
+            </td>
+            <td>
+              {{ Txn.proposed(s) }}
+              {%- if not s.proposed_account -%}
+                {{ D.badge('unresolved', tone='warn') }}
+              {%- endif -%}
+            </td>
+            <td>
+              {{ T.actions(ref="staged:" ~ s.staged_id, compact=true, return_url=_back) }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endcall %}
+    </form>
+    </section>
+    {% endif %}
+
+    {% if hits %}
+    <section id="ledger-results">
+    <form id="search-results-form" hx-post="/search/bulk-apply" hx-target="body" hx-swap="beforeend" autocomplete="off">
+      <input type="hidden" name="q" value="{{ q }}" />
+      <input type="hidden" name="lookback_days" value="{{ lookback_days }}" />
+
+      {% call C.card(flush=true) %}
+      <div class="search-toolbar">
+        <div class="search-toolbar__title">
+          <span style="font-weight:600">Ledger</span>
+          <span class="subtle" style="font-size:0.85rem">· {{ hit_count }} match{{ '' if hit_count == 1 else 'es' }}</span>
+        </div>
+        <div class="search-toolbar__filters">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="searchSelectAll()"><span>All</span></button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="searchSelectFixme()"><span>Uncategorized ({{ fixme_count }})</span></button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="searchSelectUnreceipted()"><span>No receipt</span></button>
+        </div>
+      </div>
+
+      <div id="search-bulk-bar" class="search-bulk-bar" hidden>
+        <div class="search-bulk-bar__count">
+          <strong><span id="search-selected-count">0</span></strong>
+          <span class="subtle" style="font-size:0.85rem">selected</span>
+        </div>
+        <div class="search-bulk-bar__actions">
+          <details class="search-bulk-bar__act">
+            <summary class="btn btn-sm">Categorize ▾</summary>
+            <div class="search-bulk-bar__panel">
+              <div class="field">
+                <label class="field-label">Apply target account</label>
+                <input class="field-input" type="text" name="target_account" list="accounts-datalist"
+                       value="{{ suggested_target or '' }}" autocomplete="off" placeholder="Expenses:Entity:Category" />
+              </div>
+              <label class="search-bulk-bar__check">
+                <input type="checkbox" name="save_rule" value="1" checked />
+                Also save a rule for future matches
+              </label>
+              <input type="hidden" name="rule_pattern_type" value="merchant_contains" />
+              <input type="hidden" name="rule_pattern_value" value="{{ q }}" />
+              <div class="form-actions">
+                <span class="spacer"></span>
+                {{ B.btn('Apply', type='submit', variant='primary', size='sm') }}
+              </div>
+              <p class="subtle" style="font-size:0.82rem; margin:0.5rem 0 0">
+                Works on uncategorized rows AND rows currently posted to a wrong category.
+              </p>
+            </div>
+          </details>
+
+          <details class="search-bulk-bar__act">
+            <summary class="btn btn-sm">Find receipts ▾</summary>
+            <div class="search-bulk-bar__panel">
+              <p class="subtle" style="font-size:0.82rem; margin:0 0 0.5rem">
+                Pass 1 auto-links unambiguous matches. Pass 2 surfaces ambiguous ones.
+              </p>
+              <div class="field">
+                <label class="field-label">Date tolerance (± days)</label>
+                <input class="field-input" type="number" name="tolerance_days" value="3" min="0" max="30" style="max-width:8rem" />
+              </div>
+              <div class="form-actions">
+                <span class="spacer"></span>
+                <button type="button" class="btn btn-primary btn-sm"
+                        hx-post="/search/receipt-hunt" hx-include="closest form" hx-target="body" hx-swap="beforeend"><span>Hunt</span></button>
+              </div>
+            </div>
+          </details>
+
+          <details class="search-bulk-bar__act">
+            <summary class="btn btn-sm">Pair as transfer ▾</summary>
+            <div class="search-bulk-bar__panel">
+              <p class="subtle" style="font-size:0.82rem; margin:0 0 0.5rem">
+                Use when two sides of a transfer hit on different dates. Select exactly 2 uncategorized rows — one outflow, one matching inflow.
+              </p>
+              <p class="subtle" style="font-size:0.82rem; margin:0 0 0.5rem">
+                Validates: amounts within $0.02, signs offset, dates within 14 days, both legs entity-labeled.
+              </p>
+              <div class="form-actions">
+                <span class="spacer"></span>
+                <button type="button" class="btn btn-sm" style="background:var(--err); color:var(--accent-fg); border-color:var(--err)" onclick="searchMarkTransferPair(this)"><span>Pair the 2 selected</span></button>
+              </div>
+            </div>
+          </details>
+
+          <button type="button" class="btn btn-ghost btn-sm" onclick="searchSelectNone()"><span>Clear</span></button>
+        </div>
+      </div>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:1.5rem"><input type="checkbox" id="search-select-all" onclick="searchToggleAll(this.checked)" aria-label="Select all" /></th>
+            <th>Transaction</th>
+            <th>Currently → target</th>
+            <th>Source</th>
+            <th style="width:7rem">Receipt</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in hits %}
+          <tr>
+            <td>
+              <input type="checkbox" name="txn_hash" value="{{ h.txn_hash }}" class="search-row-cb"
+                     data-fixme="{{ 1 if h.is_fixme else 0 }}"
+                     data-linked="{{ 1 if h.paperless_id else 0 }}"
+                     onchange="searchUpdateBulkBar()" />
+            </td>
+            <td>
+              <a href="/txn/{{ h.lamella_txn_id }}" class="txn-row-link">
+                {{ Txn.summary(h) }}
+              </a>
+              {% if h.is_fixme %}<div style="margin-top:0.25rem">{{ D.badge('Uncategorized', tone='warn') }}</div>{% endif %}
+            </td>
+            <td>
+              {% for acct in h.expense_accounts %}
+                <span class="subtle" style="font-size:0.85rem" title="{{ acct }}">{{ acct | alias }}</span>{% if not loop.last %}<br>{% endif %}
+              {% endfor %}
+            </td>
+            <td>
+              {% for acct in h.source_accounts %}
+                <span class="subtle" style="font-size:0.85rem" title="{{ acct }}">{{ acct | alias }}</span>{% if not loop.last %}<br>{% endif %}
+              {% endfor %}
+            </td>
+            <td>
+              {% if h.paperless_id %}
+                <a href="/paperless/preview/{{ h.paperless_id }}" target="_blank" rel="noopener">{{ D.badge('#' + h.paperless_id|string, tone='ok') }}</a>
+                {% if paperless_base %}<br><a href="{{ paperless_base }}/documents/{{ h.paperless_id }}/" target="_blank" rel="noopener" class="subtle" style="font-size:0.78rem">Paperless ↗</a>{% endif %}
+                {% if h.receipt_date_mismatch %}<br>{{ D.badge('date mismatch', tone='err') }}{% endif %}
+              {% else %}
+                <span class="subtle">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td colspan="5" style="background:var(--panel-2); padding:0">
+              <details hx-get="/txn/{{ h.lamella_txn_id }}/panel" hx-trigger="toggle once"
+                       hx-target="find .txn-panel-slot" hx-swap="innerHTML"
+                       hx-indicator="find .txn-panel-loading"
+                       style="padding:6px 18px">
+                <summary class="subtle" style="font-size:0.82rem; cursor:pointer">
+                  Change / fix / transfer / split this transaction…
+                </summary>
+                <div class="txn-panel-slot">
+                  <p class="subtle txn-panel-loading" style="font-size:0.82rem">Loading action panel…</p>
+                </div>
+              </details>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endcall %}
+    </form>
+    </section>
+    {% elif not staged_hits %}
+    {{ F.empty_state('No matches in the ledger or staging.') }}
+    {% endif %}
+  </div>
+
+  <aside class="detail-split-aside">
+    {% if grouped_by_target %}
+    {% call C.card(title='Currently classified as') %}
+    <table class="data-table">
+      <thead><tr><th>Target account</th><th class="num" style="text-align:right; width:5rem">Count</th></tr></thead>
+      <tbody>
+        {% for target, count in grouped_by_target %}
+        <tr>
+          <td><span class="subtle" style="font-size:0.85rem" title="{{ target }}">{{ target | alias }}</span></td>
+          <td class="num" style="text-align:right">{{ count }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endcall %}
+    {% endif %}
+
+    {% if hits %}
+    {% call C.card(title='Create a rule from these matches') %}
+    <p class="subtle" style="margin:0 0 0.75rem">
+      Fires on every future transaction whose narration contains <code>{{ q }}</code>.
+      {% if suggested_target %}Suggested target prefilled (most common existing classification).{% endif %}
+    </p>
+    <form method="post" action="/teach" class="form-grid" style="max-width:none" autocomplete="off">
+      <input type="hidden" name="merchant" value="{{ q }}" />
+      <div class="field">
+        <label class="field-label">Target account</label>
+        <input class="field-input" type="text" name="target_account" required list="accounts-datalist"
+               value="{{ suggested_target or '' }}" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label class="field-label">Scope to one card / account (optional)</label>
+        <input class="field-input" type="text" name="card_account" list="accounts-datalist" autocomplete="off" />
+      </div>
+      <div class="form-actions"><span class="spacer"></span>{{ B.btn('Create rule', type='submit', variant='primary') }}</div>
+    </form>
+
+    {% if suggested_target %}
+    <details style="margin-top:1rem">
+      <summary class="subtle" style="font-size:0.85rem; cursor:pointer">Want a dedicated sub-category just for this merchant?</summary>
+      <p class="subtle" style="margin:0.5rem 0; font-size:0.85rem">
+        Creates <code>{{ suggested_target }}:&lt;your label&gt;</code> under the existing category.
+      </p>
+      <form method="post" action="/settings/accounts/add-subcategory" class="form-grid" style="max-width:none" autocomplete="off">
+        <input type="hidden" name="parent" value="{{ suggested_target }}" />
+        <input type="hidden" name="redirect_to" value="/search?q={{ q }}&amp;lookback_days={{ lookback_days }}" />
+        <div class="field">
+          <label class="field-label">Sub-category name</label>
+          <input class="field-input" type="text" name="leaf" required pattern="[A-Za-z][A-Za-z0-9-]*" placeholder="e.g. SubLabel" />
+        </div>
+        <div class="form-actions"><span class="spacer"></span>{{ B.btn('Create sub-category', type='submit', variant='ghost', size='sm') }}</div>
+      </form>
+    </details>
+    {% endif %}
+    {% endcall %}
+    {% endif %}
+  </aside>
+</div>
+
+{% endif %}
+
+<style>
+  /* Search toolbar — sits inside the ledger results card-head spot */
+  .search-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--border-soft);
+    background: var(--panel-2);
+  }
+  .search-toolbar__title { display: flex; align-items: baseline; gap: 0.4rem; }
+  .search-toolbar__filters { display: flex; gap: 4px; flex-wrap: wrap; }
+
+  /* Sticky bulk-action bar — only appears when ≥1 row is selected */
+  .search-bulk-bar {
+    position: sticky;
+    top: var(--topbar-h, 56px);
+    z-index: 10;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 8px 18px;
+    background: var(--accent-soft);
+    border-bottom: 1px solid var(--border-soft);
+    border-top: 1px solid var(--border-soft);
+  }
+  .search-bulk-bar[hidden] { display: none; }
+  .search-bulk-bar__count {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+  }
+  .search-bulk-bar__count strong {
+    font-size: 1rem;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .search-bulk-bar__actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .search-bulk-bar__act { position: relative; }
+  .search-bulk-bar__act > summary {
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+  }
+  .search-bulk-bar__act > summary::-webkit-details-marker { display: none; }
+  .search-bulk-bar__act[open] > summary {
+    background: var(--accent);
+    color: var(--accent-fg);
+    border-color: var(--accent);
+  }
+  .search-bulk-bar__panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 11;
+    min-width: 22rem;
+    max-width: 26rem;
+    padding: 14px 16px;
+    background: var(--panel);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+  }
+  .search-bulk-bar__check {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 0.88rem;
+    color: var(--muted);
+    margin: 0.4rem 0 0.6rem;
+    cursor: pointer;
+  }
+
+  /* Paperless one-click search CTA: sits inside the search form card,
+     directly under the form-actions row. Visible whenever ?q= is set so
+     "type a vendor name, click button, see that vendor's receipts in
+     Paperless" works without first selecting transaction rows. */
+  .search-paperless-cta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    padding-top: 0.6rem;
+    border-top: 1px dashed var(--border-soft);
+    margin-top: 0.6rem;
+  }
+</style>
+
+<script>
+  function searchToggleAll(on) {
+    document.querySelectorAll('.search-row-cb').forEach((cb) => { cb.checked = !!on; });
+    searchUpdateBulkBar();
+  }
+  function searchSelectAll() { const t = document.getElementById('search-select-all'); if (t) t.checked = true; searchToggleAll(true); }
+  function searchSelectNone() {
+    const top = document.getElementById('search-select-all');
+    if (top) top.checked = false;
+    document.querySelectorAll('.search-row-cb').forEach((cb) => { cb.checked = false; });
+    document.querySelectorAll('.search-bulk-bar__act[open]').forEach((d) => { d.removeAttribute('open'); });
+    searchUpdateBulkBar();
+  }
+  function searchSelectFixme() {
+    document.querySelectorAll('.search-row-cb').forEach((cb) => { cb.checked = cb.dataset.fixme === '1'; });
+    const top = document.getElementById('search-select-all');
+    if (top) top.checked = false;
+    searchUpdateBulkBar();
+  }
+  function searchSelectUnreceipted() {
+    document.querySelectorAll('.search-row-cb').forEach((cb) => { cb.checked = cb.dataset.linked !== '1'; });
+    const top = document.getElementById('search-select-all');
+    if (top) top.checked = false;
+    searchUpdateBulkBar();
+  }
+  function searchUpdateBulkBar() {
+    const checked = document.querySelectorAll('.search-row-cb:checked').length;
+    const bar = document.getElementById('search-bulk-bar');
+    const counter = document.getElementById('search-selected-count');
+    if (!bar) return;
+    if (counter) counter.textContent = String(checked);
+    if (checked > 0) bar.removeAttribute('hidden'); else bar.setAttribute('hidden', '');
+  }
+  // Staged-section variants — independent form, independent bulk-bar
+  // (ADR-0056). Same /search/receipt-hunt endpoint; backend resolves
+  // UUIDv7 token values against staged_transactions instead of by_hash.
+  function searchStagedToggleAll(on) {
+    document.querySelectorAll('.search-staged-row-cb').forEach((cb) => { cb.checked = !!on; });
+    searchStagedUpdateBulkBar();
+  }
+  function searchStagedSelectAll() { const t = document.getElementById('search-staged-select-all'); if (t) t.checked = true; searchStagedToggleAll(true); }
+  function searchStagedSelectNone() {
+    const top = document.getElementById('search-staged-select-all');
+    if (top) top.checked = false;
+    document.querySelectorAll('.search-staged-row-cb').forEach((cb) => { cb.checked = false; });
+    document.querySelectorAll('#search-staged-form .search-bulk-bar__act[open]').forEach((d) => { d.removeAttribute('open'); });
+    searchStagedUpdateBulkBar();
+  }
+  function searchStagedUpdateBulkBar() {
+    const checked = document.querySelectorAll('.search-staged-row-cb:checked').length;
+    const bar = document.getElementById('search-staged-bulk-bar');
+    const counter = document.getElementById('search-staged-selected-count');
+    if (!bar) return;
+    if (counter) counter.textContent = String(checked);
+    if (checked > 0) bar.removeAttribute('hidden'); else bar.setAttribute('hidden', '');
+  }
+  function searchMarkTransferPair(btn) {
+    const checked = Array.from(document.querySelectorAll('.search-row-cb:checked'));
+    if (checked.length !== 2) {
+      alert('Select exactly 2 transactions to pair as a transfer. Currently selected: ' + checked.length + '.');
+      return;
+    }
+    const fd = new FormData();
+    for (const cb of checked) fd.append('txn_hash', cb.value);
+    const params = new URLSearchParams(window.location.search);
+    fd.append('q', params.get('q') || '');
+    fd.append('lookback_days', params.get('lookback_days') || '365');
+    if (params.get('fixme')) fd.append('fixme', params.get('fixme'));
+    btn.disabled = true;
+    fetch('/search/mark-transfer-pair', { method: 'POST', credentials: 'same-origin', body: fd })
+      .then((r) => {
+        btn.disabled = false;
+        const redir = r.headers.get('HX-Redirect');
+        if (redir) { window.location = redir; return; }
+        if (r.ok) {
+          // Dispatch the canonical post-classify event for each row so
+          // any /search-page listener can swap in place; falls back to
+          // reload if no listener handles either.
+          for (const cb of checked) {
+            window.__lamellaAfterClassify('ledger:' + cb.value);
+          }
+          return;
+        }
+        return r.text().then((t) => {
+          let msg = t;
+          try { const j = JSON.parse(t); if (j && j.detail) msg = j.detail; } catch (e) {}
+          alert('Could not pair: ' + msg);
+        });
+      }).catch((e) => { btn.disabled = false; alert('Request failed: ' + e); });
+  }
+  fetch('/api/accounts', { credentials: 'same-origin' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      if (!d || !Array.isArray(d.all)) return;
+      const dl = document.getElementById('accounts-datalist');
+      const labels = (d.labels && typeof d.labels === 'object') ? d.labels : {};
+      window.__acctLabels = labels;
+      for (const n of d.all) {
+        const o = document.createElement('option');
+        o.value = n;
+        if (labels[n] && labels[n] !== n) o.label = labels[n];
+        dl.appendChild(o);
+      }
+    })
+    .catch(() => undefined);
+</script>
+
+{% endblock %}

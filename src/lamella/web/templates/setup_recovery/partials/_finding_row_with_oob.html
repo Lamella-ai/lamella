@@ -1,0 +1,19 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# HTMX response wrapper. Renders the row partial (which gets
+   swapped in place via hx-target=closest .recovery-finding) plus
+   the Apply Repairs button as an out-of-band swap so the page-
+   level button reflects the post-write actionable state.
+
+   The two top-level elements in this template arrive at the
+   browser together; HTMX swaps the row into the row's slot and
+   routes the OOB-tagged button to its id-matched slot. #}
+{% include "setup_recovery/partials/_finding_row.html" %}
+{% set oob = True %}
+{% include "setup_recovery/partials/_apply_button.html" %}

@@ -1,0 +1,114 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# ===========================================================
+   Data display macros — badges, money formatting, tables,
+   progress bars. The atomic units that go inside cards.
+
+   Use:
+     {% import "_components/data.html" as D %}
+     {{ D.badge('FIXME', tone='err') }}
+     {{ D.money(184.22, currency='USD') }}
+     {{ D.account_path('Expenses:Acme:Supplies') }}
+     {{ D.progress_bar(0.74, label='74%', tone='warn') }}
+
+   Macros:
+     badge(label, tone='', icon='')          — pill (ok/warn/err/info/muted/accent tones)
+     chip(label, color='', letter='')        — entity-style colored chip
+     money(amount, currency='USD',           — tabular-num formatted amount; signed colors apply
+           signed=true, zero_dash=false)
+     account_path(path, last_n=2)            — collapse "Expenses:Acme:Office:Supplies" → "Office:Supplies"
+     progress_bar(ratio, label='', tone='')  — 0..1 ratio; >1 caps at 1.2
+     time_ago(dt)                            — "4 minutes ago" / "Apr 23"
+   =========================================================== #}
+
+{%- macro badge(label, tone='', icon='') -%}
+<span class="bdg{% if tone %} bdg--{{ tone }}{% endif %}">
+  {% if icon %}<span class="bdg-icon">{{ icon }}</span>{% endif %}
+  {{ label }}
+</span>
+{%- endmacro -%}
+
+{%- macro chip(label, color='', letter='') -%}
+<span class="chip-entity">
+  <span class="chip-entity-dot"{% if color %} style="background:{{ color }}"{% endif %}>{{ letter }}</span>
+  <span class="chip-entity-label">{{ label }}</span>
+</span>
+{%- endmacro -%}
+
+{%- macro money(amount, currency='USD', signed=true, zero_dash=false, abs_value=false) -%}
+{#- Coerce strings, Decimals, ints, floats to a comparable float. Strings
+    that don't parse render as muted dash so a malformed DB value can't
+    500 the page. -#}
+{%- set raw = amount -%}
+{%- set num = 0.0 -%}
+{%- set valid = false -%}
+{%- if raw is none or raw == '' -%}
+  {%- set valid = false -%}
+{%- elif raw is number -%}
+  {%- set num = raw|float -%}
+  {%- set valid = true -%}
+{%- else -%}
+  {%- set s = raw|string -%}
+  {%- if s.replace('.','',1).replace('-','',1).replace(',','').isdigit() -%}
+    {%- set num = s.replace(',','')|float -%}
+    {%- set valid = true -%}
+  {%- endif -%}
+{%- endif -%}
+{%- if not valid -%}
+  <span class="money money--zero num">—</span>
+{%- elif num == 0 and zero_dash -%}
+  <span class="money money--zero num">—</span>
+{%- else -%}
+  {%- set v = (num if num >= 0 else -num) if abs_value else num -%}
+  {%- set tone = 'pos' if num > 0 else ('neg' if num < 0 else 'zero') -%}
+  {#- Thousands separator + 2dp via the locale-aware fmt_amount global
+      (set in main.py from settings.number_locale). en_US → 1,234.56,
+      en_EU → 1.234,56. Falls back to brace-format if the global isn't
+      bound (e.g. unit-test renders without create_app). -#}
+  {%- if fmt_amount is defined -%}
+    {%- set _formatted = fmt_amount(v, 2) -%}
+  {%- else -%}
+    {%- set _formatted = ("{:,.2f}").format(v) -%}
+  {%- endif -%}
+  <span class="money money--{{ tone }} num">{% if signed and num > 0 %}+{% endif %}{{ _formatted }}{% if currency and currency != 'USD' %} {{ currency }}{% endif %}</span>
+{%- endif -%}
+{%- endmacro -%}
+
+{%- macro account_path(path, last_n=2) -%}
+{%- if path -%}
+  {%- set parts = path.split(':') -%}
+  {%- if parts|length <= last_n -%}
+    <span class="acct-path">{{ path }}</span>
+  {%- else -%}
+    <span class="acct-path" title="{{ path }}"><span class="acct-path-prefix">{{ parts[:-last_n]|join(':') }}:</span>{{ parts[-last_n:]|join(':') }}</span>
+  {%- endif -%}
+{%- endif -%}
+{%- endmacro -%}
+
+{%- macro progress_bar(ratio, label='', tone='') -%}
+{%- set band = tone -%}
+{%- if not band -%}
+  {%- if ratio >= 1.0 -%}{%- set band = 'err' -%}
+  {%- elif ratio >= 0.85 -%}{%- set band = 'warn' -%}
+  {%- else -%}{%- set band = 'ok' -%}
+  {%- endif -%}
+{%- endif -%}
+{%- set width_pct = (ratio if ratio < 1.2 else 1.2) * 100 -%}
+<div class="pbar pbar--{{ band }}">
+  <div class="pbar-fill" style="width: {{ width_pct|round(0, 'floor')|int }}%"></div>
+  {% if label %}<span class="pbar-label">{{ label }}</span>{% endif %}
+</div>
+{%- endmacro -%}
+
+{%- macro empty(message='Nothing here yet', cta_text='', cta_href='') -%}
+<div class="empty">
+  <p class="empty-msg">{{ message }}</p>
+  {% if cta_text and cta_href %}<a class="empty-cta" href="{{ cta_href }}">{{ cta_text }}</a>{% endif %}
+</div>
+{%- endmacro -%}

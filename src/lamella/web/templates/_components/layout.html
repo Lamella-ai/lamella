@@ -1,0 +1,84 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{# ===========================================================
+   Layout helpers — page-level scaffolding macros.
+
+   Use:
+     {% import "_components/layout.html" as L %}
+     {% call L.page_head(title='Dashboard', subtitle='3 items waiting') %}
+       <a class="btn">Action</a>
+     {% endcall %}
+
+   Macros:
+     page_head(title, subtitle='', kicker='')        — h1 + optional subtitle + actions slot (use {% call %})
+     section(title=none, subtitle='', actions=none)  — h2 + horizontal rule + body via {% call %}
+     detail_split(aside_first=false)                 — 2:1 main + aside via {% call %}, optional swap order
+   =========================================================== #}
+
+{%- macro page_head(title, subtitle='', kicker='') -%}
+<div class="page-head">
+  <div class="page-head-text">
+    {% if kicker %}<div class="page-head-kicker">{{ kicker }}</div>{% endif %}
+    <h1 class="page-head-title">{{ title }}</h1>
+    {% if subtitle %}<p class="page-head-subtitle">{{ subtitle }}</p>{% endif %}
+  </div>
+  {%- if caller -%}
+  <div class="page-head-actions">{{ caller() }}</div>
+  {%- endif -%}
+</div>
+{%- endmacro -%}
+
+{%- macro section(title=none, subtitle='') -%}
+<section class="page-section">
+  {%- if title -%}
+  <header class="page-section-head">
+    <h2 class="page-section-title">{{ title }}</h2>
+    {% if subtitle %}<span class="page-section-subtitle">{{ subtitle }}</span>{% endif %}
+  </header>
+  {%- endif -%}
+  <div class="page-section-body">{{ caller() }}</div>
+</section>
+{%- endmacro -%}
+
+{%- macro detail_split(aside_first=false) -%}
+<div class="detail-split{% if aside_first %} detail-split--reverse{% endif %}">
+  {{ caller() }}
+</div>
+{%- endmacro -%}
+
+{%- macro main_col() -%}<div class="detail-split-main">{{ caller() }}</div>{%- endmacro -%}
+{%- macro aside_col() -%}<aside class="detail-split-aside">{{ caller() }}</aside>{%- endmacro -%}
+
+{# Form-and-help split. Form on the left, contextual help on the right.
+   On wide viewports, help blocks pack into multi-column flow.
+   On narrow viewports (< 880px), help collapses into a slide-in
+   drawer from the right edge with a toggle tab — wired in JS via
+   the `data-help-drawer-toggle` attribute on <body>. #}
+{%- macro form_split() -%}
+<div class="form-split">{{ caller() }}</div>
+<button type="button" class="help-drawer-toggle"
+        onclick="document.body.classList.toggle('help-drawer-open')"
+        aria-label="Toggle help panel">
+  <span class="help-drawer-toggle-icon" aria-hidden="true">?</span>
+  <span class="help-drawer-toggle-label">Help</span>
+</button>
+<div class="help-drawer-backdrop"
+     onclick="document.body.classList.remove('help-drawer-open')"></div>
+{%- endmacro -%}
+{%- macro form_col() -%}<div class="form-split-form">{{ caller() }}</div>{%- endmacro -%}
+{%- macro help_col() -%}<aside class="form-split-help">{{ caller() }}</aside>{%- endmacro -%}
+
+{# Inline help block for the paired-section layout. Lives inside a
+   form-split-form--paired grid; visible side-by-side with the form
+   card it follows at >= 1280px viewport. At narrow viewports, JS
+   clones it into the right-edge help drawer so the user still gets
+   one combined panel of guidance. #}
+{%- macro pair_help() -%}
+<aside class="form-paired-help">{{ caller() }}</aside>
+{%- endmacro -%}

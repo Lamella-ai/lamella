@@ -1,0 +1,61 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Audit portfolio — {{ entity }} {{ year }}</title>
+  <style>{% include "_print_base.css" %}</style>
+</head>
+<body>
+  <div class="cover">
+    <h1>Audit portfolio</h1>
+    <h2>{{ entity }} — tax year {{ year }}</h2>
+    <p class="meta">Generated {{ generated_at }}<br/>{{ txn_count }} transactions across {{ line_count }} Schedule C lines.</p>
+  </div>
+
+  <div style="page-break-before: always;"></div>
+  <h2>Line totals</h2>
+  <table class="lines">
+    <thead><tr><th>Line</th><th>Description</th><th class="amt">Amount</th><th class="cnt">Txns</th></tr></thead>
+    <tbody>
+      {% for row in summary %}
+        <tr>
+          <td class="line">{{ row.line }}</td>
+          <td>{{ row.description }}</td>
+          <td class="amt">{{ row.amount | money }}</td>
+          <td class="cnt">{{ row.txn_count }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="totals">Total: {{ total | money }}</p>
+
+  {% for txn in transactions %}
+    <div class="audit-page">
+      <div style="page-break-before: always;"></div>
+      <h2>Line {{ txn.line }} — {{ txn.line_description }}</h2>
+      <div class="txn-card">
+        <div class="row"><dt>Date</dt><dd>{{ txn.date.isoformat() }}</dd></div>
+        <div class="row"><dt>Account</dt><dd>{{ txn.account }}</dd></div>
+        <div class="row"><dt>Amount</dt><dd>${{ txn.amount | money }}</dd></div>
+        <div class="row"><dt>Narration</dt><dd>{{ txn.narration }}</dd></div>
+        {% if txn.note_body %}
+        <div class="row"><dt>Note</dt><dd>{{ txn.note_body }}</dd></div>
+        {% endif %}
+      </div>
+      {% if txn.receipt_data_url %}
+        <img class="receipt-img" src="{{ txn.receipt_data_url }}" alt="receipt" />
+      {% elif txn.receipt_link %}
+        <p class="muted">Receipt too large to embed; see <code>{{ txn.receipt_link }}</code></p>
+      {% endif %}
+    </div>
+  {% endfor %}
+</body>
+</html>

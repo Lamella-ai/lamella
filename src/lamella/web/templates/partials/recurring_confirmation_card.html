@@ -1,0 +1,51 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+<li class="phone-list-item recurring-card">
+  <div class="phone-list-meta">
+    <strong>{{ r.label }}</strong>
+    <span class="status status-open">{{ r.cadence }}</span>
+    <span class="muted" title="{{ r.source_account }}">${% if fmt_amount is defined %}{{ fmt_amount(r.expected_amount, 2) }}{% else %}{{ "%.2f"|format(r.expected_amount) }}{% endif %} · {{ r.source_account | alias }}</span>
+  </div>
+  <p class="phone-list-body muted small">
+    {% if r.last_seen %}last seen {{ r.last_seen.isoformat() }}{% endif %}
+    {% if r.next_expected %} · next ~{{ r.next_expected.isoformat() }}{% endif %}
+    {% if r.expected_day %} · day-of-month {{ r.expected_day }}{% endif %}
+  </p>
+  <form method="post" action="/recurring/{{ r.id }}/confirm" class="stacked-form" autocomplete="off">
+    <label>Label
+      <input type="text" name="label" value="{{ r.label }}" autocomplete="off" />
+    </label>
+    <label>Day-of-month
+      <input type="number" name="expected_day" value="{{ r.expected_day or '' }}" min="1" max="31" />
+    </label>
+    <label>Source account
+      <input type="text" name="source_account" value="{{ r.source_account }}"
+             list="accounts-datalist" autocomplete="off" />
+    </label>
+    <label>Categorize as (expense category — optional but recommended)
+      <input type="text" name="target_account" list="accounts-datalist"
+             placeholder="Expenses:Entity:Category" autocomplete="off" />
+    </label>
+    <label class="checkbox-label">
+      <input type="checkbox" name="save_rule" value="1" checked />
+      Also save a classification rule so every future hit auto-categorizes
+    </label>
+    <div class="phone-row">
+      <button type="submit" class="primary-action">Confirm{% if r.status == 'proposed' %} &amp; track{% endif %}</button>
+      <button type="submit" class="secondary" formaction="/recurring/{{ r.id }}/stop">Mark stopped</button>
+      <button type="submit" class="secondary" formaction="/recurring/{{ r.id }}/ignore">Ignore (not recurring)</button>
+    </div>
+    <p class="muted small">
+      <strong>Stopped</strong> keeps the row for history / variance reporting
+      (subscription ended, free trial lapsed).
+      <strong>Ignore</strong> hides it entirely — use when the detector
+      grouped unrelated transactions together.
+    </p>
+  </form>
+</li>

@@ -1,0 +1,40 @@
+{# One vehicle card. Card body is a link to the detail page; a small
+   "Edit" button in the head triggers the quick-edit modal via HTMX.
+   Stable id so the modal POST can target it for in-place swap on save. #}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/data.html" as D %}
+<div class="record-card{% if not c.is_active %} record-card--quiet{% endif %}"
+     id="vehicle-card-{{ c.slug }}">
+  <div class="record-card-head">
+    <a href="/vehicles/{{ c.slug }}" class="record-card-title-link">
+      <span class="record-card-title">{{ c.display_name }}</span>
+    </a>
+    {% if not c.is_active %}{{ D.badge('Inactive', tone='muted') }}{% endif %}
+    {% if c.sale_date %}{{ D.badge('Sold ' + c.sale_date|string, tone='muted') }}{% endif %}
+    <button type="button" class="record-card-edit-btn"
+            title="Quick edit"
+            aria-label="Quick edit"
+            hx-get="/vehicles/{{ c.slug }}/edit-modal"
+            hx-target="body"
+            hx-swap="beforeend">
+      {{ icon.edit(14) }}
+    </button>
+  </div>
+  <a href="/vehicles/{{ c.slug }}" class="record-card-body-link">
+    <div class="record-card-meta">
+      {% if c.year or c.make or c.model %}{{ c.year or '' }} {{ c.make or '' }} {{ c.model or '' }}{% endif %}
+      {% if c.license_plate %} · {{ c.license_plate }}{% endif %}
+      {% if c.entity_display_name %}<br>Owned by {{ c.entity_display_name }}{% elif not c.entity_slug %}<br>Personal{% endif %}
+    </div>
+    <div class="record-card-stats">
+      {% if c.ytd_total_miles %}<span>{{ '{:,.0f}'.format(c.ytd_total_miles) }} mi YTD</span>{% endif %}
+      {% if c.ytd_business_miles %}<span>{{ '{:,.0f}'.format(c.ytd_business_miles) }} business</span>{% endif %}
+      {% if c.loan_count %}<span>{{ c.loan_count }} loan{{ '' if c.loan_count == 1 else 's' }}</span>{% endif %}
+      {% if c.current_mileage %}<span>odo {{ '{:,}'.format(c.current_mileage) }}</span>{% endif %}
+    </div>
+    <div class="record-card-foot">
+      <span><span class="label">YTD deduction</span><span class="num">{{ c.ytd_standard_deduction | money }}</span></span>
+      <span><span class="label">YTD expenses</span><span class="num">{{ c.ytd_expense_total | money }}</span></span>
+    </div>
+  </a>
+</div>

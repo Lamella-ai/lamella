@@ -1,0 +1,60 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "setup_recovery/_layout.html" %}
+
+{% block title %}Legacy paths — Recovery — Lamella{% endblock %}
+
+{% block step_heading %}Legacy paths cleanup{% endblock %}
+{% block step_subheading %}
+  Account paths from older code that don't match the current
+  canonical shape. Each row offers Close (when empty) or
+  Move &amp; close (when postings exist and we know the canonical
+  destination). Every action runs inside a bean-check envelope —
+  failures roll back atomically.
+{% endblock %}
+
+{% block step_body %}
+  {% if not findings %}
+    <div class="wiz-card" style="text-align:center; padding:2.5em 1em;">
+      <strong style="color:var(--ok); font-size:1.1em;">No legacy paths detected.</strong>
+      <p class="wiz-sub" style="margin:0.5em 0 0;">
+        Your chart of accounts is canonical. Nothing to clean up here.
+      </p>
+      <p style="margin-top:1.25em;">
+        <a href="/setup/recovery" class="wiz-btn wiz-btn-secondary">Back to checklist</a>
+      </p>
+    </div>
+  {% else %}
+    {% if last_result %}
+      <div class="wiz-banner wiz-banner-{{ 'ok' if last_result.success else 'warn' }}"
+           style="margin-bottom:1.2em;">
+        {% if last_result.success %}
+          <strong style="color:var(--ok);">✓ {{ last_result.message }}</strong>
+        {% else %}
+          <strong style="color:var(--warn);">⚠ {{ last_result.message }}</strong>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <p class="wiz-sub" style="margin-bottom:1.2em;">
+      <strong>{{ findings | length }}</strong> legacy path{{ 's' if findings | length != 1 else '' }} detected.
+      Resolve each row or leave it for later — Lamella keeps surfacing them until you act.
+    </p>
+
+    <div class="recovery-findings">
+      {% for f in findings %}
+        {% include "setup_recovery/partials/_legacy_path_row.html" %}
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block step_actions %}
+  <a href="/setup/recovery" class="wiz-btn wiz-btn-secondary">← Back to checklist</a>
+{% endblock %}

@@ -1,0 +1,29 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+
+  Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+  https://lamella.ai
+-->
+
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}AI cost — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}AI cost{% endblock %}
+
+{% block content %}
+{% call L.page_head(
+     title='AI cost',
+     subtitle='Month-to-date OpenRouter spend, broken down by decision type.',
+     kicker='Insights'
+) %}
+  {{ B.btn('Pricing settings', href='/settings', icon=icon.settings()) }}
+  {{ B.btn('AI logs', href='/ai/logs', icon=icon.activity()) }}
+{% endcall %}
+
+{% include "partials/ai_cost_card.html" %}
+{% endblock %}

@@ -1,0 +1,15 @@
+{
+  "id": "gen-test-classify-escalated",
+  "model": "anthropic/claude-opus-4.7",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"target_account\": \"Expenses:Acme:Shipping\", \"confidence\": 0.88, \"reasoning\": \"Opus reconsidered the context and concluded shipping, not supplies.\"}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {"prompt_tokens": 380, "completion_tokens": 40, "total_tokens": 420}
+}

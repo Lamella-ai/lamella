@@ -1,0 +1,149 @@
+<!--
+  Copyright 2026 Lamella LLC
+  SPDX-License-Identifier: Apache-2.0
+-->
+{% extends "base.html" %}
+{% import "_components/_icons.html" as icon %}
+{% import "_components/layout.html" as L %}
+{% import "_components/cards.html" as C %}
+{% import "_components/data.html" as D %}
+{% import "_components/feedback.html" as F %}
+{% import "_components/buttons.html" as B %}
+
+{% block title %}{{ entity.display_name or entity.slug }} transactions — Lamella{% endblock %}
+{% block page_class %}page page--fluid{% endblock %}
+{% block page_title %}Transactions{% endblock %}
+
+{% block content %}
+{% set _has_filters = q or kind_filter or only_fixme %}
+{% set _showing_to = (offset + rows|length) %}
+{% set _has_prev = offset > 0 %}
+{% set _has_next = (offset + limit) < total_rows %}
+
+{% call L.page_head(
+     title=(entity.display_name or entity.slug) ~ ' · transactions',
+     subtitle=period.current_start|string ~ ' → ' ~ period.current_end|string,
+     kicker='Business'
+) %}
+  {{ B.btn('Back to ' ~ (entity.display_name or entity.slug),
+           href='/businesses/' ~ entity.slug) }}
+  {{ B.btn('Expenses only',
+           href=entity_url(entity, '/expenses?period=' ~ period.label)) }}
+  {{ B.btn('Accounts',
+           href=entity_url(entity, '/accounts')) }}
+{% endcall %}
+
+<form method="get" action="{{ entity_url(entity, '/transactions') }}"
+      style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:flex-end; margin-bottom:1.25rem">
+  <div style="flex:1; min-width:240px">
+    <label for="q" class="subtle" style="display:block; font-size:0.78rem">Search payee / narration</label>
+    <input type="search" id="q" name="q" value="{{ q }}" autocomplete="off"
+           style="width:100%; padding:6px 10px"
+           placeholder="e.g. Acme, transfer, deposit…">
+  </div>
+
+  <div>
+    <label for="kind" class="subtle" style="display:block; font-size:0.78rem">Type</label>
+    <select id="kind" name="kind" style="padding:6px 10px">
+      <option value="">All types</option>
+      {% for k in kinds %}
+      <option value="{{ k.root }}" {% if k.root == kind_filter %}selected{% endif %}>
+        {{ k.root }} · {{ k.count }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label for="period" class="subtle" style="display:block; font-size:0.78rem">Period</label>
+    <select id="period" name="period" style="padding:6px 10px">
+      {% for p in period_options %}
+      <option value="{{ p }}" {% if p == period.label %}selected{% endif %}>{{ p }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <label style="display:flex; align-items:center; gap:6px; padding-bottom:6px">
+    <input type="checkbox" name="fixme" value="1" {% if only_fixme %}checked{% endif %}>
+    <span class="subtle">Only uncategorized</span>
+  </label>
+
+  {{ B.btn('Apply', type='submit', variant='primary', size='sm') }}
+  {% if _has_filters %}
+  {{ B.btn('Clear', href='/businesses/' ~ entity.slug ~ '/transactions?period=' ~ period.label,
+           variant='ghost', size='sm') }}
+  {% endif %}
+</form>
+
+{% if rows %}
+{% call C.card(flush=true) %}
+<table class="tbl">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th class="num">Amount</th>
+      <th>Type</th>
+      <th>Payee / Narration</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr class="row-clickable {% if r.has_fixme %}row-warn{% endif %}"
+        onclick="window.location='/txn/{{ r.lamella_txn_id }}'">
+      <td class="num muted-text">{{ r.date }}</td>
+      <td class="num">{{ r.amount | money(r.currency) }}</td>
+      <td title="{{ r.account }}">
+        <span class="bdg">{{ r.root }}</span>
+        {% if r.has_fixme %}{{ D.badge('Uncategorized', tone='warn') }}{% endif %}
+        <br><span class="subtle" style="font-size:0.78rem">{{ r.account | alias }}</span>
+      </td>
+      <td>
+        {% if r.payee %}<strong>{{ r.payee }}</strong>{% if r.narration %} · {% endif %}{% endif %}
+        <span class="subtle">{{ r.narration }}</span>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endcall %}
+
+<div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.75rem">
+  <p class="subtle" style="margin:0">
+    Showing {{ offset + 1 }}–{{ _showing_to }} of {{ total_rows }} matching transactions.
+  </p>
+  <div style="display:flex; gap:6px">
+    {% set _qs_base -%}
+      ?period={{ period.label }}
+      {%- if q %}&q={{ q | urlencode }}{% endif -%}
+      {%- if kind_filter %}&kind={{ kind_filter | urlencode }}{% endif -%}
+      {%- if only_fixme %}&fixme=1{% endif -%}
+      &limit={{ limit }}
+    {%- endset %}
+    {% if _has_prev %}
+    {{ B.btn('← Prev', href='/businesses/' ~ entity.slug ~ '/transactions' ~ _qs_base ~ '&offset=' ~ ([offset - limit, 0] | max),
+             variant='ghost', size='sm') }}
+    {% endif %}
+    {% if _has_next %}
+    {{ B.btn('Next →', href='/businesses/' ~ entity.slug ~ '/transactions' ~ _qs_base ~ '&offset=' ~ (offset + limit),
+             variant='ghost', size='sm') }}
+    {% endif %}
+  </div>
+</div>
+
+{% else %}
+{% if _has_filters %}
+{{ F.empty_state(
+  'No matching transactions for ' ~ entity.slug ~ ' in this period.',
+  cta_text='Clear filters',
+  cta_href='/businesses/' ~ entity.slug ~ '/transactions?period=' ~ period.label,
+) }}
+{% else %}
+{{ F.empty_state(
+  'No transactions for ' ~ entity.slug ~ ' in this period.',
+  cta_text='Try “all time”',
+  cta_href='/businesses/' ~ entity.slug ~ '/transactions?period=all',
+) }}
+{% endif %}
+{% endif %}
+
+{% endblock %}

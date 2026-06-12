@@ -1,0 +1,1664 @@
+/*
+ * Copyright 2026 Lamella LLC
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Lamella - AI-powered bookkeeping software that provides context-aware financial intelligence
+ * https://lamella.ai
+ */
+
+/* ============================================================
+   components.css — in-page component styles for the macros in
+   templates/_components/. Loads after shell.css so it inherits
+   the theme tokens.
+
+   Each section maps 1:1 to a component file:
+     1. Layout helpers     ↔ _components/layout.html
+     2. KPI tiles + cards  ↔ _components/cards.html
+     3. Badges + chips     ↔ _components/data.html (badges)
+     4. Money + accounts   ↔ _components/data.html (display)
+     5. Progress + empty   ↔ _components/data.html (etc.)
+     6. Banners + states   ↔ _components/feedback.html
+   ============================================================ */
+
+/* ───── 1. Layout helpers (page_head, section, detail_split) ───── */
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+.page-head-text { min-width: 0; flex: 1 1 16rem; }
+.page-head-kicker {
+  font-size: 0.78rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.page-head-title {
+  margin: 0;
+  font-size: 1.7rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.page-head-subtitle {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+.page-head-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.page-section { margin-bottom: 2.25rem; }
+.page-section:last-child { margin-bottom: 0; }
+.page-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.page-section-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.page-section-subtitle { color: var(--muted); font-size: 0.85rem; }
+
+.detail-split {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 1.25rem;
+}
+.detail-split--reverse { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+.detail-split-main, .detail-split-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+@media (max-width: 1024px) {
+  .detail-split,
+  .detail-split--reverse { grid-template-columns: 1fr; }
+}
+
+/* ───── 2. KPI tiles + cards ───── */
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+
+.kpi {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.15s, transform 0.15s;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.kpi--link { cursor: pointer; }
+.kpi--link:hover {
+  border-color: var(--accent);
+  text-decoration: none;
+  color: inherit;
+}
+.kpi--ok   { border-left: 3px solid var(--ok); }
+.kpi--warn { border-left: 3px solid var(--warn); }
+.kpi--err  { border-left: 3px solid var(--err); }
+
+.kpi-label {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.kpi-value {
+  margin-top: 8px;
+  font-size: 1.95rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: var(--fg);
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.kpi-value-unit {
+  color: var(--muted);
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+.kpi-meta {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.kpi-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 600;
+}
+.kpi-delta--up   { color: var(--ok); }
+.kpi-delta--down { color: var(--err); }
+.kpi-delta--flat { color: var(--muted); }
+.kpi-meta-text { color: var(--muted); }
+
+/* Generic card (different from app.css's .card; scoped here so
+   migrated pages get the new look without breaking legacy ones).
+   Legacy app.css .card sets max-width: 640px and padding directly
+   on the element; the new card pushes padding into .card-body
+   so the head/foot can be edge-to-edge. */
+.page .card,
+.page-section .card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  max-width: none;       /* override legacy .card max-width */
+  padding: 0;            /* head/body/foot manage their own padding */
+  margin-bottom: 0;      /* parent grids manage spacing */
+}
+.page .card.card--ok,
+.page-section .card.card--ok   { border-left: 3px solid var(--ok); }
+.page .card.card--warn,
+.page-section .card.card--warn { border-left: 3px solid var(--warn); }
+.page .card.card--err,
+.page-section .card.card--err  { border-left: 3px solid var(--err); }
+.page .card.card--info,
+.page-section .card.card--info { border-left: 3px solid var(--accent, #4a8fe7); }
+
+/* Suggestion card — observed-state nudge ("This looks like an eBay
+   payout"). Visually rhymes with the rest of the card system but
+   leans on the accent border + slightly tighter spacing so the
+   strip of them doesn't out-shout the page's primary content. */
+.suggestion-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.page .card--suggestion,
+.page-section .card--suggestion {
+  background: var(--panel-2, var(--panel));
+}
+.suggestion-card-head { padding: 10px 14px; border-bottom: none; }
+.suggestion-card-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 6px;
+  color: var(--muted);
+}
+.card--suggestion .card-body { padding: 0 14px 12px; }
+.suggestion-card-body {
+  margin: 0 0 10px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+.suggestion-card-meta {
+  margin: -2px 0 10px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-feature-settings: "tnum" 1;
+}
+.suggestion-card-meta .muted-text {
+  margin-left: 4px;
+  opacity: 0.75;
+}
+.suggestion-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.suggestion-card-form { display: inline-flex; margin: 0; }
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-soft);
+  gap: 12px;
+  /* Kill the legacy app.css .card-head { margin-bottom: 1rem } that
+     would otherwise pile 16px on top of the new .card-body's 16px
+     padding-top — visible as a too-large gap below the card title. */
+  margin-bottom: 0;
+}
+.card-head-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.card-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.card-subtitle { color: var(--muted); font-size: 0.82rem; }
+.card-head-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.card-body { padding: 16px 18px; }
+/* Flush body holds an edge-to-edge table. Allow horizontal scroll
+   when the table is wider than the card so the page itself doesn't
+   pick up a horizontal scrollbar at narrow viewports. */
+.card-body--flush { padding: 0; overflow-x: auto; }
+.card-foot {
+  padding: 10px 18px;
+  border-top: 1px solid var(--border-soft);
+  background: var(--panel-2);
+  font-size: 0.85rem;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-soft);
+  gap: 1rem;
+}
+.stat-row:last-child { border-bottom: none; }
+.stat-row-label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.stat-row-label > span:first-child { font-weight: 500; color: var(--fg-soft); }
+.stat-row-sublabel { font-size: 0.8rem; color: var(--muted); }
+.stat-row-value { font-weight: 600; font-size: 0.95rem; flex-shrink: 0; }
+.stat-row--ok   .stat-row-value { color: var(--ok); }
+.stat-row--warn .stat-row-value { color: var(--warn); }
+.stat-row--err  .stat-row-value { color: var(--err); }
+
+/* ───── 3. Badges + chips ───── */
+
+.bdg {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: var(--panel-2);
+  color: var(--muted);
+  font-family: var(--font-sans);
+  line-height: 1.4;
+}
+.bdg--ok      { background: var(--ok-soft);     color: var(--ok); }
+.bdg--warn    { background: var(--warn-soft);   color: var(--warn); }
+.bdg--err     { background: var(--err-soft);    color: var(--err); }
+.bdg--info    { background: var(--info-soft);   color: var(--accent); }
+.bdg--accent  { background: var(--accent-soft); color: var(--accent); }
+.bdg--muted   { background: var(--panel-2);     color: var(--muted); }
+.bdg-icon { display: inline-flex; }
+
+.chip-entity {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px 2px 3px;
+  background: var(--panel-2);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+.chip-entity-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.chip-entity-label { color: var(--fg-soft); }
+
+/* ───── 4. Money + account display ───── */
+
+.money {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.money--pos  { color: var(--ok); }
+.money--neg  { color: var(--fg); }     /* expenses default to fg, not red */
+.money--zero { color: var(--muted); }
+
+.acct-path { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acct-path-prefix { color: var(--muted); }
+
+/* ───── 5. Progress bars + empty states ───── */
+
+.pbar {
+  position: relative;
+  width: 100%;
+  height: 1.4rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.pbar-fill {
+  height: 100%;
+  transition: width 0.2s ease;
+}
+.pbar--ok   .pbar-fill { background: var(--ok); }
+.pbar--warn .pbar-fill { background: var(--warn); }
+.pbar--err  .pbar-fill { background: var(--err); }
+.pbar-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: var(--fg);
+  font-weight: 600;
+  text-shadow: 0 0 3px rgba(255, 255, 255, 0.65);
+}
+[data-theme="dark"] .pbar-label { text-shadow: 0 0 3px rgba(0, 0, 0, 0.65); }
+
+.empty {
+  padding: 1rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.empty-msg { margin: 0 0 4px; }
+.empty-cta { font-size: 0.85rem; }
+
+/* ───── 6. Banners + empty states + loading ───── */
+
+.banner {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  margin-bottom: 1.25rem;
+}
+.banner-body { flex: 1; min-width: 0; }
+.banner-title { font-weight: 600; margin-bottom: 4px; }
+.banner-content { font-size: 0.9rem; color: var(--fg-soft); }
+.banner-content :first-child { margin-top: 0; }
+.banner-content :last-child  { margin-bottom: 0; }
+.banner-dismiss {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  padding: 0 4px;
+  cursor: pointer;
+  align-self: flex-start;
+}
+.banner-dismiss:hover { color: var(--fg); }
+.banner--info { border-color: var(--info-soft); background: var(--info-soft); }
+.banner--info .banner-title { color: var(--accent); }
+.banner--ok   { border-color: var(--ok-soft);   background: var(--ok-soft); }
+.banner--ok   .banner-title { color: var(--ok); }
+.banner--warn { border-color: var(--warn-soft); background: var(--warn-soft); }
+.banner--warn .banner-title { color: var(--warn); }
+.banner--err  { border-color: var(--err-soft);  background: var(--err-soft); }
+.banner--err  .banner-title { color: var(--err); }
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: var(--muted);
+}
+.empty-state-icon {
+  width: 44px;
+  height: 44px;
+  background: var(--panel-2);
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: var(--muted-soft);
+  margin-bottom: 4px;
+}
+.empty-state-msg { margin: 0; font-size: 0.95rem; }
+.empty-state-cta { font-size: 0.9rem; font-weight: 500; }
+
+.loading-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 2rem;
+  color: var(--muted);
+}
+.loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 999px;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-msg { margin: 0; font-size: 0.9rem; }
+
+/* ───── 7. Helpers ───── */
+
+.list-clean { list-style: none; padding: 0; margin: 0; }
+.list-clean > li + li { margin-top: 0.4rem; }
+
+.muted-text { color: var(--muted); }
+.subtle { color: var(--muted); font-size: 0.85rem; }
+
+/* Override legacy <code> styling from app.css which hardcodes a light
+   slate background that breaks in dark mode. Higher specificity wins. */
+.page code, .footer code, .banner code, .palette code, .card code {
+  background: var(--panel-2);
+  color: var(--fg-soft);
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.95em;
+  font-family: var(--font-mono);
+}
+.page pre, .card pre {
+  background: var(--panel-2);
+  color: var(--fg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  overflow: auto;
+}
+
+/* ───── 8. Buttons ─────
+   .btn / .btn-primary / .btn-ghost / .btn-danger / .btn-sm
+   The catch-all `button:not(...)` rule in app.css excludes .btn so
+   we own the styling fully. */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.88rem;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--fg);
+  text-decoration: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--panel-2); text-decoration: none; color: var(--fg); border-color: var(--muted-soft); }
+.btn:disabled,
+.btn.is-disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+.btn-primary:hover {
+  background: var(--accent-deep);
+  border-color: var(--accent-deep);
+  color: var(--accent-fg);
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+.btn-ghost:hover { background: var(--panel-2); color: var(--fg); border-color: transparent; }
+
+.btn-danger {
+  background: var(--err);
+  color: #fff;
+  border-color: var(--err);
+}
+.btn-danger:hover { filter: brightness(0.92); color: #fff; }
+
+/* AI-action button — matches the .txnact__btn--ai per-row styling
+   so any bulk Ask-AI button reads as the same class of action.
+   Filled variant on a primary CTA; subtle on a default-variant
+   bulk strip. The --ai-accent custom property lets a future theme
+   override it without touching this rule. */
+.btn-ai {
+  background: var(--ai-accent, #7c3aed);
+  color: #fff;
+  border-color: var(--ai-accent, #7c3aed);
+}
+.btn-ai:hover {
+  filter: brightness(0.92);
+  color: #fff;
+  border-color: var(--ai-accent, #7c3aed);
+}
+
+.btn-sm { height: 30px; padding: 0 10px; font-size: 0.82rem; }
+.btn-lg { height: 44px; padding: 0 18px; font-size: 0.95rem; }
+
+.btn .icon { width: 16px; height: 16px; }
+
+.action-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.action-row--end { justify-content: flex-end; }
+
+/* ───── 9. Form fields ─────
+   Lightweight scoped styles for the field/picker/textarea HTML
+   pattern. Pages can use these classes directly today; macros in
+   _components/forms.html will be added when 5+ pages use them. */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.field-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--fg-soft);
+}
+.field-label .required-mark { color: var(--err); margin-left: 2px; }
+.field-input,
+.field-select,
+.field-textarea {
+  font: inherit;
+  font-family: inherit;
+  font-size: 0.92rem;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-elev);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-height: 38px;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.field-textarea { min-height: 96px; resize: vertical; line-height: 1.5; }
+.field-input:focus,
+.field-select:focus,
+.field-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+.field-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.field-error {
+  font-size: 0.82rem;
+  color: var(--err);
+  font-weight: 500;
+}
+
+/* Wrapper that lets a text input host an inline "clear" (×) button on
+   the right edge — used for autocomplete fields that pre-fill with a
+   remembered value the user may want to wipe in one tap. */
+.field-clearable {
+  position: relative;
+  display: block;
+}
+.field-clearable .field-input {
+  padding-right: 32px;
+}
+.field-clear {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.field-clear:hover,
+.field-clear:focus-visible {
+  color: var(--text);
+  background: var(--surface-hover, rgba(0,0,0,0.05));
+  outline: none;
+}
+
+.form-grid {
+  display: grid;
+  gap: 16px;
+  max-width: var(--container-narrow);
+}
+.form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+/* Collapse the 2-column row when the form's container is too narrow
+   to fit two readable inputs side-by-side. Inside .form-split-form
+   this fires off the column width (580px is the floor where two
+   tabular inputs still read OK); outside form_split it falls back
+   to a viewport breakpoint. */
+@container form-col (max-width: 580px) {
+  .form-row-2 { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) { .form-row-2 { grid-template-columns: 1fr; } }
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-soft);
+}
+.form-actions .spacer { flex: 1; }
+
+/* ───── 10. Generic table inside cards ─────
+   Reusable `.tbl` table styling — the catch-all naming app.css
+   already uses `.receipts`, `.field-map`, `.acct-summary`, etc.
+   for one-off tables. This is the new canonical class. */
+
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.tbl th, .tbl td {
+  padding: 11px 18px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: middle;
+}
+.tbl tbody tr:last-child td { border-bottom: 0; }
+.tbl tbody tr:hover td { background: var(--panel-2); }
+.tbl th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 600;
+  background: var(--panel-2);
+}
+.tbl th.num,
+.tbl td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbl th.shrink,
+.tbl td.shrink { width: 1%; white-space: nowrap; }
+.tbl tr.row-clickable { cursor: pointer; }
+.tbl tr.row-warn td   { background: var(--warn-soft); }
+.tbl tr.row-warn:hover td { background: var(--warn-soft); filter: brightness(0.97); }
+
+/* ───── 11. Record card grid (used by Records index pages) ───── */
+
+.record-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+.record-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.12s, transform 0.12s;
+}
+.record-card:hover {
+  border-color: var(--accent);
+  text-decoration: none;
+  color: inherit;
+}
+.record-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.record-card-title {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--fg);
+}
+.record-card-meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.record-card-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.record-card-stats > span {
+  white-space: nowrap;
+}
+.record-card-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 10px;
+  margin-top: auto;
+  border-top: 1px dashed var(--border-soft);
+  font-size: 0.85rem;
+}
+.record-card-foot .label { color: var(--muted); margin-right: 4px; }
+.record-card-foot .num { font-weight: 600; }
+
+/* Inner wrappers for cards that combine a body link to detail with a
+   per-card quick-edit button. Outer .record-card is a div in this
+   shape (not an <a>); inner anchors style flush. */
+.record-card-title-link,
+.record-card-body-link {
+  text-decoration: none;
+  color: inherit;
+  flex-grow: 1;
+  display: block;
+}
+.record-card-title-link:hover,
+.record-card-body-link:hover {
+  text-decoration: none;
+  color: inherit;
+}
+.record-card-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-left: auto;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background-color 0.12s, color 0.12s, border-color 0.12s;
+}
+.record-card-edit-btn:hover {
+  background: var(--panel-soft, var(--panel));
+  border-color: var(--border);
+  color: var(--accent);
+}
+.record-card--quiet { opacity: 0.78; }
+
+/* ───── 12. Chart color tokens ─────
+   Charts (Chart.js etc.) read these via getComputedStyle so they
+   automatically respect light/dark mode. Pages that render charts
+   should use these variables instead of hardcoded RGB strings. */
+
+:root {
+  --chart-fg:           var(--fg);
+  --chart-grid:         var(--border);
+  --chart-pos:          #16a34a;     /* income / positive */
+  --chart-neg:          #dc2626;     /* expenses / negative */
+  --chart-net:          #2563eb;     /* net / accent */
+  --chart-1:            #2563eb;
+  --chart-2:            #dc2626;
+  --chart-3:            #ca8a04;
+  --chart-4:            #16a34a;
+  --chart-5:            #9333ea;
+  --chart-6:            #ea580c;
+  --chart-pos-fill:     rgba(22, 163, 74, 0.18);
+  --chart-neg-fill:     rgba(220, 38, 38, 0.18);
+  --chart-net-fill:     rgba(37, 99, 235, 0.14);
+}
+[data-theme="dark"] {
+  --chart-pos:          #34d399;
+  --chart-neg:          #f87171;
+  --chart-net:          #60a5fa;
+  --chart-1:            #60a5fa;
+  --chart-2:            #f87171;
+  --chart-3:            #fbbf24;
+  --chart-4:            #34d399;
+  --chart-5:            #c084fc;
+  --chart-6:            #fb923c;
+  --chart-pos-fill:     rgba(52, 211, 153, 0.20);
+  --chart-neg-fill:     rgba(248, 113, 113, 0.20);
+  --chart-net-fill:     rgba(96, 165, 250, 0.16);
+}
+
+/* ===========================================================
+   Loan-detail panel internals — fallback styles for .summary-grid
+   and its inner .panel divs when the parent is NOT .page-almanac.
+   The almanac aesthetic still owns the detail page, but we also
+   use the same partials inside the standard card-wrapped loan
+   detail view, so these need to render reasonably with site tokens.
+   =========================================================== */
+.card .summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin: 0.25rem 0;
+}
+.card .summary-grid > .panel {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 0.9rem;
+}
+.card .summary-grid > .panel h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.card .summary-grid > .panel dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 0.9rem;
+}
+.card .summary-grid > .panel dt {
+  color: var(--muted);
+  font-weight: 400;
+}
+.card .summary-grid > .panel dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.card .summary-grid > .panel dd strong {
+  font-weight: 600;
+}
+
+/* Mortgage-payment split form rendered inside a card. The form
+   itself has app.css styling that assumes a non-card parent; rein
+   it in so the borders don't double up. */
+.card .mortgage-split-form {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin-bottom: 1rem;
+}
+.card .mortgage-split-form + .mortgage-split-form {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+/* ===========================================================
+   Form-with-help split — 50/50 columns at wide viewports.
+   Left column holds the form (cards, fields, submit). Right
+   column holds contextual help: explanation paragraphs, tips,
+   warnings, "what does this mean" callouts.
+
+   Stacks below 960px so the help drops under the form on
+   narrow screens (mobile / tablet portrait).
+   =========================================================== */
+/* Side-by-side at >= 1280px viewport (50/50); below that the help
+   collapses into a right-edge drawer so the form has full width.
+   Bumping the help into a drawer earlier prevents the "form crammed
+   into 400px next to help crammed into 400px" state.
+
+   form-split-form is a CSS container so form-row-2 fields can
+   collapse based on their OWN width rather than the viewport — the
+   form column inside the split is half the page, so a viewport
+   media query gets the math wrong. */
+.form-split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  margin-top: 0.5rem;
+}
+@media (min-width: 1280px) {
+  .form-split {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 1fr);
+    gap: 2.5rem;
+    align-items: start;
+  }
+}
+.form-split-form {
+  min-width: 0;
+  container-type: inline-size;
+  container-name: form-col;
+}
+/* Cards stacked inside the form column need breathing room — without
+   it they read as one continuous slab. The form element itself is
+   the parent of the cards in the page templates, so target it. */
+.form-split-form > form { display: flex; flex-direction: column; gap: 1.25rem; }
+.form-split-form > form > .card { margin: 0; }
+
+/* PAIRED LAYOUT — alternative to the multi-column help flow.
+   The form element gets .form-split-form--paired and contains
+   alternating <Card> + <aside class="form-paired-help">. At wide
+   viewports each card pairs with its help block on the same row.
+   At narrow viewports the inline help is hidden and JS clones it
+   into the right-edge .form-split-help drawer so the user still
+   gets one combined help panel. */
+.form-split-form > form.form-split-form--paired {
+  /* Override the default flex stack — switch to a 2-col grid. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 2rem;
+  row-gap: 1.25rem;
+}
+@media (min-width: 1280px) {
+  /* The OUTER .form-split would normally be a 2-col grid with form
+     on the left and help on the right. With the paired layout the
+     form's INNER grid does the 50/50 split, so the outer grid must
+     collapse to single-column — otherwise we'd nest a 2-col grid
+     inside a 2-col grid and the form ends up squashed to ~25%. */
+  .form-split:has(.form-split-form--paired) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .form-split:has(.form-split-form--paired) .form-split-help { display: none; }
+
+  /* 75/25 split inside the form — form gets the lion's share of
+     the row, help is a slim guidance column on the right. At wider
+     viewports the form keeps growing while help stays roughly
+     proportional so prose doesn't sprawl across an ultra-wide
+     monitor. */
+  .form-split-form > form.form-split-form--paired {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+/* Each form card is its OWN CSS container so the inner form-row-2
+   fields can collapse based on the card's actual width — not the
+   form-split-form's full width. Without this, when the card sits
+   in a half-/three-quarter-width paired-grid column, the .form-row-2
+   container query was reading the OUTER form-col container width
+   (full page) and never firing the 580px collapse. Limited to cards
+   inside the form-split-form so we don't blanket-apply containment
+   to every card site-wide. */
+.form-split-form > form > .card {
+  container-type: inline-size;
+  container-name: form-card;
+}
+@container form-card (max-width: 580px) {
+  .form-row-2 { grid-template-columns: 1fr; }
+}
+/* Form-actions bar (Cancel / Save row) needs to span both columns
+   so it doesn't end up in the help column. */
+.form-split-form > form.form-split-form--paired > .form-actions {
+  grid-column: 1 / -1;
+}
+/* Inline pair help — visible only at wide. At narrow, it's hidden
+   and the cloned copies live in the right-edge drawer instead. */
+.form-paired-help {
+  font-size: 0.85rem;
+}
+@media (max-width: 1279px) {
+  .form-paired-help { display: none; }
+}
+/* Help column uses CSS multi-column flow so the help blocks pack into
+   2/3/4 columns on wide screens instead of leaving empty space. Each
+   help-block stays intact (break-inside: avoid). At ~320px column
+   width and 0.82rem prose, every line stays under ~50ch — reads well
+   without forcing the column to be narrow. */
+.form-split-help {
+  min-width: 0;
+  font-size: 0.85rem;
+  column-width: 320px;
+  column-gap: 1rem;
+}
+.form-split-help > * {
+  break-inside: avoid;
+  display: block;
+  margin: 0 0 0.75rem;
+}
+.form-split-help > *:last-child { margin-bottom: 0; }
+
+/* Right-edge help drawer toggle + backdrop. Hidden by default;
+   only visible on narrow viewports where the inline help column
+   has stacked under the form (or in our case, has been hidden so
+   the drawer is the only path to the help). */
+.help-drawer-toggle { display: none; }
+.help-drawer-backdrop { display: none; }
+
+@media (max-width: 1279px) {
+  /* Below the side-by-side breakpoint, hide the inline help and
+     surface it via a fixed right-edge drawer. The form-split itself
+     is already 1fr at this size, no override needed. */
+  .form-split-help {
+    /* Take it out of flow and pin to the right edge. Hidden until
+       body.help-drawer-open. */
+    position: fixed;
+    top: var(--topbar-h);
+    right: 0;
+    bottom: 0;
+    width: min(420px, 92vw);
+    z-index: 110;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+    padding: 1.25rem 1.25rem 1.5rem;
+    overflow-y: auto;
+    transform: translateX(100%);
+    transition: transform 0.22s ease;
+    /* In drawer mode, drop the multi-column flow — single column
+       reads better in a narrow drawer. */
+    column-width: auto;
+    column-gap: 0;
+  }
+  body.help-drawer-open .form-split-help { transform: translateX(0); }
+
+  .help-drawer-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    position: fixed;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    z-index: 105;
+    /* Vertical writing mode so the tab reads top-to-bottom along
+       the right edge — minimal screen real estate, instantly
+       recognizable as a side-pull. */
+    writing-mode: vertical-rl;
+    padding: 14px 8px;
+    background: var(--accent);
+    color: var(--accent-fg);
+    border: none;
+    border-radius: 8px 0 0 8px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    box-shadow: var(--shadow-md);
+    transition: right 0.22s ease;
+  }
+  .help-drawer-toggle:hover { background: var(--accent-deep); }
+  .help-drawer-toggle-icon {
+    /* Reset writing-mode for the icon glyph so the "?" doesn't
+       rotate with the label. */
+    writing-mode: horizontal-tb;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.22);
+    font-weight: 700;
+  }
+  /* When the drawer is open, slide the toggle tab to sit on the
+     drawer's left edge — keeps the close affordance visible. */
+  body.help-drawer-open .help-drawer-toggle {
+    right: min(420px, 92vw);
+    border-radius: 8px 0 0 8px;
+  }
+
+  .help-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
+  }
+  body.help-drawer-open .help-drawer-backdrop {
+    display: block;
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* Help-card variant — softer than a full card, leans on subtle
+   indentation + a colored gutter so it reads as guidance rather
+   than primary content. Smaller font so it doesn't fight the form. */
+.help-block {
+  border-left: 3px solid var(--accent-soft);
+  background: var(--bg-elev);
+  border-radius: 0 6px 6px 0;
+  padding: 0.7rem 0.9rem 0.7rem 1rem;
+}
+.help-block + .help-block { margin-top: 0; }
+.help-block h3 {
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  margin: 0 0 0.35rem;
+}
+.help-block p, .help-block ul, .help-block ol {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--fg-soft);
+}
+.help-block p + p { margin-top: 0.45rem; }
+.help-block ul, .help-block ol { padding-left: 1.1rem; }
+.help-block code { font-size: 0.78rem; }
+.help-block.tone-warn { border-left-color: var(--warn); }
+.help-block.tone-warn h3 { color: var(--warn); }
+.help-block.tone-err  { border-left-color: var(--err); }
+.help-block.tone-err  h3 { color: var(--err); }
+.help-block.tone-ok   { border-left-color: var(--ok); }
+.help-block.tone-ok   h3 { color: var(--ok); }
+
+/* ─────────────────────────────────────────────────────────────────
+ * 9. Transaction-action component (.txnact)
+ *
+ * Drop-in icon-button group rendered by macro `T.actions(ref)` in
+ * `_components/_txn_actions.html`. Three buttons: classify (popover
+ * with target-account input), ask-AI (opens job modal), dismiss
+ * (popover with reason). Staged refs get all three; ledger refs
+ * skip dismiss.
+ *
+ * The popovers anchor below their trigger button via absolute
+ * positioning; the parent .txnact is `position: relative` so each
+ * row's popover stays within its own scope.
+ * ─────────────────────────────────────────────────────────────── */
+
+.txnact {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  position: relative;
+  white-space: nowrap;
+}
+
+.txnact__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  /* Bumped from 28px → 32px per user feedback ("buttons can be a
+     little bigger") — easier click target, labels read better. */
+  height: 32px;
+  padding: 0 0.7rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--fg);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.txnact__btn:hover {
+  background: var(--bg-elev);
+  border-color: var(--accent);
+}
+.txnact__btn .icon { flex: 0 0 auto; }
+
+/* Compact variant — slightly tighter padding for dense tables.
+   Still shows labels (the previous compact variant hid them and
+   user feedback was "buttons not obvious"). */
+.txnact__btn--compact {
+  height: 28px;
+  padding: 0 0.55rem;
+  font-size: 0.78rem;
+}
+
+/* Per-action color identity. Each action surface keeps its own
+   tint at REST (not just on hover) so the user can tell them
+   apart at a glance — user feedback: "Maybe they can be
+   differentiated a bit? Maybe a different color?". */
+.txnact__btn--classify {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 35%, var(--border));
+}
+.txnact__btn--classify:hover {
+  background: color-mix(in srgb, var(--ok) 8%, var(--panel));
+  border-color: var(--ok);
+}
+.txnact__btn--ai {
+  /* Distinct violet/purple so the AI action reads as "different
+     class of operation" — not destructive (red), not classify
+     (green), not neutral. Falls back to --accent when the
+     theme doesn't override --ai-accent. */
+  color: var(--ai-accent, #7c3aed);
+  border-color: color-mix(in srgb, var(--ai-accent, #7c3aed) 35%, var(--border));
+  background: color-mix(in srgb, var(--ai-accent, #7c3aed) 4%, var(--panel));
+}
+.txnact__btn--ai:hover {
+  background: color-mix(in srgb, var(--ai-accent, #7c3aed) 12%, var(--panel));
+  border-color: var(--ai-accent, #7c3aed);
+  color: var(--ai-accent, #7c3aed);
+}
+.txnact__btn--dismiss {
+  color: var(--muted);
+  border-color: var(--border);
+}
+.txnact__btn--dismiss:hover {
+  color: var(--err);
+  border-color: var(--err);
+  background: color-mix(in srgb, var(--err) 6%, var(--panel));
+}
+.txnact__undo-form { display: inline-flex; }
+.txnact__btn--undo {
+  /* Undo reads as "neutral but distinct" — same muted base as
+     dismiss, but warm-tinted on hover so the affordance shows
+     it's a reversal, not a destructive op. */
+  color: var(--muted);
+  border-color: var(--border);
+}
+.txnact__btn--undo:hover {
+  color: var(--warn, #b45309);
+  border-color: var(--warn, #b45309);
+  background: color-mix(in srgb, var(--warn, #b45309) 7%, var(--panel));
+}
+
+/* Popover — the inline "type a target / type a reason and submit"
+   panel that drops below the trigger. ``position: fixed`` so it
+   escapes the overflow-hidden contexts our row containers / cards /
+   <details> wrappers introduce (border-radius clipping, group-table
+   scroll, etc.). The previous ``position: absolute`` version got
+   clipped to whichever ancestor had overflow hidden, which made
+   the popover unreadable on /inbox group rows.
+   Coordinates are written by ``txnact-popover-position.js`` from
+   the trigger's bounding rect at open time, so the popover lands
+   directly under the Classify button regardless of which surface
+   it's on. CSS keeps the size + look; layout is JS. */
+.txnact__popover {
+  display: none;
+  position: fixed;
+  z-index: 9000;
+  width: min(22rem, calc(100vw - 2rem));
+  padding: 0.6rem 0.7rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+.txnact__popover[data-open] {
+  display: block;
+  animation: txnact-popover-in 0.12s ease-out;
+}
+.txnact__popover--danger { border-color: var(--err); }
+
+.txnact__popover form {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin: 0;
+}
+.txnact__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 32px;
+  font-size: 0.85rem;
+}
+
+@keyframes txnact-popover-in {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Click-outside-to-close — handled by a tiny global JS listener
+   wired in base.html. (We can't use :focus-within because the
+   popover loses focus the moment the user types in a different
+   row.) The .txnact__popover gets data-open removed when a click
+   lands outside any .txnact span. */
+
+/* ─────────────────────────────────────────────────────────────────
+ * 10. Transaction-shaped molecules (.txn-summary, .txn-proposed,
+ *     .txn-conf, .txn-status)
+ *
+ * Composed by the macros in _components/_txn.html. Used across
+ * /review, /card, /search, /ai/suggestions, /audit, /transactions.
+ * ─────────────────────────────────────────────────────────────── */
+
+/* ── T.summary ─────────────────────────────── */
+.txn-summary {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.7rem;
+  min-width: 0;
+}
+.txn-summary--compact { gap: 0.4rem 0.55rem; }
+
+.txn-summary__date {
+  font-size: 0.82rem;
+  color: var(--muted);
+  padding: 0.1rem 0.45rem;
+  background: var(--bg-elev);
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+}
+.txn-summary__amount {
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  flex: 0 0 auto;
+}
+.txn-summary__ccy {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--muted);
+  margin-left: 0.2rem;
+}
+.txn-summary__label {
+  font-size: 0.96rem;
+  font-weight: 500;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+}
+.txn-summary__label--missing {
+  color: var(--muted);
+  font-style: italic;
+  font-weight: 400;
+}
+.txn-summary__narration {
+  display: block;
+  flex-basis: 100%;
+  font-size: 0.85rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 0.1rem;
+}
+.txn-summary__memo {
+  display: block;
+  flex-basis: 100%;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ── T.confidence_pill ───────────────────────── */
+.txn-conf {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+}
+.txn-conf--high       { color: var(--ok); border-color: var(--ok); }
+.txn-conf--medium     { color: var(--warn); border-color: var(--warn); }
+.txn-conf--low        { color: var(--muted); }
+.txn-conf--unresolved { color: var(--err); border-color: var(--err); }
+
+/* ── T.proposed ─────────────────────────────── */
+.txn-proposed {
+  margin-top: 0.5rem;
+  padding: 0.55rem 0.7rem;
+  background: var(--bg-elev);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+}
+.txn-proposed--unresolved { border-left-color: var(--warn); }
+
+.txn-proposed__head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.txn-proposed__label {
+  font-weight: 600;
+  color: var(--fg);
+}
+.txn-proposed__by {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.txn-proposed__account {
+  margin-top: 0.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.txn-proposed__account strong { font-size: 0.95rem; }
+.txn-proposed__full {
+  font-size: 0.78rem;
+  color: var(--muted);
+  background: transparent;
+  padding: 0;
+}
+.txn-proposed__why { margin-top: 0.35rem; }
+.txn-proposed__why summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.txn-proposed__why p {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0.3rem 0 0;
+  line-height: 1.5;
+}
+
+/* ── T.status ──────────────────────────────── */
+.txn-status {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+/* Plain-text link wrapper around T.summary so the whole txn row
+   labels click through to detail without losing the molecule's
+   typography. Used in /search and any table-style listing. */
+.txn-row-link {
+  text-decoration: none;
+  color: inherit;
+  display: inline-block;
+  width: 100%;
+}
+.txn-row-link:hover .txn-summary__label {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+/* Accept-proposal button — surfaced when T.actions(...) is called
+   with a proposal kwarg AND the proposal isn't a FIXME/Uncategorized
+   placeholder. Stronger visual weight than the other actions since
+   it's the one-click happy path. */
+.txnact__accept-form { display: contents; }
+.txnact__btn--accept {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+.txnact__btn--accept:hover {
+  background: var(--accent-deep);
+  border-color: var(--accent-deep);
+  color: var(--accent-fg);
+}
+.txnact__btn--accept span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 16rem;
+}
+
+/* ── T.context_tags ────────────────────────── */
+.txn-context {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.7rem;
+  align-items: center;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.txn-context__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.txn-context__tag code {
+  background: var(--bg-elev);
+  padding: 0 0.3rem;
+  border-radius: 3px;
+  font-size: 0.78rem;
+}
+.txn-context__tag .subtle { margin-left: 0.2rem; }
+.txn-context__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.82rem;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+ * 11. Generic modal shell (M.modal)
+ *
+ * Drop-in component for any modal that needs a centered card with
+ * a backdrop. Used for confirms, inline classify popovers (when
+ * not anchored to a row), single-pane actions, etc. Job-modal and
+ * the site-wide confirm-modal in base.html have their own
+ * page-specific markup that predates this — they could migrate
+ * later without behavior changes.
+ * ─────────────────────────────────────────────────────────────── */
+
+.modal-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(15, 23, 42, 0.55);
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.modal-backdrop.is-open {
+  display: flex;
+  animation: modal-fade-in 0.15s ease-out;
+}
+
+.modal {
+  background: var(--panel);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 32rem;          /* default md */
+  max-height: min(90vh, 900px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.modal--sm { max-width: 24rem; }
+.modal--lg { max-width: 56rem; }
+
+.modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.modal__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.modal__subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.modal__dismiss {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 0.25rem;
+  cursor: pointer;
+  line-height: 0;
+}
+.modal__dismiss:hover {
+  background: var(--bg-elev);
+  color: var(--fg);
+  border-color: var(--border);
+}
+
+.modal__body {
+  padding: 1.1rem 1.25rem 1.25rem;
+  overflow-y: auto;
+}
+
+.modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed var(--border);
+}
+
+@keyframes modal-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
